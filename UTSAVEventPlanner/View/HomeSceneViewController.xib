@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="24128" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina6_12" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24063"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="HomeSceneViewController" customModule="UTSAVEventPlanner" customModuleProvider="target">
+            <connections>
+                <outlet property="bodyLabel" destination="Syu-1t-LOs" id="rjZ-Qu-1hP"/>
+                <outlet property="ctaButton" destination="nd8-wH-qqo" id="ifB-8U-AgI"/>
+                <outlet property="headlineLabel" destination="LWU-ON-Rha" id="l6R-ki-Bj2"/>
+                <outlet property="heroImageView" destination="8wN-FK-bk9" id="xcT-3i-WZI"/>
+                <outlet property="imageCardView" destination="WLW-dW-Id1" id="IEv-Re-kwp"/>
+                <outlet property="mainStackView" destination="SZq-hx-EBh" id="wMm-fZ-zpQ"/>
+                <outlet property="view" destination="yGa-1g-7BT" id="fcU-2O-wb9"/>
+                <outlet property="welcomeLabel" destination="bOb-Xk-RnZ" id="BF3-s9-Qxe"/>
+            </connections>
+        </placeholder>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view contentMode="scaleToFill" id="yGa-1g-7BT">
+            <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" spacing="16" translatesAutoresizingMaskIntoConstraints="NO" id="SZq-hx-EBh">
+                    <rect key="frame" x="24" y="157.99999999999997" width="345" height="476.33333333333326"/>
+                    <subviews>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Welcome, Event Planner!" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="bOb-Xk-RnZ">
+                            <rect key="frame" x="0.0" y="0.0" width="345" height="50"/>
+                            <constraints>
+                                <constraint firstAttribute="height" constant="50" id="7o0-VT-QUA"/>
+                            </constraints>
+                            <fontDescription key="fontDescription" type="boldSystem" pointSize="22"/>
+                            <nil key="textColor"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="WLW-dW-Id1" userLabel="Image_Card">
+                            <rect key="frame" x="0.0" y="66" width="345" height="250"/>
+                            <subviews>
+                                <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="event_card" translatesAutoresizingMaskIntoConstraints="NO" id="8wN-FK-bk9">
+                                    <rect key="frame" x="0.0" y="0.0" width="345" height="250"/>
+                                    <userDefinedRuntimeAttributes>
+                                        <userDefinedRuntimeAttribute type="number" keyPath="layer.cornerRadius">
+                                            <integer key="value" value="16"/>
+                                        </userDefinedRuntimeAttribute>
+                                        <userDefinedRuntimeAttribute type="boolean" keyPath="layer.masksToBounds" value="YES"/>
+                                    </userDefinedRuntimeAttributes>
+                                </imageView>
+                            </subviews>
+                            <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                            <constraints>
+                                <constraint firstAttribute="trailing" secondItem="8wN-FK-bk9" secondAttribute="trailing" id="FOW-1a-Q9W"/>
+                                <constraint firstItem="8wN-FK-bk9" firstAttribute="leading" secondItem="WLW-dW-Id1" secondAttribute="leading" id="IAD-LJ-4UE"/>
+                                <constraint firstAttribute="bottom" secondItem="8wN-FK-bk9" secondAttribute="bottom" id="OgB-mE-c6e"/>
+                                <constraint firstItem="8wN-FK-bk9" firstAttribute="top" secondItem="WLW-dW-Id1" secondAttribute="top" id="Ro8-qC-c4I"/>
+                                <constraint firstAttribute="height" constant="250" id="Wdn-tZ-h3R"/>
+                            </constraints>
+                            <userDefinedRuntimeAttributes>
+                                <userDefinedRuntimeAttribute type="number" keyPath="layer.cornerRadius">
+                                    <integer key="value" value="16"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="boolean" keyPath="layer.masksToBounds" value="YES"/>
+                            </userDefinedRuntimeAttributes>
+                        </view>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Get Started with Your First Event" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="LWU-ON-Rha">
+                            <rect key="frame" x="0.0" y="332" width="345" height="21.666666666666686"/>
+                            <fontDescription key="fontDescription" type="boldSystem" pointSize="18"/>
+                            <nil key="textColor"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Let's begin by adding your services and planning your first event for clients." textAlignment="center" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Syu-1t-LOs">
+                            <rect key="frame" x="0.0" y="369.66666666666663" width="345" height="40.666666666666686"/>
+                            <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                            <nil key="textColor"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="nd8-wH-qqo">
+                            <rect key="frame" x="0.0" y="426.33333333333337" width="345" height="50"/>
+                            <constraints>
+                                <constraint firstAttribute="height" constant="50" id="pgF-gR-eg7"/>
+                            </constraints>
+                            <state key="normal" title="Button"/>
+                            <buttonConfiguration key="configuration" style="plain" title="Add Your Services">
+                                <backgroundConfiguration key="background">
+                                    <color key="backgroundColor" red="0.5834960938" green="0.3696289062" blue="0.9208984375" alpha="1" colorSpace="custom" customColorSpace="displayP3"/>
+                                </backgroundConfiguration>
+                                <color key="baseForegroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            </buttonConfiguration>
+                            <connections>
+                                <action selector="ctaTapped:" destination="-1" eventType="touchUpInside" id="cOc-bv-Yfx"/>
+                            </connections>
+                        </button>
+                    </subviews>
+                </stackView>
+            </subviews>
+            <viewLayoutGuide key="safeArea" id="Hp6-Il-LyO"/>
+            <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+            <constraints>
+                <constraint firstItem="SZq-hx-EBh" firstAttribute="leading" secondItem="Hp6-Il-LyO" secondAttribute="leading" constant="24" id="2nR-DG-YBE"/>
+                <constraint firstItem="SZq-hx-EBh" firstAttribute="top" secondItem="Hp6-Il-LyO" secondAttribute="top" constant="40" id="NcK-OA-veG"/>
+                <constraint firstItem="Hp6-Il-LyO" firstAttribute="bottom" relation="greaterThanOrEqual" secondItem="SZq-hx-EBh" secondAttribute="bottom" constant="20" id="V0Q-fk-Ofr"/>
+                <constraint firstAttribute="trailing" secondItem="SZq-hx-EBh" secondAttribute="trailing" constant="24" id="VUw-3E-DhD"/>
+            </constraints>
+            <point key="canvasLocation" x="3662" y="-87"/>
+        </view>
+    </objects>
+    <resources>
+        <image name="event_card" width="341.33334350585938" height="341.33334350585938"/>
+        <systemColor name="systemBackgroundColor">
+            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
+    </resources>
+</document>

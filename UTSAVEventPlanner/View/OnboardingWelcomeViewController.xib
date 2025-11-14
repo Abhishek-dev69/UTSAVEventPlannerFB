@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="24128" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina6_12" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24063"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="OnboardingWelcomeViewController" customModule="UTSAVEventPlanner" customModuleProvider="target">
+            <connections>
+                <outlet property="bodyLabel" destination="sgr-33-ukp" id="fv9-sR-hK4"/>
+                <outlet property="ctaButton" destination="EZP-iY-Jnr" id="U0U-DU-sIA"/>
+                <outlet property="headlineLabel" destination="bGg-lE-E9B" id="Td9-c2-yUe"/>
+                <outlet property="mainStack" destination="P8D-z0-Awd" id="2bv-s8-Obp"/>
+                <outlet property="onboardingImage" destination="c1K-DH-O4U" id="JxH-Cw-Lz6"/>
+                <outlet property="titleLabel" destination="S8m-iH-AGr" id="QL2-KL-snM"/>
+                <outlet property="view" destination="WWA-lw-Cjp" id="p7R-d7-2Vj"/>
+            </connections>
+        </placeholder>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view contentMode="scaleToFill" id="WWA-lw-Cjp">
+            <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" spacing="16" translatesAutoresizingMaskIntoConstraints="NO" id="P8D-z0-Awd">
+                    <rect key="frame" x="24" y="142" width="345" height="618"/>
+                    <subviews>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Welcome, Planner!" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="S8m-iH-AGr">
+                            <rect key="frame" x="0.0" y="0.0" width="345" height="60"/>
+                            <constraints>
+                                <constraint firstAttribute="height" constant="60" id="OBG-fZ-XVo"/>
+                            </constraints>
+                            <fontDescription key="fontDescription" type="boldSystem" pointSize="22"/>
+                            <nil key="textColor"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="j6R-IF-UY3">
+                            <rect key="frame" x="0.0" y="76" width="345" height="350"/>
+                            <subviews>
+                                <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="center" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="onboarding_image" translatesAutoresizingMaskIntoConstraints="NO" id="c1K-DH-O4U">
+                                    <rect key="frame" x="12" y="12" width="321" height="326"/>
+                                    <preferredSymbolConfiguration key="preferredSymbolConfiguration" scale="small"/>
+                                    <userDefinedRuntimeAttributes>
+                                        <userDefinedRuntimeAttribute type="number" keyPath="layer.cornerRadius">
+                                            <integer key="value" value="16"/>
+                                        </userDefinedRuntimeAttribute>
+                                        <userDefinedRuntimeAttribute type="boolean" keyPath="layer.masksToBounds" value="YES"/>
+                                    </userDefinedRuntimeAttributes>
+                                </imageView>
+                            </subviews>
+                            <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+                            <constraints>
+                                <constraint firstAttribute="bottom" secondItem="c1K-DH-O4U" secondAttribute="bottom" constant="12" id="2J4-41-VgK"/>
+                                <constraint firstAttribute="height" constant="350" id="P5K-l5-8ni"/>
+                                <constraint firstAttribute="trailing" secondItem="c1K-DH-O4U" secondAttribute="trailing" constant="12" id="XJz-b9-d5Y"/>
+                                <constraint firstItem="c1K-DH-O4U" firstAttribute="leading" secondItem="j6R-IF-UY3" secondAttribute="leading" constant="12" id="nLg-GN-5MK"/>
+                                <constraint firstItem="c1K-DH-O4U" firstAttribute="top" secondItem="j6R-IF-UY3" secondAttribute="top" constant="12" id="yyE-GD-PL4"/>
+                            </constraints>
+                            <userDefinedRuntimeAttributes>
+                                <userDefinedRuntimeAttribute type="number" keyPath="layer.cornerRadius">
+                                    <integer key="value" value="16"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="boolean" keyPath="layer.masksToBounds" value="YES"/>
+                            </userDefinedRuntimeAttributes>
+                        </view>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Let’s Plan Your First Event" textAlignment="center" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="bGg-lE-E9B">
+                            <rect key="frame" x="0.0" y="442" width="345" height="14"/>
+                            <fontDescription key="fontDescription" type="boldSystem" pointSize="30"/>
+                            <nil key="textColor"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" textAlignment="center" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="sgr-33-ukp">
+                            <rect key="frame" x="0.0" y="472" width="345" height="80"/>
+                            <constraints>
+                                <constraint firstAttribute="height" constant="80" id="ODa-A8-oQn"/>
+                            </constraints>
+                            <string key="text">Start by adding your first event to access all
+our Features , manage and Explore New vendors, and track your progress in one place.</string>
+                            <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                            <nil key="textColor"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="EZP-iY-Jnr">
+                            <rect key="frame" x="0.0" y="568" width="345" height="50"/>
+                            <constraints>
+                                <constraint firstAttribute="height" constant="50" id="FCc-dB-fCX"/>
+                            </constraints>
+                            <state key="normal" title="Button"/>
+                            <buttonConfiguration key="configuration" style="plain" title="Create Your First Event" titleAlignment="center">
+                                <backgroundConfiguration key="background">
+                                    <color key="backgroundColor" red="0.54509803921568623" green="0.23137254901960785" blue="0.94117647058823528" alpha="1" colorSpace="custom" customColorSpace="displayP3"/>
+                                </backgroundConfiguration>
+                                <color key="baseForegroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+                            </buttonConfiguration>
+                            <connections>
+                                <action selector="createEventTapped:" destination="-1" eventType="touchUpInside" id="ufq-Ze-9dz"/>
+                            </connections>
+                        </button>
+                    </subviews>
+                </stackView>
+            </subviews>
+            <viewLayoutGuide key="safeArea" id="dwR-4w-9y0"/>
+            <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+            <constraints>
+                <constraint firstItem="P8D-z0-Awd" firstAttribute="top" secondItem="dwR-4w-9y0" secondAttribute="top" constant="24" id="4Of-gx-8YS"/>
+                <constraint firstItem="dwR-4w-9y0" firstAttribute="trailing" secondItem="P8D-z0-Awd" secondAttribute="trailing" constant="24" id="FHP-Fl-fPb"/>
+                <constraint firstItem="P8D-z0-Awd" firstAttribute="leading" secondItem="dwR-4w-9y0" secondAttribute="leading" constant="24" id="QNj-B4-T5v"/>
+                <constraint firstItem="dwR-4w-9y0" firstAttribute="bottom" relation="greaterThanOrEqual" secondItem="P8D-z0-Awd" secondAttribute="bottom" constant="24" id="vXQ-t6-Kmn"/>
+            </constraints>
+            <point key="canvasLocation" x="37" y="-48"/>
+        </view>
+    </objects>
+    <resources>
+        <image name="onboarding_image" width="341.33334350585938" height="512"/>
+        <systemColor name="systemBackgroundColor">
+            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
+    </resources>
+</document>

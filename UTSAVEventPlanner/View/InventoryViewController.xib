@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="24128" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina6_12" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <deployment identifier="iOS"/>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24063"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="System colors in document resources" minToolsVersion="11.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="InventoryViewController" customModule="UTSAVEventPlanner" customModuleProvider="target">
+            <connections>
+                <outlet property="emptyBodyLabel" destination="yuW-ri-G4b" id="JKI-s6-62P"/>
+                <outlet property="emptyTitleLabel" destination="tO5-V3-IeC" id="p6f-LM-Hgp"/>
+                <outlet property="heroImageView" destination="4iZ-Bv-Zcw" id="Mf9-fy-cC4"/>
+                <outlet property="imageCard" destination="Pt2-i3-LDG" id="VkL-MN-Mhi"/>
+                <outlet property="sectionLabel" destination="Igj-WK-Bxv" id="5od-bm-ffu"/>
+                <outlet property="stack" destination="2j2-uG-UjN" id="jrA-Wq-dZt"/>
+                <outlet property="titleLabel" destination="bvW-er-Wkp" id="HQe-h7-weL"/>
+                <outlet property="view" destination="lI9-xf-nSs" id="INl-lf-5yO"/>
+            </connections>
+        </placeholder>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view contentMode="scaleToFill" id="lI9-xf-nSs">
+            <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
+            <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+            <subviews>
+                <stackView opaque="NO" contentMode="scaleToFill" axis="vertical" spacing="16" translatesAutoresizingMaskIntoConstraints="NO" id="2j2-uG-UjN">
+                    <rect key="frame" x="24" y="119" width="345" height="480"/>
+                    <subviews>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Inventory" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="bvW-er-Wkp">
+                            <rect key="frame" x="0.0" y="0.0" width="345" height="60"/>
+                            <constraints>
+                                <constraint firstAttribute="height" constant="60" id="Sy6-aG-APo"/>
+                            </constraints>
+                            <fontDescription key="fontDescription" type="boldSystem" pointSize="24"/>
+                            <nil key="textColor"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Current Inventory" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Igj-WK-Bxv">
+                            <rect key="frame" x="0.0" y="76" width="345" height="40"/>
+                            <constraints>
+                                <constraint firstAttribute="height" constant="40" id="IyT-MJ-fiQ"/>
+                            </constraints>
+                            <fontDescription key="fontDescription" type="boldSystem" pointSize="20"/>
+                            <nil key="textColor"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Pt2-i3-LDG">
+                            <rect key="frame" x="0.0" y="132" width="345" height="240"/>
+                            <subviews>
+                                <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="service_inventory" translatesAutoresizingMaskIntoConstraints="NO" id="4iZ-Bv-Zcw">
+                                    <rect key="frame" x="12" y="12" width="321" height="216"/>
+                                    <userDefinedRuntimeAttributes>
+                                        <userDefinedRuntimeAttribute type="number" keyPath="layer.cornerRadius">
+                                            <integer key="value" value="16"/>
+                                        </userDefinedRuntimeAttribute>
+                                        <userDefinedRuntimeAttribute type="boolean" keyPath="layer.masksToBounds" value="YES"/>
+                                    </userDefinedRuntimeAttributes>
+                                </imageView>
+                            </subviews>
+                            <color key="backgroundColor" systemColor="secondarySystemBackgroundColor"/>
+                            <constraints>
+                                <constraint firstAttribute="trailing" secondItem="4iZ-Bv-Zcw" secondAttribute="trailing" constant="12" id="NNt-0w-aP2"/>
+                                <constraint firstItem="4iZ-Bv-Zcw" firstAttribute="leading" secondItem="Pt2-i3-LDG" secondAttribute="leading" constant="12" id="Pra-ys-8gS"/>
+                                <constraint firstAttribute="height" constant="240" id="QiL-r0-IH7"/>
+                                <constraint firstAttribute="bottom" secondItem="4iZ-Bv-Zcw" secondAttribute="bottom" constant="12" id="f6l-x1-OQR"/>
+                                <constraint firstItem="4iZ-Bv-Zcw" firstAttribute="top" secondItem="Pt2-i3-LDG" secondAttribute="top" constant="12" id="mdt-QT-be3"/>
+                            </constraints>
+                            <userDefinedRuntimeAttributes>
+                                <userDefinedRuntimeAttribute type="number" keyPath="layer.cornerRadius">
+                                    <integer key="value" value="16"/>
+                                </userDefinedRuntimeAttribute>
+                                <userDefinedRuntimeAttribute type="boolean" keyPath="layer.masksToBounds" value="YES"/>
+                            </userDefinedRuntimeAttributes>
+                        </view>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="No items yet" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="tO5-V3-IeC">
+                            <rect key="frame" x="0.0" y="388" width="345" height="40"/>
+                            <constraints>
+                                <constraint firstAttribute="height" constant="40" id="D8T-Kp-5ng"/>
+                            </constraints>
+                            <fontDescription key="fontDescription" type="boldSystem" pointSize="20"/>
+                            <nil key="textColor"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                        <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Once you start managing events, your inventory items and resources will appear here." textAlignment="center" lineBreakMode="tailTruncation" numberOfLines="0" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="yuW-ri-G4b">
+                            <rect key="frame" x="0.0" y="444" width="345" height="36"/>
+                            <fontDescription key="fontDescription" type="system" pointSize="15"/>
+                            <nil key="textColor"/>
+                            <nil key="highlightedColor"/>
+                        </label>
+                    </subviews>
+                </stackView>
+            </subviews>
+            <viewLayoutGuide key="safeArea" id="NF4-Xj-yZS"/>
+            <color key="backgroundColor" systemColor="systemBackgroundColor"/>
+            <constraints>
+                <constraint firstItem="2j2-uG-UjN" firstAttribute="leading" secondItem="NF4-Xj-yZS" secondAttribute="leading" constant="24" id="FXv-ca-mCW"/>
+                <constraint firstItem="NF4-Xj-yZS" firstAttribute="trailing" secondItem="2j2-uG-UjN" secondAttribute="trailing" constant="24" id="HsJ-i1-hAD"/>
+                <constraint firstItem="NF4-Xj-yZS" firstAttribute="bottom" relation="greaterThanOrEqual" secondItem="2j2-uG-UjN" secondAttribute="bottom" constant="24" id="N1Y-ES-zby"/>
+                <constraint firstItem="2j2-uG-UjN" firstAttribute="firstBaseline" secondItem="NF4-Xj-yZS" secondAttribute="top" constant="24" id="tj6-Nq-5PN"/>
+            </constraints>
+            <point key="canvasLocation" x="6346" y="-102"/>
+        </view>
+    </objects>
+    <resources>
+        <image name="service_inventory" width="341.33334350585938" height="512"/>
+        <systemColor name="secondarySystemBackgroundColor">
+            <color red="0.94901960780000005" green="0.94901960780000005" blue="0.96862745100000003" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+        </systemColor>
+        <systemColor name="systemBackgroundColor">
+            <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+        </systemColor>
+    </resources>
+</document>
