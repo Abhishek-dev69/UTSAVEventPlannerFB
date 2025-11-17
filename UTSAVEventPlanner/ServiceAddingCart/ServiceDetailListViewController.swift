@@ -1,5 +1,5 @@
 //
-// ServiceDetailListViewController.swift
+//  ServiceDetailListViewController.swift
 //
 
 import UIKit
@@ -31,7 +31,7 @@ final class ServiceDetailListViewController: UIViewController {
     deinit { CartManager.shared.removeObserver(self) }
 
     private func setupSearch() {
-        searchField.placeholder = "Search \(service.name)..."
+        searchField.placeholder = "Search \(service.name)…"
         searchField.delegate = self
         searchField.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(searchField)
@@ -47,7 +47,7 @@ final class ServiceDetailListViewController: UIViewController {
         tableView.register(SubserviceCell.self, forCellReuseIdentifier: SubserviceCell.reuseID)
         tableView.dataSource = self
         tableView.delegate = self
-        tableView.estimatedRowHeight = 84
+        tableView.estimatedRowHeight = 80
         tableView.rowHeight = UITableView.automaticDimension
         tableView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(tableView)
@@ -61,49 +61,80 @@ final class ServiceDetailListViewController: UIViewController {
     }
 }
 
+// MARK: - UITableViewDataSource
 extension ServiceDetailListViewController: UITableViewDataSource {
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         filteredSubservices.count
     }
 
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    func tableView(_ tableView: UITableView,
+                   cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 
         let sub = filteredSubservices[indexPath.row]
-        guard let cell = tableView.dequeueReusableCell(withIdentifier: SubserviceCell.reuseID, for: indexPath) as? SubserviceCell else {
+
+        guard let cell = tableView.dequeueReusableCell(
+            withIdentifier: SubserviceCell.reuseID,
+            for: indexPath
+        ) as? SubserviceCell else {
             return UITableViewCell()
         }
 
-        let existingQty = CartManager.shared.items.first(where: { $0.serviceName == service.name && $0.subserviceName == sub.name })?.quantity ?? 0
-
-        cell.configure(parentService: service.name, sub: sub, initialQuantity: existingQty)
-
-        // cell handles add itself; controller updates UI when cell signals
-        cell.onAddTapped = { [weak self] in
-            print("🟢 ServiceDetailVC → Add tapped for \(sub.name)")
-            self?.tableView.reloadRows(at: [indexPath], with: .automatic)
+        // FIX — service.id is optional in your model, unwrap safely
+        guard let serviceId = service.id else {
+            print("❌ ERROR: service.id is nil for service \(service.name)")
+            return cell
         }
 
-        cell.onQuantityChanged = { [weak self] _ in
-            self?.tableView.reloadRows(at: [indexPath], with: .none)
-        }
+        // Load existing quantity from CartManager
+        let existingQty = CartManager.shared.items.first(where: {
+            $0.serviceName == service.name && $0.subserviceName == sub.name
+        })?.quantity ?? 0
+
+        // FIXED CONFIGURATION SIGNATURE
+        cell.configure(
+            parentServiceId: serviceId,
+            parentService: service.name,
+            sub: sub,
+            quantity: existingQty
+        )
 
         return cell
     }
 }
 
-extension ServiceDetailListViewController: UITableViewDelegate {}
-
+// MARK: - UISearchBarDelegate
 extension ServiceDetailListViewController: UISearchBarDelegate {
+
     func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
-        let term = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if term.isEmpty { filteredSubservices = service.subservices }
-        else { filteredSubservices = service.subservices.filter { $0.name.localizedCaseInsensitiveContains(term) } }
+        let term = searchText.trimmed
+
+        if term.isEmpty {
+            filteredSubservices = service.subservices
+        } else {
+            filteredSubservices = service.subservices.filter {
+                $0.name.localizedCaseInsensitiveContains(term)
+            }
+        }
+
         tableView.reloadData()
     }
 }
 
+// MARK: - TableView Delegate
+extension ServiceDetailListViewController: UITableViewDelegate {}
+
+// MARK: - Cart Observer
 extension ServiceDetailListViewController: CartObserver {
-    func cartDidChange() { tableView.reloadData() }
+    func cartDidChange() {
+        tableView.reloadData()
+    }
+}
+
+// MARK: - Helper
+extension String {
+    var trimmed: String {
+        self.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 }
 

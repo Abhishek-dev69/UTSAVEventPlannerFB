@@ -1,3 +1,7 @@
+//
+//  SubserviceInnerCell.swift
+//
+
 import UIKit
 
 final class SubserviceInnerCell: UITableViewCell {
@@ -12,6 +16,9 @@ final class SubserviceInnerCell: UITableViewCell {
     private let plusBtn = UIButton(type: .system)
     private let qtyLabel = UILabel()
     private let addBtn = UIButton(type: .system)
+
+    // --- NEW: store serviceId so we can send it to CartManager
+    private var parentServiceId: String?
 
     private var parentService = ""
     private var subservice: Subservice?
@@ -77,26 +84,30 @@ final class SubserviceInnerCell: UITableViewCell {
         qtyStack.isHidden = true
 
         NSLayoutConstraint.activate([
+            // Thumb pinned top + fixed height and bottom margin to contentView (so cell gets vertical size)
             thumb.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 32),
             thumb.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 12),
             thumb.widthAnchor.constraint(equalToConstant: 58),
             thumb.heightAnchor.constraint(equalToConstant: 58),
+            thumb.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -12),
 
+            // Title anchored to thumb top and price below it
             titleLabel.leadingAnchor.constraint(equalTo: thumb.trailingAnchor, constant: 12),
             titleLabel.topAnchor.constraint(equalTo: thumb.topAnchor),
+            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: addBtn.leadingAnchor, constant: -8),
 
             priceLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             priceLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
+            priceLabel.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -12),
 
+            // Add / qty controls pinned right & centered vertically
             addBtn.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             addBtn.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
             addBtn.widthAnchor.constraint(equalToConstant: 70),
             addBtn.heightAnchor.constraint(equalToConstant: 34),
 
             qtyStack.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-            qtyStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
-
-            contentView.bottomAnchor.constraint(equalTo: thumb.bottomAnchor, constant: 12)
+            qtyStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24)
         ])
 
         self.qtyStack = qtyStack
@@ -104,7 +115,9 @@ final class SubserviceInnerCell: UITableViewCell {
 
     private weak var qtyStack: UIStackView?
 
-    func configure(parentService: String, sub: Subservice, quantity: Int) {
+    // NOTE: updated configure signature to accept serviceId
+    func configure(parentServiceId: String, parentService: String, sub: Subservice, quantity: Int) {
+        self.parentServiceId = parentServiceId
         self.parentService = parentService
         self.subservice = sub
         self.quantity = quantity
@@ -124,34 +137,53 @@ final class SubserviceInnerCell: UITableViewCell {
 
     @objc private func addTapped() {
         quantity = 1
+
+        // Safely unwrap required values
+        guard let serviceId = parentServiceId else { return }
+        guard let sub = subservice else { return }
+        guard let subId = sub.id else { return }         // ensure DB UUID available
+        let subName = sub.name                          // assume non-optional name in model
+
         CartManager.shared.addItem(
+            serviceId: serviceId,               // NEW required parameter
             serviceName: parentService,
-            subserviceId: subservice?.id,
-            subserviceName: subservice?.name ?? "",
-            rate: subservice?.rate ?? 0,
-            unit: subservice?.unit ?? "",
-            quantity: 1
+            subserviceId: subId,                // DB UUID (unwrapped)
+            subserviceName: subName,
+            rate: sub.rate,
+            unit: sub.unit,
+            quantity: 1, sourceType: "in_house"
+            
         )
         updateUI()
     }
 
     @objc private func minusTapped() {
         quantity = max(0, quantity - 1)
+
+        guard let sub = subservice else { return }
+        let subName = sub.name
+
         CartManager.shared.setQuantity(
             serviceName: parentService,
-            subserviceName: subservice?.name ?? "",
+            subserviceName: subName,
             quantity: quantity
         )
+
         updateUI()
     }
 
     @objc private func plusTapped() {
         quantity += 1
+
+        guard let sub = subservice else { return }
+        let subName = sub.name
+
         CartManager.shared.setQuantity(
             serviceName: parentService,
-            subserviceName: subservice?.name ?? "",
+            subserviceName: subName,
             quantity: quantity
         )
+
         updateUI()
     }
 }
