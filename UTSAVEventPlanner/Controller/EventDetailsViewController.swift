@@ -413,7 +413,9 @@ final class EventDetailsViewController: UIViewController {
                     // Insert event on server
                     let record = try await EventSupabaseManager.shared.insertEvent(details: details)
 
-                    print("Event inserted id:", record.id)
+                    // assume 'record' is the EventRecord returned after insert
+                    EventSession.shared.currentEventId = record.id
+
 
                     DispatchQueue.main.async {
                         hud.removeFromSuperview()

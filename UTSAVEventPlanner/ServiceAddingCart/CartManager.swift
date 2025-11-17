@@ -1,28 +1,23 @@
-//
-// CartManager.swift
-//
-
+// CartManager.swift – defensive mapping to tolerate optional CartItemRecord fields
 import Foundation
 import UIKit
-import Supabase
 
+// MARK: - MODEL
 struct CartItem: Equatable {
-    var id: String?              // cart_items.id from Supabase
+    var id: String?
+    var serviceId: String?
     var serviceName: String
-    var subserviceId: String?    // may be "local-xxxx" locally or server uuid after sync
+    var subserviceId: String
     var subserviceName: String
     var rate: Double
     var unit: String
     var quantity: Int
+    var sourceType: String
 
-    var lineTotal: Double { return Double(quantity) * rate }
+    var lineTotal: Double { rate * Double(quantity) }
 
-    static func == (lhs: CartItem, rhs: CartItem) -> Bool {
-        if let lId = lhs.subserviceId, let rId = rhs.subserviceId {
-            return lId == rId
-        }
-        return lhs.serviceName == rhs.serviceName &&
-               lhs.subserviceName == rhs.subserviceName
+    static func ==(lhs: CartItem, rhs: CartItem) -> Bool {
+        return lhs.subserviceId == rhs.subserviceId
     }
 }
 
@@ -30,7 +25,13 @@ protocol CartObserver: AnyObject {
     func cartDidChange()
 }
 
+extension Notification.Name {
+    static let CartItemPersisted = Notification.Name("CartItemPersisted")
+}
+
+// MARK: - MANAGER
 final class CartManager {
+
     static let shared = CartManager()
     private init() {}
 
@@ -44,126 +45,145 @@ final class CartManager {
     func removeObserver(_ o: CartObserver) { observers.remove(o) }
 
     private func notify() {
-        for case let o as CartObserver in observers.allObjects {
-            DispatchQueue.main.async { o.cartDidChange() }
+        DispatchQueue.main.async {
+            for case let ob as CartObserver in self.observers.allObjects {
+                ob.cartDidChange()
+            }
         }
     }
 
-    // Load server-synced items
-    func loadFromServer() {
+    // MARK: - Load From Server
+    func loadFromServer(eventId: String? = nil) {
         Task {
             do {
-                _ = try await SupabaseManager.shared.ensureUserId()
-                let records = try await SupabaseManager.shared.fetchCartItems()
+                let uid = try await SupabaseManager.shared.ensureUserId()
+                let records = try await SupabaseManager.shared.fetchCartItems(userId: uid, eventId: eventId)
 
-                let mapped = records.map {
+                // Defensive mapping -> use defaults when fields missing
+                let mapped = records.map { (r: CartItemRecord) -> CartItem in
                     CartItem(
-                        id: $0.id,
-                        serviceName: $0.service_name,
-                        subserviceId: $0.subservice_id,
-                        subserviceName: $0.subservice_name,
-                        rate: $0.rate,
-                        unit: $0.unit ?? "",
-                        quantity: $0.quantity
+                        id: r.id,
+                        serviceId: r.serviceId,
+                        serviceName: r.serviceName ?? "",
+                        subserviceId: r.subserviceId ?? UUID().uuidString,
+                        subserviceName: r.subserviceName ?? "",
+                        rate: r.rate ?? 0.0,
+                        unit: r.unit ?? "",
+                        quantity: r.quantity ?? 0,
+                        sourceType: r.sourceType ?? "in_house"
                     )
                 }
 
-                DispatchQueue.main.async {
-                    self.items = mapped
-                }
+                DispatchQueue.main.async { self.items = mapped }
             } catch {
                 print("❌ Cart load failed:", error)
             }
         }
     }
 
-    // Add item (optimistic + merge)
-    func addItem(serviceName: String, subserviceId: String?, subserviceName: String, rate: Double, unit: String, quantity: Int = 1) {
-        print("🟢 CartManager.addItem CALLED for \(subserviceName) qty:\(quantity)")
+    // MARK: - ADD ITEM (attempt to attach eventId if available)
+    func addItem(
+        serviceId: String?,
+        serviceName: String,
+        subserviceId: String,
+        subserviceName: String,
+        rate: Double,
+        unit: String,
+        quantity: Int = 1,
+        sourceType: String
+    ) {
+        print("🟢 addItem → \(subserviceName) x\(quantity)")
 
-        // optimistic update
-        if let idx = items.firstIndex(where: { $0.serviceName == serviceName && $0.subserviceName == subserviceName }) {
+        // --- LOCAL MERGE (instant) ---
+        if let idx = items.firstIndex(where: { $0.subserviceId == subserviceId }) {
             items[idx].quantity += quantity
         } else {
-            let tempId = subserviceId ?? "local-\(UUID().uuidString)"
-            items.append(CartItem(id: nil, serviceName: serviceName, subserviceId: tempId, subserviceName: subserviceName, rate: rate, unit: unit, quantity: quantity))
+            let newItem = CartItem(
+                id: nil,
+                serviceId: serviceId,
+                serviceName: serviceName,
+                subserviceId: subserviceId,
+                subserviceName: subserviceName,
+                rate: rate,
+                unit: unit,
+                quantity: quantity,
+                sourceType: sourceType
+            )
+            items.append(newItem)
         }
         notify()
 
-        // persist remote
+        // --- REMOTE MERGE (background but robust) ---
         Task {
             do {
                 let uid = try await SupabaseManager.shared.ensureUserId()
-                let serverItems = try await SupabaseManager.shared.fetchCartItems()
 
-                // 1) merge by provided subservice id (server uuid)
-                if let sid = subserviceId, let existing = serverItems.first(where: { $0.subservice_id == sid }) {
-                    let newQty = existing.quantity + quantity
-                    let updated = try await SupabaseManager.shared.updateCartItemQuantity(cartItemId: existing.id, quantity: newQty)
+                // if you have an EventDataManager with currentEventId, replace the reflection below
+                var currentEventId: String? = nil
+                if let evManagerType = NSClassFromString("EventDataManager") as AnyObject?,
+                   let shared = evManagerType.value(forKey: "shared") as? AnyObject {
+                    if let eId = (shared.value(forKey: "currentEventId") as? String) {
+                        currentEventId = eId
+                    }
+                }
+
+                // fetch server items for the user (user-scoped)
+                let serverItems = try await SupabaseManager.shared.fetchCartItems(userId: uid)
+
+                // CASE 1 — exists on server → update quantity
+                if let existing = serverItems.first(where: { ($0.subserviceId ?? "") == subserviceId }) {
+                    let existingQty = existing.quantity ?? 0
+                    let newQty = existingQty + quantity
+                    let updated = try await SupabaseManager.shared.updateCartItemQuantity(
+                        cartItemId: existing.id,
+                        quantity: newQty
+                    )
+
                     DispatchQueue.main.async {
-                        if let i = self.items.firstIndex(where: { $0.serviceName == updated.service_name && $0.subserviceName == updated.subservice_name }) {
+                        if let i = self.items.firstIndex(where: { $0.subserviceId == subserviceId }) {
                             self.items[i].id = updated.id
-                            self.items[i].subserviceId = updated.subservice_id
-                            self.items[i].quantity = updated.quantity
+                            self.items[i].quantity = updated.quantity ?? self.items[i].quantity
                             self.notify()
                         }
+                        NotificationCenter.default.post(name: .CartItemPersisted, object: nil, userInfo: ["eventId": updated.eventId as Any, "cartItemId": updated.id])
                     }
                     return
                 }
 
-                // 2) fallback merge by name
-                if let existing = serverItems.first(where: { $0.subservice_name == subserviceName && $0.service_name == serviceName }) {
-                    let newQty = existing.quantity + quantity
-                    let updated = try await SupabaseManager.shared.updateCartItemQuantity(cartItemId: existing.id, quantity: newQty)
-                    DispatchQueue.main.async {
-                        if let i = self.items.firstIndex(where: { $0.serviceName == updated.service_name && $0.subserviceName == updated.subservice_name }) {
-                            self.items[i].id = updated.id
-                            self.items[i].subserviceId = updated.subservice_id
-                            self.items[i].quantity = updated.quantity
-                            self.notify()
-                        }
-                    }
-                    return
-                }
-
-                // 3) insert new
-                let backendSubId: String
-                if let sid = subserviceId {
-                    backendSubId = sid.starts(with: "local-") ? String(sid.dropFirst("local-".count)) : sid
-                } else {
-                    backendSubId = UUID().uuidString
-                }
-
+                // CASE 2 — insert new row; pass eventId if discovered
                 let inserted = try await SupabaseManager.shared.insertCartItem(
                     userId: uid,
-                    serviceId: nil,
+                    eventId: currentEventId,
+                    serviceId: serviceId,
                     serviceName: serviceName,
-                    subserviceId: backendSubId,
+                    subserviceId: subserviceId,
                     subserviceName: subserviceName,
                     rate: rate,
                     unit: unit,
-                    quantity: quantity
+                    quantity: quantity,
+                    sourceType: sourceType
                 )
 
                 DispatchQueue.main.async {
-                    if let i = self.items.firstIndex(where: { $0.serviceName == inserted.service_name && $0.subserviceName == inserted.subservice_name }) {
+                    if let i = self.items.firstIndex(where: { $0.subserviceId == subserviceId }) {
                         self.items[i].id = inserted.id
-                        self.items[i].subserviceId = inserted.subservice_id
-                        self.items[i].quantity = inserted.quantity
-                        self.notify()
-                    } else {
-                        self.items.append(CartItem(id: inserted.id, serviceName: inserted.service_name, subserviceId: inserted.subservice_id, subserviceName: inserted.subservice_name, rate: inserted.rate, unit: inserted.unit ?? "", quantity: inserted.quantity))
+                        self.items[i].quantity = inserted.quantity ?? self.items[i].quantity
+                        // if serviceName was missing server-side, keep local serviceName
+                        if let srv = inserted.serviceName { self.items[i].serviceName = srv }
+                        if let ssrv = inserted.subserviceName { self.items[i].subserviceName = ssrv }
                         self.notify()
                     }
+                    NotificationCenter.default.post(name: .CartItemPersisted, object: nil, userInfo: ["eventId": inserted.eventId as Any, "cartItemId": inserted.id])
                 }
+
             } catch {
-                print("Failed to persist add:", error)
-                // rollback optimistic update
+                print("❌ addItem persist failed:", error)
+                // rollback local change (safe)
                 DispatchQueue.main.async {
-                    if let idx = self.items.firstIndex(where: { $0.serviceName == serviceName && $0.subserviceName == subserviceName }) {
-                        self.items[idx].quantity = max(0, self.items[idx].quantity - quantity)
-                        if self.items[idx].quantity == 0 {
-                            self.items.remove(at: idx)
+                    if let i = self.items.firstIndex(where: { $0.subserviceId == subserviceId }) {
+                        self.items[i].quantity -= quantity
+                        if self.items[i].quantity <= 0 {
+                            self.items.remove(at: i)
                         }
                         self.notify()
                     }
@@ -172,65 +192,115 @@ final class CartManager {
         }
     }
 
-    // set quantity
+    // MARK: - Other methods (setQuantity, removeItem, clear) stay similar but use defensive mapping
     func setQuantity(serviceName: String, subserviceName: String, quantity: Int) {
-        guard let idx = items.firstIndex(where: { $0.serviceName == serviceName && $0.subserviceName == subserviceName }) else { return }
+        guard let idx = items.firstIndex(where: {
+            $0.serviceName == serviceName && $0.subserviceName == subserviceName
+        }) else { return }
+
+        let subId = items[idx].subserviceId
         let oldQty = items[idx].quantity
+
         items[idx].quantity = quantity
         notify()
 
         Task {
             do {
-                _ = try await SupabaseManager.shared.ensureUserId()
-                let serverItems = try await SupabaseManager.shared.fetchCartItems()
-                if let server = serverItems.first(where: { $0.subservice_name == subserviceName && $0.service_name == serviceName }) {
+                let uid = try await SupabaseManager.shared.ensureUserId()
+                let serverItems = try await SupabaseManager.shared.fetchCartItems(userId: uid)
+
+                if let server = serverItems.first(where: { ($0.subserviceId ?? "") == subId }) {
+
                     if quantity <= 0 {
                         try await SupabaseManager.shared.deleteCartItem(cartItemId: server.id)
+                        DispatchQueue.main.async {
+                            if let i = self.items.firstIndex(where: { $0.subserviceId == subId }) {
+                                self.items.remove(at: i)
+                                self.notify()
+                            }
+                        }
                     } else {
-                        _ = try await SupabaseManager.shared.updateCartItemQuantity(cartItemId: server.id, quantity: quantity)
+                        let updated = try await SupabaseManager.shared.updateCartItemQuantity(
+                            cartItemId: server.id,
+                            quantity: quantity
+                        )
+                        DispatchQueue.main.async {
+                            if let i = self.items.firstIndex(where: { $0.subserviceId == subId }) {
+                                self.items[i].quantity = updated.quantity ?? self.items[i].quantity
+                                self.items[i].id = updated.id
+                                if let srv = updated.serviceName { self.items[i].serviceName = srv }
+                                if let ssrv = updated.subserviceName { self.items[i].subserviceName = ssrv }
+                                self.notify()
+                            }
+                            NotificationCenter.default.post(name: .CartItemPersisted, object: nil, userInfo: ["eventId": updated.eventId as Any, "cartItemId": updated.id])
+                        }
                     }
+
                 } else if quantity > 0 {
-                    let backendSubId = items[idx].subserviceId?.replacingOccurrences(of: "local-", with: "") ?? UUID().uuidString
-                    _ = try await SupabaseManager.shared.insertCartItem(userId: try await SupabaseManager.shared.ensureUserId(), serviceId: nil, serviceName: serviceName, subserviceId: backendSubId, subserviceName: subserviceName, rate: items[idx].rate, unit: items[idx].unit, quantity: quantity)
-                }
-            } catch {
-                print("Failed setQuantity:", error)
-                DispatchQueue.main.async {
-                    if let i = self.items.firstIndex(where: { $0.serviceName == serviceName && $0.subserviceName == subserviceName }) {
-                        self.items[i].quantity = oldQty
-                        self.notify()
+                    let local = items[idx]
+                    let inserted = try await SupabaseManager.shared.insertCartItem(
+                        userId: uid,
+                        eventId: nil,
+                        serviceId: local.serviceId,
+                        serviceName: local.serviceName,
+                        subserviceId: local.subserviceId,
+                        subserviceName: local.subserviceName,
+                        rate: local.rate,
+                        unit: local.unit,
+                        quantity: quantity,
+                        sourceType: local.sourceType
+                    )
+                    DispatchQueue.main.async {
+                        if let i = self.items.firstIndex(where: { $0.subserviceId == subId }) {
+                            self.items[i].id = inserted.id
+                            self.items[i].quantity = inserted.quantity ?? self.items[i].quantity
+                            if let srv = inserted.serviceName { self.items[i].serviceName = srv }
+                            if let ssrv = inserted.subserviceName { self.items[i].subserviceName = ssrv }
+                            self.notify()
+                        }
+                        NotificationCenter.default.post(name: .CartItemPersisted, object: nil, userInfo: ["eventId": inserted.eventId as Any, "cartItemId": inserted.id])
                     }
                 }
-            }
-        }
-    }
 
-    func removeItem(serviceName: String, subserviceName: String) {
-        let old = items
-        items.removeAll { $0.serviceName == serviceName && $0.subserviceName == subserviceName }
-        notify()
-
-        Task {
-            do {
-                let serverItems = try await SupabaseManager.shared.fetchCartItems()
-                if let server = serverItems.first(where: { $0.subservice_name == subserviceName && $0.service_name == serviceName }) {
-                    try await SupabaseManager.shared.deleteCartItem(cartItemId: server.id)
-                }
             } catch {
-                print("removeItem failed:", error)
+                print("❌ setQuantity failed:", error)
                 DispatchQueue.main.async {
-                    self.items = old
+                    self.items[idx].quantity = oldQty
                     self.notify()
                 }
             }
         }
     }
 
-    func totalItems() -> Int { items.reduce(0) { $0 + $1.quantity } }
-    func totalAmount() -> Double { items.reduce(0) { $0 + $1.lineTotal } }
+    func removeItem(serviceName: String, subserviceName: String) {
+        guard let idx = items.firstIndex(where: {
+            $0.serviceName == serviceName && $0.subserviceName == subserviceName
+        }) else { return }
+
+        let subId = items[idx].subserviceId
+        let backup = items
+
+        items.remove(at: idx)
+        notify()
+
+        Task {
+            do {
+                let serverItems = try await SupabaseManager.shared.fetchCartItems()
+                if let server = serverItems.first(where: { ($0.subserviceId ?? "") == subId }) {
+                    try await SupabaseManager.shared.deleteCartItem(cartItemId: server.id)
+                }
+            } catch {
+                print("❌ removeItem failed:", error)
+                DispatchQueue.main.async {
+                    self.items = backup
+                    self.notify()
+                }
+            }
+        }
+    }
 
     func clear() {
-        let old = items
+        let backup = items
         items.removeAll()
         notify()
 
@@ -241,13 +311,18 @@ final class CartManager {
                     try await SupabaseManager.shared.deleteCartItem(cartItemId: s.id)
                 }
             } catch {
-                print("clear failed:", error)
+                print("❌ clear failed:", error)
                 DispatchQueue.main.async {
-                    self.items = old
+                    self.items = backup
                     self.notify()
                 }
             }
         }
     }
+
+    // MARK: - TOTALS
+    func totalItems() -> Int { items.reduce(0) { $0 + $1.quantity } }
+    func totalAmount() -> Double { items.reduce(0) { $0 + $1.lineTotal } }
 }
+
 

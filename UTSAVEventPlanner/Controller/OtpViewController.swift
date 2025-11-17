@@ -164,9 +164,19 @@ final class OtpViewController: UIViewController, UITextFieldDelegate {
         let code = collectedCode()
         guard code.count == digits else { return }
         // Normally verify OTP with backend here
-        let vc = BusinessViewController()
-        navigationController?.pushViewController(vc, animated: true)
+
+        let businessVC = BusinessViewController() // programmatic VC you added
+
+        if let nav = navigationController {
+            nav.pushViewController(businessVC, animated: true)
+        } else {
+            // fallback: present inside a nav controller so the presented VC still has a nav bar
+            let nav = UINavigationController(rootViewController: businessVC)
+            nav.modalPresentationStyle = .fullScreen
+            present(nav, animated: true)
+        }
     }
+
 
     @objc private func resendTapped() {
         // Trigger resend on backend

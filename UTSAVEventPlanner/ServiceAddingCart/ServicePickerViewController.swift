@@ -6,10 +6,15 @@ import UIKit
 
 final class ServicePickerViewController: UIViewController, CartObserver {
 
-    // MARK: - UI
+    // MARK: - UI Components
     private let segmented = UISegmentedControl(items: ["In-House Services", "Outsource Services"])
     private let tableView = UITableView(frame: .zero, style: .plain)
 
+    // Outsource form container
+    private let outsourceContainer = UIView()
+    private var outsourceForm: OutsourceFormView?
+
+    // Bottom cart UI
     private let bottomCartView = UIView()
     private let cartLabel = UILabel()
     private let cartTotalLabel = UILabel()
@@ -17,14 +22,16 @@ final class ServicePickerViewController: UIViewController, CartObserver {
 
     // MARK: - Data
     private var services: [Service] = []
-    private var expanded: [Bool] = []    // accordion states
+    private var expanded: [Bool] = []   // accordion expand states
 
+    // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .white
 
         setupNav()
         setupTable()
+        setupOutsourceForm()
         setupBottomCart()
 
         CartManager.shared.addObserver(self)
@@ -39,15 +46,11 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         }
     }
 
-    deinit { CartManager.shared.removeObserver(self) }
-
-    // MARK: - Cart Observer
-    func cartDidChange() {
-        updateCartUI()
-        tableView.reloadData()
+    deinit {
+        CartManager.shared.removeObserver(self)
     }
 
-    // MARK: - Navigation Bar
+    // MARK: - Navigation
     private func setupNav() {
         navigationItem.title = "Add Requirements"
         navigationItem.titleView = segmented
@@ -55,26 +58,25 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         let back = UIButton(type: .system)
         back.setImage(UIImage(systemName: "chevron.left"), for: .normal)
         back.tintColor = .black
-        back.addTarget(self, action: #selector(close), for: .touchUpInside)
+        back.addTarget(self, action: #selector(closeScreen), for: .touchUpInside)
         navigationItem.leftBarButtonItem = UIBarButtonItem(customView: back)
     }
 
-    @objc private func close() { dismiss(animated: true) }
+    @objc private func closeScreen() {
+        dismiss(animated: true)
+    }
 
     // MARK: - Table Setup
     private func setupTable() {
         tableView.translatesAutoresizingMaskIntoConstraints = false
+        tableView.backgroundColor = .white
         tableView.separatorStyle = .none
         tableView.showsVerticalScrollIndicator = false
-        tableView.backgroundColor = .white
 
-        // Register only CELL
-        tableView.register(SubserviceInnerCell.self,
-                           forCellReuseIdentifier: SubserviceInnerCell.reuseID)
+        tableView.register(SubserviceInnerCell.self, forCellReuseIdentifier: SubserviceInnerCell.reuseID)
 
         tableView.dataSource = self
         tableView.delegate = self
-
         view.addSubview(tableView)
 
         NSLayoutConstraint.activate([
@@ -84,7 +86,53 @@ final class ServicePickerViewController: UIViewController, CartObserver {
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -95)
         ])
     }
-    // MARK: - Bottom Cart UI
+
+    // MARK: - Outsource Form Setup
+    // MARK: - Outsource Form Setup
+    private func setupOutsourceForm() {
+
+        outsourceContainer.translatesAutoresizingMaskIntoConstraints = false
+        outsourceContainer.isHidden = true
+        outsourceContainer.alpha = 0
+        view.addSubview(outsourceContainer)
+
+        NSLayoutConstraint.activate([
+            outsourceContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            outsourceContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            outsourceContainer.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 6),
+            outsourceContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -95)
+        ])
+
+        let form = OutsourceFormView()
+
+        form.onSubmit = { [weak self] item in
+            CartManager.shared.addItem(
+                serviceId: nil,
+                serviceName: "Outsource",
+                subserviceId: UUID().uuidString,
+                subserviceName: item.name,
+                rate: item.estimatedBudget ?? 0,
+                unit: "*unit*",
+                quantity: 1,
+                sourceType: "outsource"
+            )
+
+            // Stay on same screen — do NOT navigate back
+            self?.cartDidChange()
+        }
+
+        form.translatesAutoresizingMaskIntoConstraints = false
+        outsourceContainer.addSubview(form)
+
+        NSLayoutConstraint.activate([
+            form.leadingAnchor.constraint(equalTo: outsourceContainer.leadingAnchor),
+            form.trailingAnchor.constraint(equalTo: outsourceContainer.trailingAnchor),
+            form.topAnchor.constraint(equalTo: outsourceContainer.topAnchor)
+        ])
+
+        outsourceForm = form
+    }
+    // MARK: - Bottom Cart
     private func setupBottomCart() {
         bottomCartView.translatesAutoresizingMaskIntoConstraints = false
         bottomCartView.backgroundColor = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
@@ -128,8 +176,46 @@ final class ServicePickerViewController: UIViewController, CartObserver {
     }
 
     @objc private func openCart() {
-        let vc = CartDetailsViewController()
+        let vc = EstimateCartViewController()
+        vc.modalPresentationStyle = .fullScreen
         present(vc, animated: true)
+    }
+    
+    
+    // MARK: - Segmented Control
+    @objc private func segmentChanged() {
+        let isOutsource = segmented.selectedSegmentIndex == 1
+
+        if isOutsource {
+            // show outsource form
+            outsourceContainer.isHidden = false
+            tableView.isHidden = false
+
+            UIView.animate(withDuration: 0.25) {
+                self.tableView.alpha = 0
+                self.outsourceContainer.alpha = 1
+            } completion: { _ in
+                self.tableView.isHidden = true
+            }
+
+        } else {
+            // show in-house table
+            outsourceContainer.isHidden = false
+            tableView.isHidden = false
+
+            UIView.animate(withDuration: 0.25) {
+                self.tableView.alpha = 1
+                self.outsourceContainer.alpha = 0
+            } completion: { _ in
+                self.outsourceContainer.isHidden = true
+            }
+        }
+    }
+
+    // MARK: - Cart Observer
+    func cartDidChange() {
+        updateCartUI()
+        tableView.reloadData()
     }
 
     private func updateCartUI() {
@@ -139,10 +225,6 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         cartTotalLabel.text = "Est. Total: ₹\(total)"
     }
 
-    @objc private func segmentChanged() {
-        tableView.reloadData()
-    }
-
     // MARK: - Fetch Services
     private func fetchServices() async {
         do {
@@ -150,14 +232,16 @@ final class ServicePickerViewController: UIViewController, CartObserver {
             services = records.map { $0.toServiceModel() }
             expanded = Array(repeating: false, count: services.count)
 
-            DispatchQueue.main.async { self.tableView.reloadData() }
+            DispatchQueue.main.async {
+                self.tableView.reloadData()
+            }
         } catch {
-            print("fetch error:", error.localizedDescription)
+            print("fetch services error:", error.localizedDescription)
         }
     }
 }
 
-// MARK: - TableView
+// MARK: - TableView Data
 extension ServicePickerViewController: UITableViewDataSource, UITableViewDelegate {
 
     func numberOfSections(in tableView: UITableView) -> Int {
@@ -165,26 +249,27 @@ extension ServicePickerViewController: UITableViewDataSource, UITableViewDelegat
     }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        // subservices (max 2) + "View All →"
         expanded[section] ? min(2, services[section].subservices.count) + 1 : 0
-        // +1 for "View All →"
     }
 
     func tableView(_ tableView: UITableView,
                    viewForHeaderInSection section: Int) -> UIView? {
 
         let svc = services[section]
-        let cell = ServiceCardHeaderCell()
-        cell.configure(with: svc.name, expanded: expanded[section])
-        cell.onToggle = { [weak self] in
-            self?.expanded[section].toggle()
+        let header = ServiceCardHeaderCell()
+        header.configure(with: svc.name, expanded: expanded[section])
+        header.onToggle = { [weak self] in
+            guard let self else { return }
+            expanded[section].toggle()
             tableView.reloadSections([section], with: .automatic)
         }
-        return cell
+        return header
     }
 
     func tableView(_ tableView: UITableView,
                    heightForHeaderInSection section: Int) -> CGFloat {
-        return 64
+        64
     }
 
     func tableView(_ tableView: UITableView,
@@ -192,7 +277,7 @@ extension ServicePickerViewController: UITableViewDataSource, UITableViewDelegat
 
         let svc = services[indexPath.section]
 
-        // Last row = View All link
+        // last row = "View All →"
         if indexPath.row == min(2, svc.subservices.count) {
             let cell = UITableViewCell()
             cell.selectionStyle = .none
@@ -209,7 +294,6 @@ extension ServicePickerViewController: UITableViewDataSource, UITableViewDelegat
                 label.topAnchor.constraint(equalTo: cell.topAnchor, constant: 10),
                 label.bottomAnchor.constraint(equalTo: cell.bottomAnchor, constant: -10)
             ])
-
             return cell
         }
 
@@ -218,15 +302,24 @@ extension ServicePickerViewController: UITableViewDataSource, UITableViewDelegat
             $0.serviceName == svc.name && $0.subserviceName == sub.name
         })?.quantity ?? 0
 
-        let cell = tableView.dequeueReusableCell(withIdentifier: SubserviceInnerCell.reuseID, for: indexPath) as! SubserviceInnerCell
-        cell.configure(parentService: svc.name, sub: sub, quantity: qty)
+        let cell = tableView.dequeueReusableCell(
+            withIdentifier: SubserviceInnerCell.reuseID,
+            for: indexPath
+        ) as! SubserviceInnerCell
+
+        guard let serviceId = svc.id else { return cell }   // safer
+        cell.configure(
+            parentServiceId: serviceId,
+            parentService: svc.name,
+            sub: sub,
+            quantity: qty
+        )
         return cell
     }
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let svc = services[indexPath.section]
 
-        // View All tapped
         if indexPath.row == min(2, svc.subservices.count) {
             let vc = ServiceDetailListViewController(service: svc)
             navigationController?.pushViewController(vc, animated: true)

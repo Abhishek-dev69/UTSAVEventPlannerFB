@@ -15,34 +15,68 @@ struct SubserviceInsert: Codable {
     let image_url: String?
 }
 
+// Make all potentially-missing DB fields optional so decoding never fails if backend omits a column.
 struct CartItemRecord: Codable {
     let id: String
-    let user_id: String
-    let event_id: String?
-    let service_id: String?
-    let service_name: String
-    let subservice_id: String
-    let subservice_name: String
-    let rate: Double
+    let userId: String?
+    let eventId: String?
+    let serviceId: String?
+    let serviceName: String?
+    let subserviceId: String?
+    let subserviceName: String?
+    let rate: Double?
     let unit: String?
-    let quantity: Int
-    let line_total: Double?
+    let quantity: Int?
+    let lineTotal: Double?
     let metadata: [String: String]?
-    let created_at: String?
-    let updated_at: String?
+    let createdAt: String?
+    let updatedAt: String?
+    let sourceType: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case userId = "user_id"
+        case eventId = "event_id"
+        case serviceId = "service_id"
+        case serviceName = "service_name"
+        case subserviceId = "subservice_id"
+        case subserviceName = "subservice_name"
+        case rate, unit, quantity
+        case lineTotal = "line_total"
+        case metadata
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case sourceType = "source_type"
+    }
 }
 
-struct CartInsert: Codable {
-    let user_id: String
-    let event_id: String?
-    let service_id: String?
-    let service_name: String
-    let subservice_id: String
-    let subservice_name: String
+// CartInsert used when inserting to cart_items table
+struct CartInsert: Encodable {
+    let userId: String
+    let eventId: String?
+    let serviceId: String?
+    let serviceName: String
+    let subserviceId: String
+    let subserviceName: String
     let rate: Double
     let unit: String?
     let quantity: Int
     let metadata: [String: String]?
+    let sourceType: String
+
+    enum CodingKeys: String, CodingKey {
+        case userId = "user_id"
+        case eventId = "event_id"
+        case serviceId = "service_id"
+        case serviceName = "service_name"
+        case subserviceId = "subservice_id"
+        case subserviceName = "subservice_name"
+        case rate
+        case unit
+        case quantity
+        case metadata
+        case sourceType = "source_type"
+    }
 }
 
 private struct QuantityUpdate: Codable {
@@ -62,23 +96,16 @@ final class SupabaseManager {
 
     // Ensure we have a user session (anonymous sign-in fallback)
     func ensureUserId() async throws -> String {
-        // Some SDKs expose session as property or async; handle defensively
-        do {
-            // Try reading session (non-throwing path depending on SDK)
-            let maybeSession = try? await client.auth.session
-            if let s = maybeSession {
-                return s.user.id.uuidString
-            }
-        } catch {
-            // ignore: will attempt sign-in
-            print("ensureUserId: session read threw:", error)
+        if let session = try? await client.auth.session {
+            let user = session.user
+            return user.id.uuidString
         }
 
-        // If no session, try anonymous sign in
         do {
             try await client.auth.signInAnonymously()
             if let session = try? await client.auth.session {
-                return session.user.id.uuidString
+                let user = session.user
+                return user.id.uuidString
             } else {
                 throw NSError(domain: "SupabaseAuth", code: -1, userInfo: [NSLocalizedDescriptionKey: "Sign-in succeeded but session missing"])
             }
@@ -90,17 +117,13 @@ final class SupabaseManager {
 
     // MARK: - Services & Subservices
 
-    /// Creates a service record and all provided subservices in DB.
-    /// Returns the created ServiceRecord for the service row.
     func createService(_ payload: ServiceCreatePayload) async throws -> ServiceRecord {
-        // 1) Insert service
         let response = try await client
             .from("services")
             .insert(["name": payload.name])
             .select("*")
             .execute()
 
-        // debug
         if let raw = String(data: response.data, encoding: .utf8) {
             print("createService - service insert raw:", raw)
         }
@@ -110,16 +133,14 @@ final class SupabaseManager {
             throw NSError(domain: "SupabaseCreateService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Service insert returned no rows"])
         }
 
-        // 2) Insert subservices in bulk (if any)
         if !payload.subservices.isEmpty {
-            // Map to Encodable payloads for Supabase insert
             let subPayloads: [SubserviceInsert] = payload.subservices.map { s in
                 SubserviceInsert(
                     service_id: created.id,
                     name: s.name,
                     rate: s.rate,
                     unit: s.unit,
-                    image_url: nil // if you want to support images, update later to upload and set URL
+                    image_url: nil
                 )
             }
 
@@ -132,13 +153,11 @@ final class SupabaseManager {
             if let raw = String(data: subsResponse.data, encoding: .utf8) {
                 print("createService - subservices insert raw:", raw)
             }
-            // we don't strictly need to decode here; debug output is helpful
         }
 
         return created
     }
 
-    /// Fetch services with their subservices relationship
     func fetchServices() async throws -> [ServiceRecord] {
         let response = try await client
             .from("services")
@@ -154,24 +173,32 @@ final class SupabaseManager {
 
     // MARK: - Cart Operations
 
-    func fetchCartItems() async throws -> [CartItemRecord] {
-        let uid = try await ensureUserId()
+    /// Fetch cart items for the current user and optionally filter by eventId.
+    func fetchCartItems(userId: String? = nil, eventId: String? = nil) async throws -> [CartItemRecord] {
+        let uid = try await (userId == nil || userId?.trimmingCharacters(in: .whitespacesAndNewlines) == "") ?
+            ensureUserId() : userId!
 
-        let response = try await client
-            .from("cart_items")
-            .select("*")
-            .eq("user_id", value: uid)
-            .execute()
+        var query = client.from("cart_items").select("*").eq("user_id", value: uid)
+
+        if let eId = eventId, !eId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            query = query.eq("event_id", value: eId)
+        }
+
+        let response = try await query.execute()
 
         if let raw = String(data: response.data, encoding: .utf8) {
             print("fetchCartItems raw:", raw)
         }
 
-        return try JSONDecoder().decode([CartItemRecord].self, from: response.data)
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode([CartItemRecord].self, from: response.data)
     }
 
+    /// Insert a cart item. Accepts optional eventId so it can be linked immediately.
     func insertCartItem(
-        userId: String,
+        userId: String?,
+        eventId: String?,
         serviceId: String?,
         serviceName: String,
         subserviceId: String,
@@ -179,45 +206,40 @@ final class SupabaseManager {
         rate: Double,
         unit: String?,
         quantity: Int,
-        metadata: [String: String]? = nil
+        metadata: [String: String]? = nil,
+        sourceType: String
     ) async throws -> CartItemRecord {
 
+        let uid = try await (userId == nil || userId?.trimmingCharacters(in: .whitespacesAndNewlines) == "") ?
+            ensureUserId() : userId!
+
         let payload = CartInsert(
-            user_id: userId,
-            event_id: nil,
-            service_id: serviceId,
-            service_name: serviceName,
-            subservice_id: subserviceId,
-            subservice_name: subserviceName,
+            userId: uid,
+            eventId: eventId,
+            serviceId: serviceId,
+            serviceName: serviceName,
+            subserviceId: subserviceId,
+            subserviceName: subserviceName,
             rate: rate,
             unit: unit,
             quantity: quantity,
-            metadata: metadata
+            metadata: metadata,
+            sourceType: sourceType
         )
 
         let response = try await client
             .from("cart_items")
             .insert(payload)
-            .select("*")
+            .select()
             .execute()
 
         if let raw = String(data: response.data, encoding: .utf8) {
-            print("insertCartItem raw:", raw)
+            print("insertCartItem raw:", raw) // helpful to debug missing fields
         }
 
-        // defensive decode
-        do {
-            let inserted = try JSONDecoder().decode([CartItemRecord].self, from: response.data)
-            if let first = inserted.first {
-                return first
-            } else {
-                throw NSError(domain: "SupabaseInsert", code: -1, userInfo: [NSLocalizedDescriptionKey: "Insert returned no rows"])
-            }
-        } catch {
-            print("insertCartItem decode error:", error)
-            print("insertCartItem raw data:", String(data: response.data, encoding: .utf8) ?? "<binary>")
-            throw error
-        }
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode([CartItemRecord].self, from: response.data).first!
     }
 
     func updateCartItemQuantity(cartItemId: String, quantity: Int) async throws -> CartItemRecord {
@@ -233,7 +255,9 @@ final class SupabaseManager {
             print("updateCartItemQuantity raw:", raw)
         }
 
-        return try JSONDecoder().decode([CartItemRecord].self, from: response.data).first!
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode([CartItemRecord].self, from: response.data).first!
     }
 
     func deleteCartItem(cartItemId: String) async throws {
