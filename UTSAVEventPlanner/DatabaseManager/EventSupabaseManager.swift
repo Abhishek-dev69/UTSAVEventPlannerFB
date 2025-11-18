@@ -40,15 +40,9 @@ final class EventSupabaseManager {
     
     static let shared = EventSupabaseManager()
     
-    private let client: SupabaseClient
-    
-    private init() {
-        client = SupabaseClient(
-            supabaseURL: URL(string:"https://denikpjyrblzbomzamyu.supabase.co")!,
-            supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlbmlrcGp5cmJsemJvbXphbXl1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjMwNTExMzIsImV4cCI6MjA3ODYyNzEzMn0.k6kqcjIu-G0_YV9H1VjHfWaPahvl1RhMo9gBODYqUbo"
-        )
-    }
-    
+    private let client = SupabaseManager.shared.client
+
+    private init() {}
     // MARK: - Ensure User Session & Return User ID
     func ensureUserId() async throws -> String {
         
@@ -176,8 +170,7 @@ final class EventSupabaseManager {
     // --------------------------------------------------------------------
     // 🔥 NEW — LINK CART ITEMS → EVENT (Confirm Order)
     // --------------------------------------------------------------------
-    // MARK: - Link all cart items to this event
-    // MARK: - Link all cart items to this event
+    // MARK: - Link cart items created recently (to avoid touching old rows)
     func linkCartItemsToEvent(eventId: String) async throws {
         
         // Defensive: validate eventId
@@ -192,51 +185,67 @@ final class EventSupabaseManager {
         
         let uid = try await ensureUserId()
         
-        // 1) fetch user's cart item ids and event_id values
-        struct IdAndEvent: Codable {
+        // We'll only link items that:
+        //  - belong to this user
+        //  - currently have no event_id (unlinked)
+        //  - were created recently (within the last 1 hour) — this avoids accidentally linking old rows from previous events
+        //
+        // NOTE: This is a pragmatic safety improvement. For a fully robust solution
+        // add a cart_session_id to inserted cart rows and filter by that session id.
+        
+        // Compute cutoff timestamp (ISO8601) — 1 hour ago
+        let cutoffDate = Date().addingTimeInterval(-60 * 60) // 1 hour
+        let isoFormatter = ISO8601DateFormatter()
+        isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let cutoff = isoFormatter.string(from: cutoffDate)
+        
+        // 1) fetch candidate rows: user_id == uid, event_id IS NULL, created_at >= cutoff
+        struct IdAndEventRow: Codable {
             let id: String
             let event_id: String?
+            let created_at: String?
         }
         
         let fetchResp = try await client
             .from("cart_items")
-            .select("id, event_id")
+            .select("id, event_id, created_at")
             .eq("user_id", value: uid)
+            .is("event_id", value: nil)        // require event_id IS NULL
+            .gte("created_at", value: cutoff) // only recent rows
             .execute()
         
-        // decode rows
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        let allRows = try decoder.decode([IdAndEvent].self, from: fetchResp.data)
         
-        // 2) select rows that are not yet linked (event_id == nil or empty)
-        let idsToUpdate = allRows
-            .filter { ($0.event_id ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-            .map { $0.id }
+        let candidateRows = try decoder.decode([IdAndEventRow].self, from: fetchResp.data)
+        
+        // 2) Build ids to update (if any)
+        let idsToUpdate = candidateRows.map { $0.id }
         
         guard !idsToUpdate.isEmpty else {
-            print("No cart items to link for user:", uid)
+            print("No recent unlinked cart items to link for user:", uid)
             return
         }
         
-        // 3) update only those ids
+        // 3) update those rows with event_id = trimmed
         struct UpdateEventId: Encodable {
             let event_id: String
         }
         let updateBody = UpdateEventId(event_id: trimmed)
         
-        // if SDK signature is .in(_ column: String, values: [Any])
         let updResp = try await client
             .from("cart_items")
             .update(updateBody)
-            .`in`("id", values: idsToUpdate)    // backticks escape the name `in`
+            .`in`("id", values: idsToUpdate)
             .select("id,event_id")
             .execute()
+        
         if let raw = String(data: updResp.data, encoding: .utf8) {
             print("linkCartItemsToEvent update response:", raw)
         }
         
-        print("Linked \(idsToUpdate.count) cart items to event:", trimmed)
+        print("Linked \(idsToUpdate.count) recent cart items to event:", trimmed)
     }
     
 }
+

@@ -5,7 +5,7 @@ import AuthenticationServices
 final class LoginViewController: UIViewController, UITextFieldDelegate {
 
     // MARK: - Video playlist
-    private let videoNames = ["event1_bg", "event2_bg"]      // add .mp4 in bundle
+    private let videoNames = ["event2_bg", "event1_bg"]      // add .mp4 in bundle
     private var player: AVQueuePlayer?
     private var playerLayer: AVPlayerLayer?
 
@@ -16,9 +16,7 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
     private let brandLabel = UILabel()
     private let videoCenterGuide = UILayoutGuide()
 
-    private let scrollView = UIScrollView()
-    private let contentView = UIView()
-
+    // card anchored directly (no scrollview) for predictable keyboard lifting
     private let cardView = UIView()
 
     private let titleLabel = UILabel()
@@ -50,6 +48,18 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
     private let requiredDigitsForIN = 10
     private var nextVideoIndex: Int = 0
 
+    // Keep reference to web auth session to keep it alive
+    private var currentAuthSession: ASWebAuthenticationSession?
+
+    // Keep keyboard state & card constraint
+    private var keyboardIsVisible = false
+    private var cardBottomConstraint: NSLayoutConstraint!
+
+    // MARK: - Google OAuth placeholders — REPLACE with your values
+    private let googleClientID = "GOOGLE_CLIENT_ID"     // <- replace
+    private let googleRedirectURI = "YOUR_REDIRECT_URI" // <- replace
+    private let googleScopes = "openid%20email%20profile" // URL-encoded scopes
+
     // MARK: - Life cycle
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -61,10 +71,15 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         styleUI()
         hookEvents()
         updateContinueEnabled(isValid: false)
+
+        // Ensure brand label is bold & on top when screen loads
+        brandLabel.font = .systemFont(ofSize: 44, weight: .bold)
+        brandLabel.layer.zPosition = 1000
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        // start video once layout is stable
         startVideoPlaylist()
     }
 
@@ -75,24 +90,21 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         heroView.bringSubviewToFront(brandLabel)
     }
 
-    // MARK: - Build
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    // MARK: - Build UI
     private func buildUI() {
-        [heroView, scrollView].forEach { v in
+        // add hero first so it's behind everything
+        [heroView, cardView, bottomCover].forEach { v in
             v.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview(v)
         }
+
         brandLabel.translatesAutoresizingMaskIntoConstraints = false
         heroView.addSubview(brandLabel)
         view.addLayoutGuide(videoCenterGuide)
-
-        bottomCover.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(bottomCover)
-
-        scrollView.addSubview(contentView)
-        contentView.translatesAutoresizingMaskIntoConstraints = false
-
-        cardView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(cardView)
 
         [titleLabel, phoneRow, continueButton, sepRow, socialStack, footerLabel].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
@@ -123,7 +135,7 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
 
     // MARK: - Layout
     private func layoutUI() {
-        // Update heroView constraints to fill entire view height so video is fully behind content
+        // heroView fills entire view so video plays behind everything (including card).
         NSLayoutConstraint.activate([
             heroView.topAnchor.constraint(equalTo: view.topAnchor),
             heroView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -143,36 +155,28 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
             brandLabel.centerYAnchor.constraint(equalTo: videoCenterGuide.centerYAnchor)
         ])
 
+        // Card anchored to safe area bottom — we'll store this constraint to animate with keyboard
+        cardBottomConstraint = cardView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
+        cardBottomConstraint.isActive = true
+
         NSLayoutConstraint.activate([
+            cardView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            cardView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            // minimum height so card displays content comfortably
+            cardView.heightAnchor.constraint(greaterThanOrEqualToConstant: 260)
+        ])
+
+        // IMPORTANT: bottomCover's top is pinned to the card's bottom.
+        // This makes bottomCover always cover the area underneath the card (so when the card moves up,
+        // bottomCover follows and covers the area behind the keyboard).
+        NSLayoutConstraint.activate([
+            bottomCover.topAnchor.constraint(equalTo: cardView.bottomAnchor),
             bottomCover.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             bottomCover.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            bottomCover.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor),
             bottomCover.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
 
-        NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-
-            contentView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
-            contentView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
-            contentView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
-            contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
-            contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor)
-        ])
-        contentView.heightAnchor.constraint(greaterThanOrEqualTo: scrollView.frameLayoutGuide.heightAnchor).isActive = true
-
-        // Replace cardView constraints to pin to bottom and span full width with edge insets
-        NSLayoutConstraint.activate([
-            cardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-            cardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            cardView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-            cardView.topAnchor.constraint(greaterThanOrEqualTo: contentView.topAnchor)
-        ])
-
-        // Internal layout remains the same
+        // internal layout — Continue full width per your example
         NSLayoutConstraint.activate([
             titleLabel.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 28),
             titleLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: edge),
@@ -189,7 +193,7 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
             continueButton.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -edge),
             continueButton.heightAnchor.constraint(equalToConstant: fieldH),
 
-            sepRow.topAnchor.constraint(equalTo: continueButton.bottomAnchor, constant: 12),
+            sepRow.topAnchor.constraint(equalTo: continueButton.bottomAnchor, constant: 16),
             sepRow.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: edge),
             sepRow.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -edge),
 
@@ -203,11 +207,17 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
             footerLabel.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -20)
         ])
 
+        // Separator / lines
         leftLine.heightAnchor.constraint(equalToConstant: 1).isActive = true
         rightLine.heightAnchor.constraint(equalToConstant: 1).isActive = true
         leftLine.setContentHuggingPriority(.defaultLow, for: .horizontal)
         rightLine.setContentHuggingPriority(.defaultLow, for: .horizontal)
         orLabel.setContentHuggingPriority(.required, for: .horizontal)
+        leftLine.translatesAutoresizingMaskIntoConstraints = false
+        rightLine.translatesAutoresizingMaskIntoConstraints = false
+
+        // important: make left and right lines equal width so "or" centers
+        leftLine.widthAnchor.constraint(equalTo: rightLine.widthAnchor).isActive = true
     }
 
     // MARK: - Style
@@ -217,7 +227,7 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         heroDim.startPoint = CGPoint(x: 0.5, y: 0)
         heroDim.endPoint   = CGPoint(x: 0.5, y: 1)
         heroView.layer.addSublayer(heroDim)
-        
+
         brandLabel.text = "UTSΛV"
         brandLabel.textColor = .white
         brandLabel.font = .systemFont(ofSize: 44, weight: .bold)
@@ -226,7 +236,9 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         brandLabel.adjustsFontSizeToFitWidth = true
         brandLabel.minimumScaleFactor = 0.6
 
+        // bottomCover must match card background so it hides the video region under the card/keyboard
         bottomCover.backgroundColor = .systemBackground
+        bottomCover.isUserInteractionEnabled = false
 
         // Card: only top corners rounded, crisp iOS spacing
         cardView.backgroundColor = .systemBackground
@@ -260,6 +272,13 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         phoneTextField.leftViewMode = .always
         phoneTextField.clearButtonMode = .whileEditing
         phoneTextField.font = .systemFont(ofSize: 17)
+
+        // Make system keyboard light (white keys/background)
+        phoneTextField.keyboardAppearance = .light
+        // Small white accessory view right above the keyboard to visually match the card
+        let accessory = UIView(frame: CGRect(x: 0, y: 0, width: view.bounds.width, height: 8))
+        accessory.backgroundColor = .systemBackground
+        phoneTextField.inputAccessoryView = accessory
 
         var cont = UIButton.Configuration.filled()
         cont.title = "Continue"
@@ -305,14 +324,15 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         let row = UIStackView()
         row.axis = .horizontal
         row.alignment = .center
-        row.spacing = 10
+        row.spacing = 12
         row.translatesAutoresizingMaskIntoConstraints = false
 
+        // Slightly bigger Google icon to better match Apple button weight
         let icon = UIImageView(image: UIImage(named: "google_logo")?.withRenderingMode(.alwaysOriginal))
         icon.translatesAutoresizingMaskIntoConstraints = false
         icon.contentMode = .scaleAspectFit
-        icon.widthAnchor.constraint(equalToConstant: 20).isActive = true
-        icon.heightAnchor.constraint(equalToConstant: 20).isActive = true
+        icon.widthAnchor.constraint(equalToConstant: 32).isActive = true
+        icon.heightAnchor.constraint(equalToConstant: 32).isActive = true
 
         let label = UILabel()
         label.text = "Sign in with Google"
@@ -342,6 +362,12 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
                                                name: UIApplication.didBecomeActiveNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(appEnteredBackground),
                                                name: UIApplication.didEnterBackgroundNotification, object: nil)
+
+        // Keyboard observers to animate card upward
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(_:)),
+                                               name: UIResponder.keyboardWillShowNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(_:)),
+                                               name: UIResponder.keyboardWillHideNotification, object: nil)
     }
 
     @objc private func endEditingNow() { view.endEditing(true) }
@@ -366,9 +392,87 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         navigationController?.pushViewController(otpVC, animated: true)
     }
 
-    @objc private func googleTapped() { print("Google tapped") }
-    @objc private func appleTapped()  { print("Apple tapped")  }
+    // MARK: - Google Sign In (ASWebAuthenticationSession OAuth2)
+    @objc private func googleTapped() {
+        // Build the authorization URL (replace placeholders with real values)
+        guard let encodedRedirect = googleRedirectURI.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            presentAuthErrorAlert("Bad redirect URI", error: nil)
+            return
+        }
+        let authURLString =
+        "https://accounts.google.com/o/oauth2/v2/auth?client_id=\(googleClientID)&response_type=code&scope=\(googleScopes)&redirect_uri=\(encodedRedirect)&prompt=select_account"
+        guard let authURL = URL(string: authURLString) else {
+            presentAuthErrorAlert("Bad authorization URL", error: nil)
+            return
+        }
 
+        // ASWebAuthenticationSession requires the callback scheme (scheme portion of redirect URI)
+        let callbackScheme = URL(string: googleRedirectURI)?.scheme
+
+        let session = ASWebAuthenticationSession(url: authURL, callbackURLScheme: callbackScheme) { [weak self] callbackURL, error in
+            if let error = error {
+                print("Google auth error: \(error.localizedDescription)")
+                self?.presentAuthErrorAlert("Google auth error", error: error)
+                return
+            }
+            guard let callbackURL = callbackURL else {
+                self?.presentAuthErrorAlert("No callback URL returned", error: nil)
+                return
+            }
+            // Example callback: com.example.app:/oauth2callback?code=AUTH_CODE&scope=...
+            let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)
+            if let code = components?.queryItems?.first(where: { $0.name == "code" })?.value {
+                // You have authorization code — exchange it on your server for tokens.
+                print("Google auth code: \(code)")
+                DispatchQueue.main.async {
+                    self?.showAuthSuccess(provider: "Google", idTokenOrCode: code)
+                }
+            } else if let errorDesc = components?.queryItems?.first(where: { $0.name == "error" })?.value {
+                print("Google auth error from callback: \(errorDesc)")
+                self?.presentAuthErrorAlert("Google callback error: \(errorDesc)", error: nil)
+            } else {
+                print("Google callback received without code")
+                self?.presentAuthErrorAlert("Google callback received without code", error: nil)
+            }
+        }
+        session.presentationContextProvider = self
+        session.prefersEphemeralWebBrowserSession = false
+        session.start()
+        currentAuthSession = session // keep strong reference
+    }
+
+    // MARK: - Apple Sign In
+    @objc private func appleTapped() {
+        let provider = ASAuthorizationAppleIDProvider()
+        let request = provider.createRequest()
+        request.requestedScopes = [.fullName, .email]
+
+        let controller = ASAuthorizationController(authorizationRequests: [request])
+        controller.delegate = self
+        controller.presentationContextProvider = self
+        controller.performRequests()
+    }
+
+    // MARK: - Helpers: UI feedback for debugging
+    private func showAuthSuccess(provider: String, idTokenOrCode: String) {
+        let alert = UIAlertController(title: "\(provider) sign-in", message: "Received code/token:\n\(idTokenOrCode)", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
+    }
+
+    private func presentAuthErrorAlert(_ title: String = "Authentication Failed", error: Error?) {
+        let msg: String
+        if let err = error as NSError? {
+            msg = "Code: \(err.code)\nDomain: \(err.domain)\n\(err.localizedDescription)"
+        } else {
+            msg = title
+        }
+        let alert = UIAlertController(title: title, message: msg, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        DispatchQueue.main.async { self.present(alert, animated: true) }
+    }
+
+    // MARK: - TextField delegate (unchanged)
     func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
         if string.isEmpty { return true }
         guard CharacterSet.decimalDigits.isSuperset(of: CharacterSet(charactersIn: string)) else { return false }
@@ -379,6 +483,40 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         }
         return true
     }
+
+    // MARK: - Keyboard handling (animate card)
+    @objc private func keyboardWillShow(_ note: Notification) {
+        guard !keyboardIsVisible, let info = note.userInfo else { return }
+        keyboardIsVisible = true
+        // get keyboard frame in view coordinates
+        let kbFrame = (info[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue ?? .zero
+        let kbHeight = kbFrame.height - view.safeAreaInsets.bottom
+
+        // animate card up by keyboard height
+        let dur = (info[UIResponder.keyboardAnimationDurationUserInfoKey] as? NSNumber)?.doubleValue ?? 0.25
+        let curveRaw = (info[UIResponder.keyboardAnimationCurveUserInfoKey] as? NSNumber)?.intValue ?? UIView.AnimationCurve.easeInOut.rawValue
+        let options = UIView.AnimationOptions(rawValue: UInt(curveRaw << 16))
+        cardBottomConstraint.constant = -kbHeight
+        UIView.animate(withDuration: dur, delay: 0, options: options, animations: {
+            self.view.layoutIfNeeded()
+        }, completion: nil)
+    }
+
+    @objc private func keyboardWillHide(_ note: Notification) {
+        guard keyboardIsVisible, let info = note.userInfo else { return }
+        keyboardIsVisible = false
+        let dur = (info[UIResponder.keyboardAnimationDurationUserInfoKey] as? NSNumber)?.doubleValue ?? 0.25
+        let curveRaw = (info[UIResponder.keyboardAnimationCurveUserInfoKey] as? NSNumber)?.intValue ?? UIView.AnimationCurve.easeInOut.rawValue
+        let options = UIView.AnimationOptions(rawValue: UInt(curveRaw << 16))
+        cardBottomConstraint.constant = 0
+        UIView.animate(withDuration: dur, delay: 0, options: options, animations: {
+            self.view.layoutIfNeeded()
+        }, completion: nil)
+    }
+
+    // MARK: - App lifecycle helpers
+    @objc private func appBecameActive()      { player?.play() }
+    @objc private func appEnteredBackground() { player?.pause() }
 }
 
 // MARK: - Video (alternate two files forever; safe queueing)
@@ -390,6 +528,9 @@ private extension LoginViewController {
         let urls = videoURLs
         guard !urls.isEmpty else { return }
 
+        // prevent multiple starts
+        if player != nil { player?.play(); return }
+
         // Start with the first item and keep appending on finish
         nextVideoIndex = 1 % urls.count
         let firstItem = AVPlayerItem(url: urls[0])
@@ -399,10 +540,16 @@ private extension LoginViewController {
         let layer = AVPlayerLayer(player: q)
         layer.videoGravity = .resizeAspectFill
         layer.frame = heroView.bounds
+        // insert video behind everything in heroView
         heroView.layer.insertSublayer(layer, at: 0)
 
+        // keep brand label above video
         heroView.bringSubviewToFront(brandLabel)
-        heroView.layer.addSublayer(heroDim)
+
+        // add the same dim layer (ensure single add)
+        if heroView.layer.sublayers?.contains(where: { $0 === heroDim }) == false {
+            heroView.layer.addSublayer(heroDim)
+        }
 
         NotificationCenter.default.addObserver(self, selector: #selector(itemDidFinish(_:)),
                                                name: .AVPlayerItemDidPlayToEndTime, object: nil)
@@ -419,8 +566,52 @@ private extension LoginViewController {
         nextVideoIndex = (nextVideoIndex + 1) % urls.count
         q.insert(item, after: nil)
     }
-
-    @objc func appBecameActive()      { player?.play() }
-    @objc func appEnteredBackground() { player?.pause() }
 }
 
+// MARK: - ASAuthorizationControllerDelegate & PresentationContextProviding (iOS 17+ signatures)
+extension LoginViewController: ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
+
+    // presentation anchor for Apple authorization
+    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+        return view.window ?? UIApplication.shared.windows.first { $0.isKeyWindow } ?? ASPresentationAnchor()
+    }
+
+    // NEW (iOS 17+) delegate method signature:
+    func authorizationController(controller: ASAuthorizationController,
+                                 didCompleteWithAuthorization authorization: ASAuthorization) {
+        if let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential {
+            if let identityToken = appleIDCredential.identityToken,
+               let tokenString = String(data: identityToken, encoding: .utf8) {
+                print("Apple identity token: \(tokenString.prefix(80))...") // truncated in log
+                DispatchQueue.main.async {
+                    self.showAuthSuccess(provider: "Apple", idTokenOrCode: tokenString)
+                }
+            } else {
+                print("No identity token from Apple — possible first-time sign-in: returning basic info")
+                let email = appleIDCredential.email
+                let fullName = appleIDCredential.fullName
+                print("Apple user email: \(email ?? "nil"), name: \(fullName?.givenName ?? "nil")")
+                DispatchQueue.main.async {
+                    self.showAuthSuccess(provider: "Apple", idTokenOrCode: "received-credentials")
+                }
+            }
+        } else {
+            presentAuthErrorAlert("Apple: unexpected credential", error: nil)
+        }
+    }
+
+    // NEW (iOS 17+) error signature using `any Error`
+    func authorizationController(controller: ASAuthorizationController,
+                                 didCompleteWithError error: any Error) {
+        print("Apple sign-in error: \(error)")
+        // convert to Error for presenting details
+        presentAuthErrorAlert("Apple sign-in error", error: error as? Error)
+    }
+}
+
+// MARK: - ASWebAuthenticationPresentationContextProviding for Google session
+extension LoginViewController: ASWebAuthenticationPresentationContextProviding {
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        return view.window ?? UIApplication.shared.windows.first { $0.isKeyWindow } ?? ASPresentationAnchor()
+    }
+}

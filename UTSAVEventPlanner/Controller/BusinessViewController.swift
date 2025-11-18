@@ -346,17 +346,26 @@ final class BusinessViewController: UIViewController {
         let homeNav = UINavigationController(rootViewController: homeVC)
         homeNav.tabBarItem = UITabBarItem(title: "Home", image: UIImage(systemName: symbols[0].0), selectedImage: UIImage(systemName: symbols[0].1))
 
-        let paymentsVC = PaymentsViewController()
+        let paymentsVC = PaymentsRootController()
         let paymentsNav = UINavigationController(rootViewController: paymentsVC)
-        paymentsNav.tabBarItem = UITabBarItem(title: "Payments", image: UIImage(systemName: symbols[1].0), selectedImage: UIImage(systemName: symbols[1].1))
+        paymentsNav.tabBarItem = UITabBarItem(
+            title: "Payments",
+            image: UIImage(systemName: symbols[1].0),
+            selectedImage: UIImage(systemName: symbols[1].1)
+        )
 
         let servicesVC = ServicesViewController()
         let servicesNav = UINavigationController(rootViewController: servicesVC)
         servicesNav.tabBarItem = UITabBarItem(title: "Services", image: UIImage(systemName: symbols[2].0), selectedImage: UIImage(systemName: symbols[2].1))
 
-        let inventoryVC = InventoryViewController()
+        let inventoryVC = InventoryRootController()
         let inventoryNav = UINavigationController(rootViewController: inventoryVC)
-        inventoryNav.tabBarItem = UITabBarItem(title: "Inventory", image: UIImage(systemName: symbols[3].0), selectedImage: UIImage(systemName: symbols[3].1))
+        inventoryNav.tabBarItem = UITabBarItem(
+            title: "Inventory",
+            image: UIImage(systemName: "cart"),
+            selectedImage: UIImage(systemName: "cart.fill")
+        )
+
 
         tabBar.viewControllers = [homeNav, paymentsNav, servicesNav, inventoryNav]
 

@@ -258,13 +258,14 @@ final class EventOverviewViewController: UIViewController {
             buttonTitle: "Open"
         ) { [weak self] in
             guard let self = self else { return }
+
+            let vc = PaymentListViewController(event: self.event)
+            self.navigationController?.pushViewController(vc, animated: true)
         }
 
         contentStack.addArrangedSubview(card)
     }
-
     private func addInventory() {
-
         let card = EventSectionCard(
             iconName: "shippingbox",
             title: "Inventory Overview",
@@ -273,11 +274,12 @@ final class EventOverviewViewController: UIViewController {
             buttonTitle: "Open"
         ) { [weak self] in
             guard let self = self else { return }
+            let vc = InventoryOverviewViewController(event: self.event)
+            self.navigationController?.pushViewController(vc, animated: true)
         }
 
         contentStack.addArrangedSubview(card)
     }
-
     // Simple requirement progress heuristic (replace with real logic later)
     private func computeProgressForRequirements() -> Float {
         let total = max(1, cartItems.count) // avoid divide by zero
