@@ -22,16 +22,12 @@ final class ServicesListViewController: UIViewController {
         setupSaveButton()
         setupLayout()
 
-        Task {
-            await fetchAllServices()
-        }
+        Task { await fetchAllServices() }
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        Task {
-            await fetchAllServices()
-        }
+        Task { await fetchAllServices() }
     }
 
     // MARK: - Setup UI
@@ -88,6 +84,7 @@ final class ServicesListViewController: UIViewController {
     func fetchAllServices() async {
         do {
             let records = try await SupabaseManager.shared.fetchServices()
+
             let mapped: [Service] = records.map { rec in
                 let subModels = (rec.subservices ?? []).map { sub in
                     Subservice(
@@ -105,9 +102,8 @@ final class ServicesListViewController: UIViewController {
                 )
             }
 
-            DispatchQueue.main.async {
-                self.services = mapped
-            }
+            await MainActor.run { self.services = mapped }
+
         } catch {
             print("❌ Fetch failed:", error)
         }
@@ -131,11 +127,9 @@ final class ServicesListViewController: UIViewController {
     }
 
     // MARK: - NEW: build main tab bar
-    // MARK: - NEW: build main tab bar
     private func makeMainTabBar() -> UITabBarController {
         let tabBar = UITabBarController()
 
-        // SF Symbols you want
         let symbols: [(String, String)] = [
             ("house", "house.fill"),
             ("creditcard", "creditcard.fill"),
@@ -143,29 +137,29 @@ final class ServicesListViewController: UIViewController {
             ("cart", "cart.fill")
         ]
 
-        // MARK: - Home (OnboardingWelcome)
+        // HOME
         let homeVC = OnboardingWelcomeViewController(nibName: "OnboardingWelcomeViewController", bundle: .main)
         let homeNav = UINavigationController(rootViewController: homeVC)
         homeNav.tabBarItem = UITabBarItem(title: "Home",
                                           image: UIImage(systemName: symbols[0].0),
                                           selectedImage: UIImage(systemName: symbols[0].1))
 
-        // MARK: - Payments
-        let paymentsVC = PaymentsViewController()   // replace with your initializer if needed
+        // PAYMENTS (IMPORTANT FIX)
+        let paymentsVC = PaymentsRootController()   // ✔ Correct screen
         let paymentsNav = UINavigationController(rootViewController: paymentsVC)
         paymentsNav.tabBarItem = UITabBarItem(title: "Payments",
                                               image: UIImage(systemName: symbols[1].0),
                                               selectedImage: UIImage(systemName: symbols[1].1))
 
-        // MARK: - Services
+        // SERVICES
         let servicesVC = ServicesViewController()
         let servicesNav = UINavigationController(rootViewController: servicesVC)
         servicesNav.tabBarItem = UITabBarItem(title: "Services",
                                               image: UIImage(systemName: symbols[2].0),
                                               selectedImage: UIImage(systemName: symbols[2].1))
 
-        // MARK: - Inventory
-        let inventoryVC = InventoryViewController()
+        // INVENTORY
+        let inventoryVC = InventoryRootController()
         let inventoryNav = UINavigationController(rootViewController: inventoryVC)
         inventoryNav.tabBarItem = UITabBarItem(title: "Inventory",
                                                image: UIImage(systemName: symbols[3].0),
@@ -173,7 +167,6 @@ final class ServicesListViewController: UIViewController {
 
         tabBar.viewControllers = [homeNav, paymentsNav, servicesNav, inventoryNav]
 
-        // Tab bar appearance
         tabBar.tabBar.tintColor = UIColor(red: 139/255, green: 59/255, blue: 240/255, alpha: 1)
         tabBar.tabBar.isTranslucent = false
 
@@ -181,6 +174,7 @@ final class ServicesListViewController: UIViewController {
     }
 
     @objc private func saveEventTapped() {
+
         if services.isEmpty {
             let alert = UIAlertController(title: "No Services", message: "Add at least one service first.", preferredStyle: .alert)
             alert.addAction(UIAlertAction(title: "OK", style: .default))
@@ -188,28 +182,18 @@ final class ServicesListViewController: UIViewController {
             return
         }
 
-        print("✅ Services saved to Supabase:", services.count)
-
         let tabBar = makeMainTabBar()
 
-        // Replace the root view controller WITHOUT animation
-        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let window = windowScene.windows.first {
-
+        // Replace window root
+        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = scene.windows.first {
             window.rootViewController = tabBar
             window.makeKeyAndVisible()
-
-            // ❌ REMOVE THIS:
-            // UIView.transition(with: window, duration: 0.4, options: .transitionFlipFromRight, animations: nil)
-            
-            // ✅ REPLACE WITH NO ANIMATION OR SIMPLE CROSS-DISSOLVE (optional)
-            // UIView.transition(with: window, duration: 0.2, options: .transitionCrossDissolve, animations: nil)
         } else {
             tabBar.modalPresentationStyle = .fullScreen
             present(tabBar, animated: true)
         }
     }
-
 
     @objc private func backTapped() {
         dismiss(animated: true)
@@ -240,24 +224,16 @@ extension ServicesListViewController: UITableViewDelegate, UITableViewDataSource
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
+
         let selected = services[indexPath.row]
         let vc = SubservicesListViewController(service: selected)
-        vc.onSubservicesChanged = { [weak self] updated in
-            guard let self = self else { return }
-            // update the in-memory model
-            self.services[indexPath.row].subservices = updated
-            // if you persist services to Supabase, call the update API here
-            Task {
-                do {
-                    // Example (adapt to your SupabaseManager API):
-                    // try await SupabaseManager.shared.updateServiceSubservices(serviceId: someId, subservices: updated)
-                    await self.fetchAllServices() // simple refresh
-                } catch {
-                    print("Error updating subservices:", error)
-                }
-            }
+
+        vc.onSubservicesChanged = { [weak self] updatedList in
+            self?.services[indexPath.row].subservices = updatedList
+            Task { await self?.fetchAllServices() }
         }
+
         navigationController?.pushViewController(vc, animated: true)
     }
-
 }
+

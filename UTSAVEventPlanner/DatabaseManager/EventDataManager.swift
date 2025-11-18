@@ -8,23 +8,7 @@
 import Foundation
 import Supabase
 
-// MARK: - Models
-
-struct PaymentRecord: Codable {
-    let id: String
-    let event_id: String
-    let amount: Double
-    let method: String
-    let received_on: String
-    let created_at: String
-}
-
-struct PaymentInsert: Codable {
-    let event_id: String
-    let amount: Double
-    let method: String
-    let received_on: String
-}
+// MARK: - Budget Models
 
 struct BudgetEntryRecord: Codable {
     let id: String
@@ -41,31 +25,13 @@ struct BudgetEntryInsert: Codable {
     let amount: Double
     let category: String?
 }
-
-struct InventoryItemRecord: Codable {
-    let id: String
-    let event_id: String
-    let name: String
-    let quantity: Int
-    let unit: String?
-    let used: Int
-    let created_at: String
-}
-
-struct InventoryInsert: Codable {
-    let event_id: String
-    let name: String
-    let quantity: Int
-    let unit: String?
-}
-
-
 // MARK: - Event Data Manager
 
 final class EventDataManager {
 
     static let shared = EventDataManager()
     private init() {}
+    var currentEventId: String?
 
     private var client: SupabaseClient {
         return SupabaseManager.shared.client
@@ -107,13 +73,20 @@ final class EventDataManager {
         return try JSONDecoder().decode([PaymentRecord].self, from: response.data)
     }
 
-    func addPayment(eventId: String, amount: Double, method: String, date: String) async throws -> PaymentRecord {
+    func addPayment(
+        eventId: String,
+        amount: Double,
+        method: String,
+        date: String,
+        payerType: String? = "client"
+    ) async throws -> PaymentRecord {
 
         let payload = PaymentInsert(
             event_id: eventId,
             amount: amount,
             method: method,
-            received_on: date
+            received_on: date,
+            payer_type: payerType ?? "client"
         )
 
         let response = try await client
@@ -157,39 +130,6 @@ final class EventDataManager {
             .execute()
 
         let inserted = try JSONDecoder().decode([BudgetEntryRecord].self, from: response.data)
-        return inserted.first!
-    }
-
-
-    // MARK: - 4. Inventory Items
-
-    func fetchInventory(eventId: String) async throws -> [InventoryItemRecord] {
-
-        let response = try await client
-            .from("inventory_items")
-            .select("*")
-            .eq("event_id", value: eventId)
-            .execute()
-
-        return try JSONDecoder().decode([InventoryItemRecord].self, from: response.data)
-    }
-
-    func addInventoryItem(eventId: String, name: String, quantity: Int, unit: String?) async throws -> InventoryItemRecord {
-
-        let payload = InventoryInsert(
-            event_id: eventId,
-            name: name,
-            quantity: quantity,
-            unit: unit
-        )
-
-        let response = try await client
-            .from("inventory_items")
-            .insert(payload)
-            .select("*")
-            .execute()
-
-        let inserted = try JSONDecoder().decode([InventoryItemRecord].self, from: response.data)
         return inserted.first!
     }
 }

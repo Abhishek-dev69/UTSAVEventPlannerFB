@@ -41,7 +41,11 @@ final class ServicePickerViewController: UIViewController, CartObserver {
 
         Task {
             _ = try? await SupabaseManager.shared.ensureUserId()
-            CartManager.shared.loadFromServer()
+
+            // 🔥 IMPORTANT FIX — LOAD CART BY CURRENT EVENT
+            let eventId = EventSession.shared.currentEventId
+            CartManager.shared.loadFromServer(eventId: eventId)
+
             await fetchServices()
         }
     }
@@ -88,7 +92,6 @@ final class ServicePickerViewController: UIViewController, CartObserver {
     }
 
     // MARK: - Outsource Form Setup
-    // MARK: - Outsource Form Setup
     private func setupOutsourceForm() {
 
         outsourceContainer.translatesAutoresizingMaskIntoConstraints = false
@@ -106,6 +109,7 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         let form = OutsourceFormView()
 
         form.onSubmit = { [weak self] item in
+
             CartManager.shared.addItem(
                 serviceId: nil,
                 serviceName: "Outsource",
@@ -117,7 +121,6 @@ final class ServicePickerViewController: UIViewController, CartObserver {
                 sourceType: "outsource"
             )
 
-            // Stay on same screen — do NOT navigate back
             self?.cartDidChange()
         }
 
@@ -132,6 +135,7 @@ final class ServicePickerViewController: UIViewController, CartObserver {
 
         outsourceForm = form
     }
+
     // MARK: - Bottom Cart
     private func setupBottomCart() {
         bottomCartView.translatesAutoresizingMaskIntoConstraints = false
@@ -187,7 +191,6 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         let isOutsource = segmented.selectedSegmentIndex == 1
 
         if isOutsource {
-            // show outsource form
             outsourceContainer.isHidden = false
             tableView.isHidden = false
 
@@ -199,7 +202,6 @@ final class ServicePickerViewController: UIViewController, CartObserver {
             }
 
         } else {
-            // show in-house table
             outsourceContainer.isHidden = false
             tableView.isHidden = false
 
@@ -249,7 +251,6 @@ extension ServicePickerViewController: UITableViewDataSource, UITableViewDelegat
     }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        // subservices (max 2) + "View All →"
         expanded[section] ? min(2, services[section].subservices.count) + 1 : 0
     }
 
@@ -307,7 +308,8 @@ extension ServicePickerViewController: UITableViewDataSource, UITableViewDelegat
             for: indexPath
         ) as! SubserviceInnerCell
 
-        guard let serviceId = svc.id else { return cell }   // safer
+        guard let serviceId = svc.id else { return cell }
+
         cell.configure(
             parentServiceId: serviceId,
             parentService: svc.name,

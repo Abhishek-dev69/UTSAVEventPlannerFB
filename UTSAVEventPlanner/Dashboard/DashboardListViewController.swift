@@ -149,6 +149,8 @@ final class DashboardListViewController: UIViewController {
     func tableView(_ t: UITableView, didSelectRowAt indexPath: IndexPath) {
         let selectedEvent = events[indexPath.row]
         let vc = EventOverviewViewController(event: selectedEvent)
+        
+        EventSession.shared.currentEventId = selectedEvent.id
 
         if let nav = self.navigationController {
             vc.hidesBottomBarWhenPushed = true
