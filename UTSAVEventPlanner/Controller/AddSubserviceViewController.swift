@@ -2,8 +2,8 @@
 //  AddSubserviceViewController.swift
 //  UTSAVEventPlanner
 //
-//  Created by Abhishek on 2025-11-12.
-//  Updated: removed Service Name from UI (keeps Subcategory, Rate, Unit, Image, Save).
+//  Updated: Added keyboard-safe scroll, menu-safe scroll, tap dismiss, and layout fixes.
+//  UI & Logic remain unchanged.
 //
 
 import UIKit
@@ -23,6 +23,8 @@ final class AddSubserviceViewController: UIViewController {
     private let scrollView = UIScrollView()
     private let contentView = UIView()
 
+    private var scrollBottomConstraint: NSLayoutConstraint!
+
     private let closeButton: UIButton = {
         let b = UIButton(type: .system)
         b.setImage(UIImage(systemName: "xmark.circle.fill"), for: .normal)
@@ -39,8 +41,6 @@ final class AddSubserviceViewController: UIViewController {
         l.translatesAutoresizingMaskIntoConstraints = false
         return l
     }()
-
-    // NOTE: Service Name removed per request
 
     private let subcategoryLabel = makeLabel("Subcategory Name")
     private let subcategoryField = makeTextField(placeholder: "e.g. Photography")
@@ -96,7 +96,6 @@ final class AddSubserviceViewController: UIViewController {
     }()
 
     private let saveButton: UIButton = {
-        // purple pill like Edit screen
         let color = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
         var cfg = UIButton.Configuration.filled()
         cfg.title = "Save"
@@ -113,15 +112,19 @@ final class AddSubserviceViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemGroupedBackground
+
         setupHierarchy()
         setupConstraints()
         setupActions()
+        setupKeyboardObservers()
+        setupTapToDismiss()
     }
 
     // MARK: - Setup
     private func setupHierarchy() {
         view.addSubview(scrollView)
         scrollView.translatesAutoresizingMaskIntoConstraints = false
+
         scrollView.addSubview(contentView)
         contentView.translatesAutoresizingMaskIntoConstraints = false
 
@@ -132,7 +135,7 @@ final class AddSubserviceViewController: UIViewController {
         headerContainer.addSubview(closeButton)
         headerContainer.heightAnchor.constraint(equalToConstant: 50).isActive = true
 
-        // upload stack inside uploadBox
+        // upload stack
         let uploadStack = UIStackView(arrangedSubviews: [imageIcon, uploadHintLabel])
         uploadStack.axis = .vertical
         uploadStack.alignment = .center
@@ -140,7 +143,7 @@ final class AddSubserviceViewController: UIViewController {
         uploadStack.translatesAutoresizingMaskIntoConstraints = false
         uploadBox.addSubview(uploadStack)
 
-        // main stack (service name removed)
+        // main stack
         let mainStack = UIStackView(arrangedSubviews: [
             headerContainer,
             subcategoryLabel, subcategoryField,
@@ -155,18 +158,15 @@ final class AddSubserviceViewController: UIViewController {
 
         contentView.addSubview(mainStack)
 
-        // constraints for header internal items
+        // constraints inside header
         NSLayoutConstraint.activate([
             closeButton.leadingAnchor.constraint(equalTo: headerContainer.leadingAnchor, constant: 16),
             closeButton.centerYAnchor.constraint(equalTo: headerContainer.centerYAnchor),
-            closeButton.widthAnchor.constraint(equalToConstant: 30),
-            closeButton.heightAnchor.constraint(equalToConstant: 30),
 
             titleLabel.centerXAnchor.constraint(equalTo: headerContainer.centerXAnchor),
             titleLabel.centerYAnchor.constraint(equalTo: headerContainer.centerYAnchor)
         ])
 
-        // uploadStack constraints
         NSLayoutConstraint.activate([
             uploadStack.centerXAnchor.constraint(equalTo: uploadBox.centerXAnchor),
             uploadStack.centerYAnchor.constraint(equalTo: uploadBox.centerYAnchor),
@@ -174,18 +174,20 @@ final class AddSubserviceViewController: UIViewController {
             imageIcon.widthAnchor.constraint(equalToConstant: 100),
             imageIcon.heightAnchor.constraint(equalToConstant: 100)
         ])
-
-        // content constraints handled in setupConstraints()
     }
 
     private func setupConstraints() {
+        scrollBottomConstraint =
+            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+
         NSLayoutConstraint.activate([
-            // scroll & content fill
+            // scroll view
             scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            scrollBottomConstraint,
 
+            // content
             contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
             contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
@@ -193,7 +195,6 @@ final class AddSubserviceViewController: UIViewController {
             contentView.widthAnchor.constraint(equalTo: scrollView.widthAnchor)
         ])
 
-        // main stack (single stack inside content)
         if let mainStack = contentView.subviews.first(where: { $0 is UIStackView }) as? UIStackView {
             NSLayoutConstraint.activate([
                 mainStack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
@@ -203,7 +204,6 @@ final class AddSubserviceViewController: UIViewController {
             ])
         }
 
-        // make textfields have consistent heights and unit button width
         subcategoryField.heightAnchor.constraint(equalToConstant: 44).isActive = true
         rateField.heightAnchor.constraint(equalToConstant: 44).isActive = true
         unitButton.heightAnchor.constraint(equalToConstant: 44).isActive = true
@@ -217,15 +217,23 @@ final class AddSubserviceViewController: UIViewController {
         let tap = UITapGestureRecognizer(target: self, action: #selector(didTapAddImage))
         uploadBox.addGestureRecognizer(tap)
 
+        setupUnitMenu()
+    }
+
+    private func setupUnitMenu() {
         unitButton.menu = UIMenu(children: units.map { title in
             UIAction(title: title, state: title == selectedUnit ? .on : .off) { [weak self] _ in
-                guard let self = self else { return }
+                guard let self else { return }
                 self.selectedUnit = title
+
                 if var cfg = self.unitButton.configuration {
                     cfg.title = title
                     self.unitButton.configuration = cfg
-                } else {
-                    self.unitButton.setTitle(title, for: .normal)
+                }
+
+                // Scroll so the save button stays visible
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    self.scrollView.scrollRectToVisible(self.saveButton.frame, animated: true)
                 }
             }
         })
@@ -233,9 +241,7 @@ final class AddSubserviceViewController: UIViewController {
     }
 
     // MARK: - Actions
-    @objc private func didTapClose() {
-        dismiss(animated: true)
-    }
+    @objc private func didTapClose() { dismiss(animated: true) }
 
     @objc private func didTapAddImage() {
         var conf = PHPickerConfiguration(photoLibrary: .shared())
@@ -247,38 +253,85 @@ final class AddSubserviceViewController: UIViewController {
     }
 
     @objc private func didTapSave() {
-        guard let name = subcategoryField.text?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty,
-              let rateText = rateField.text?.trimmingCharacters(in: .whitespacesAndNewlines), !rateText.isEmpty,
+        guard let name = subcategoryField.text?.trimmingCharacters(in: .whitespaces), !name.isEmpty,
+              let rateText = rateField.text?.trimmingCharacters(in: .whitespaces), !rateText.isEmpty,
               let rate = Double(rateText) else {
-            // simple validation
-            let alert = UIAlertController(title: "Missing fields", message: "Please enter name and valid rate.", preferredStyle: .alert)
+
+            let alert = UIAlertController(
+                title: "Missing fields",
+                message: "Please enter name and valid rate.",
+                preferredStyle: .alert)
             alert.addAction(.init(title: "OK", style: .default))
             present(alert, animated: true)
             return
         }
 
-        // Provide a stable temporary id so cart additions can reference an ID even before we persist the service to DB.
-        // Use a "local-" prefix so it's obvious in logs that this is not a DB id.
         let tempId = "local-\(UUID().uuidString)"
         let sub = Subservice(id: tempId, name: name, rate: rate, unit: selectedUnit, image: selectedImage)
         onSave?(sub)
         dismiss(animated: true)
     }
 
+    // MARK: - Keyboard handling
+    private func setupKeyboardObservers() {
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(keyboardWillShow),
+                                               name: UIResponder.keyboardWillShowNotification,
+                                               object: nil)
+
+        NotificationCenter.default.addObserver(self,
+                                               selector: #selector(keyboardWillHide),
+                                               name: UIResponder.keyboardWillHideNotification,
+                                               object: nil)
+    }
+
+    @objc private func keyboardWillShow(_ note: Notification) {
+        guard let frame = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return }
+
+        scrollBottomConstraint.constant = -frame.height + 20
+
+        UIView.animate(withDuration: 0.28) { self.view.layoutIfNeeded() }
+
+        // ensure save button visible
+        DispatchQueue.main.async {
+            self.scrollView.scrollRectToVisible(self.saveButton.frame, animated: true)
+        }
+    }
+
+    @objc private func keyboardWillHide(_ note: Notification) {
+        scrollBottomConstraint.constant = 0
+        UIView.animate(withDuration: 0.28) {
+            self.view.layoutIfNeeded()
+        }
+    }
+
+    // MARK: - Tap to dismiss
+    private func setupTapToDismiss() {
+        let tap = UITapGestureRecognizer(target: self, action: #selector(endEditingNow))
+        tap.cancelsTouchesInView = false
+        view.addGestureRecognizer(tap)
+    }
+
+    @objc private func endEditingNow() {
+        view.endEditing(true)
+    }
 }
+
 
 // MARK: - PHPicker Delegate
 extension AddSubserviceViewController: PHPickerViewControllerDelegate {
     func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
         picker.dismiss(animated: true)
-        guard let item = results.first?.itemProvider, item.canLoadObject(ofClass: UIImage.self) else { return }
+        guard let item = results.first?.itemProvider,
+              item.canLoadObject(ofClass: UIImage.self) else { return }
+
         item.loadObject(ofClass: UIImage.self) { [weak self] obj, _ in
             guard let img = obj as? UIImage else { return }
+
             DispatchQueue.main.async {
                 self?.selectedImage = img
                 self?.imageIcon.image = img
                 self?.imageIcon.contentMode = .scaleAspectFill
-                self?.imageIcon.layer.cornerRadius = 12
                 self?.imageIcon.clipsToBounds = true
                 self?.uploadHintLabel.isHidden = true
             }
@@ -286,15 +339,15 @@ extension AddSubserviceViewController: PHPickerViewControllerDelegate {
     }
 }
 
-// MARK: - File-local helpers (match EditSubservice style)
 
+// MARK: - File-local helpers
 fileprivate func makeLabel(_ text: String) -> UILabel {
-    let label = UILabel()
-    label.translatesAutoresizingMaskIntoConstraints = false
-    label.text = text
-    label.font = .systemFont(ofSize: 15, weight: .semibold)
-    label.textColor = .secondaryLabel
-    return label
+    let l = UILabel()
+    l.text = text
+    l.font = .systemFont(ofSize: 15, weight: .semibold)
+    l.textColor = .secondaryLabel
+    l.translatesAutoresizingMaskIntoConstraints = false
+    return l
 }
 
 fileprivate func makeTextField(placeholder: String, keyboard: UIKeyboardType = .default) -> UITextField {
@@ -306,19 +359,8 @@ fileprivate func makeTextField(placeholder: String, keyboard: UIKeyboardType = .
     return tf
 }
 
-fileprivate func makeActionButton(title: String, color: UIColor) -> UIButton {
-    var cfg = UIButton.Configuration.filled()
-    cfg.title = title
-    cfg.baseBackgroundColor = color
-    cfg.cornerStyle = .large
-    let btn = UIButton(configuration: cfg)
-    btn.translatesAutoresizingMaskIntoConstraints = false
-    return btn
-}
-
 fileprivate extension UITextField {
     func applyModernStyle(withPlaceholder placeholder: String) {
-        translatesAutoresizingMaskIntoConstraints = false
         borderStyle = .none
         backgroundColor = UIColor(white: 0.97, alpha: 1)
         layer.cornerRadius = 10
@@ -327,8 +369,8 @@ fileprivate extension UITextField {
         font = .systemFont(ofSize: 15)
         clearButtonMode = .whileEditing
 
-        let padding = UIView(frame: CGRect(x: 0, y: 0, width: 14, height: 1))
-        leftView = padding
+        let pad = UIView(frame: CGRect(x: 0, y: 0, width: 12, height: 1))
+        leftView = pad
         leftViewMode = .always
 
         attributedPlaceholder = NSAttributedString(

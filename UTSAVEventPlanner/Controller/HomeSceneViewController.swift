@@ -48,10 +48,8 @@ final class HomeSceneViewController: UIViewController {
 
     // Only CTA navigation — no dashboard logic here.
     @objc private func ctaTapped(_ sender: UIButton) {
-        let addVC = ServiceAddingViewController(
-            nibName: "ServiceAddingViewController",
-            bundle: .main
-        )
+        let addVC = ServiceAddingViewController()   // ← Correct
+
         addVC.originTabIndex = tabBarController?.selectedIndex ?? 0
         addVC.hidesBottomBarWhenPushed = true
 

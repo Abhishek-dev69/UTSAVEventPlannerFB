@@ -111,12 +111,15 @@ final class ServicesListViewController: UIViewController {
 
     // MARK: - Actions
     @objc private func addServiceTapped() {
-        let vc = ServiceAddingViewController(nibName: "ServiceAddingViewController", bundle: .main)
+        let vc = ServiceAddingViewController()
         vc.modalPresentationStyle = .pageSheet
 
+        vc.originTabIndex = tabBarController?.selectedIndex
+
         if let sheet = vc.sheetPresentationController {
-            sheet.detents = [.medium(), .large()]
+            sheet.detents = [.large()]
             sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 22
         }
 
         vc.onServiceSave = { [weak self] _ in
@@ -125,7 +128,6 @@ final class ServicesListViewController: UIViewController {
 
         present(vc, animated: true)
     }
-
     // MARK: - NEW: build main tab bar
     private func makeMainTabBar() -> UITabBarController {
         let tabBar = UITabBarController()
