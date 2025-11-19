@@ -55,7 +55,6 @@ final class EventCardCell: UITableViewCell {
         statusStack.alignment = .center
         statusStack.translatesAutoresizingMaskIntoConstraints = false
 
-        // Force status to left
         let statusContainer = UIView()
         statusContainer.translatesAutoresizingMaskIntoConstraints = false
         statusContainer.addSubview(statusStack)
@@ -76,7 +75,6 @@ final class EventCardCell: UITableViewCell {
         locationLabel.font = .systemFont(ofSize: 13)
         locationLabel.textColor = .tertiaryLabel
 
-        // Main stack
         let mainStack = UIStackView(arrangedSubviews: [
             statusContainer,
             titleLabel,
@@ -91,13 +89,11 @@ final class EventCardCell: UITableViewCell {
         container.addSubview(thumb)
 
         NSLayoutConstraint.activate([
-            // Thumbnail
             thumb.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -14),
             thumb.centerYAnchor.constraint(equalTo: container.centerYAnchor),
             thumb.widthAnchor.constraint(equalToConstant: 86),
-            thumb.heightAnchor.constraint(equalToConstant:60),
+            thumb.heightAnchor.constraint(equalToConstant: 60),
 
-            // Main Stack
             mainStack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 14),
             mainStack.trailingAnchor.constraint(equalTo: thumb.leadingAnchor, constant: -14),
             mainStack.topAnchor.constraint(equalTo: container.topAnchor, constant: 14),
@@ -105,18 +101,26 @@ final class EventCardCell: UITableViewCell {
         ])
     }
 
+    // MARK: - Configure
     func configure(with record: EventRecord) {
 
         titleLabel.text = record.eventName
-        dateLabel.text = formatDate(record.startDate)   // FIXED FORMAT
+        dateLabel.text = formatDate(record.startDate)
         locationLabel.text = record.location
 
         // Status
         statusLabel.text = "Upcoming"
         statusDot.backgroundColor = UIColor.systemBlue
 
-        // Placeholder thumb
-        thumb.image = UIImage(named: "placeholder")
+        // 🔥 Load event type image from metadata
+        // Load event type image
+        if let metadata = record.metadata,
+           let imgName = metadata["eventTypeImage"],
+           let img = UIImage(named: imgName) {
+            thumb.image = img
+        } else {
+            thumb.image = UIImage(named: "placeholder")
+        }
     }
 
     // MARK: - Date Formatter
@@ -126,7 +130,7 @@ final class EventCardCell: UITableViewCell {
 
         if let date = inputFormatter.date(from: input) {
             let outputFormatter = DateFormatter()
-            outputFormatter.dateFormat = "dd-MM-yyyy"   // required format
+            outputFormatter.dateFormat = "dd-MM-yyyy"
             return outputFormatter.string(from: date)
         }
 

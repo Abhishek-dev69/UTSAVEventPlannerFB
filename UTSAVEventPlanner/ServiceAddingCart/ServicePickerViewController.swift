@@ -181,10 +181,10 @@ final class ServicePickerViewController: UIViewController, CartObserver {
 
     @objc private func openCart() {
         let vc = EstimateCartViewController()
-        vc.modalPresentationStyle = .fullScreen
-        present(vc, animated: true)
+        let nav = UINavigationController(rootViewController: vc)
+        nav.modalPresentationStyle = .fullScreen
+        present(nav, animated: true)
     }
-    
     
     // MARK: - Segmented Control
     @objc private func segmentChanged() {

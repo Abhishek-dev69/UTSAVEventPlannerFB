@@ -14,9 +14,7 @@ struct OutsourceItem {
 
 final class OutsourceFormView: UIView {
 
-    // MARK: - Callback instead of delegate
-    /// Called when user taps Add. The owner (presenting VC) decides what to do:
-    /// add to CartManager, persist to Supabase, etc.
+    // MARK: - Callback
     var onSubmit: ((OutsourceItem) -> Void)?
 
     // MARK: - UI
@@ -40,12 +38,11 @@ final class OutsourceFormView: UIView {
     override init(frame: CGRect) {
         super.init(frame: frame)
         setupUI()
-        setupAccessibility()
+        setupKeyboardDismissal()
     }
-
     required init?(coder: NSCoder) { fatalError() }
 
-    // MARK: - Setup UI
+    // MARK: - UI Setup
     private func setupUI() {
         backgroundColor = .clear
 
@@ -58,6 +55,7 @@ final class OutsourceFormView: UIView {
         card.layer.shadowOffset = CGSize(width: 0, height: 4)
         addSubview(card)
 
+        // Name
         nameLabel.text = "Service/Material Name"
         nameLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -70,6 +68,7 @@ final class OutsourceFormView: UIView {
         nameField.setLeftPaddingPoints(12)
         nameField.translatesAutoresizingMaskIntoConstraints = false
 
+        // Description
         descLabel.text = "Detailed Description of Requirement"
         descLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         descLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -82,6 +81,7 @@ final class OutsourceFormView: UIView {
         descText.translatesAutoresizingMaskIntoConstraints = false
         descText.isScrollEnabled = false
 
+        // Vendor
         vendorLabel.text = "Vendor Preferences (Optional)"
         vendorLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         vendorLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -94,6 +94,7 @@ final class OutsourceFormView: UIView {
         vendorField.setLeftPaddingPoints(12)
         vendorField.translatesAutoresizingMaskIntoConstraints = false
 
+        // Budget
         budgetLabel.text = "Estimated Budget (₹)"
         budgetLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         budgetLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -107,6 +108,7 @@ final class OutsourceFormView: UIView {
         budgetField.setLeftPaddingPoints(12)
         budgetField.translatesAutoresizingMaskIntoConstraints = false
 
+        // Add Button
         addButton.setTitle("Add", for: .normal)
         addButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
         addButton.backgroundColor = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
@@ -115,12 +117,14 @@ final class OutsourceFormView: UIView {
         addButton.translatesAutoresizingMaskIntoConstraints = false
         addButton.addTarget(self, action: #selector(addTapped), for: .touchUpInside)
 
+        // Add subviews
         [nameLabel, nameField,
          descLabel, descText,
          vendorLabel, vendorField,
          budgetLabel, budgetField,
          addButton].forEach { card.addSubview($0) }
 
+        // Layout
         NSLayoutConstraint.activate([
             card.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             card.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
@@ -169,18 +173,47 @@ final class OutsourceFormView: UIView {
             addButton.heightAnchor.constraint(equalToConstant: 44),
             addButton.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -18)
         ])
+
+        // Add "Done" toolbars
+        addDoneToolbar(to: nameField)
+        addDoneToolbar(to: vendorField)
+        addDoneToolbar(to: budgetField)
+        descText.inputAccessoryView = createDoneToolbar()
     }
 
-    private func setupAccessibility() {
-        nameField.accessibilityIdentifier = "outs_name"
-        descText.accessibilityIdentifier = "outs_desc"
-        vendorField.accessibilityIdentifier = "outs_vendor"
-        budgetField.accessibilityIdentifier = "outs_budget"
+    // MARK: - Keyboard Dismiss System
+    private func setupKeyboardDismissal() {
+        let tap = UITapGestureRecognizer(target: self, action: #selector(endEditingForce))
+        tap.cancelsTouchesInView = false
+        addGestureRecognizer(tap)
     }
 
-    // MARK: - ADD OUTSOURCE HANDLER
+    @objc private func endEditingForce() {
+        endEditing(true)
+    }
+
+    // Done toolbar for textfields
+    private func addDoneToolbar(to textField: UITextField) {
+        let toolbar = UIToolbar()
+        toolbar.sizeToFit()
+        let flex = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
+        let done = UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(endEditingForce))
+        toolbar.items = [flex, done]
+        textField.inputAccessoryView = toolbar
+    }
+
+    private func createDoneToolbar() -> UIToolbar {
+        let tb = UIToolbar()
+        tb.sizeToFit()
+        tb.items = [
+            UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
+            UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(endEditingForce))
+        ]
+        return tb
+    }
+
+    // MARK: - Submit
     @objc private func addTapped() {
-
         let name = nameField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let details = descText.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let vendor = vendorField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -197,7 +230,6 @@ final class OutsourceFormView: UIView {
             return
         }
 
-        // Prepare outsource item model
         let item = OutsourceItem(
             name: name,
             details: details,
@@ -205,9 +237,9 @@ final class OutsourceFormView: UIView {
             estimatedBudget: budget
         )
 
-        // Send item to parent VC
         onSubmit?(item)
     }
+
     private func showValidationError(_ msg: String) {
         if let vc = findViewController() {
             let a = UIAlertController(title: "Missing info", message: msg, preferredStyle: .alert)

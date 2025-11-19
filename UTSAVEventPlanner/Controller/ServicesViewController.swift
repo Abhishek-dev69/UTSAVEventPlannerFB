@@ -28,5 +28,32 @@ final class ServicesViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
+        setupTapHandlers()
+    }
+
+    // MARK: - Tap Gesture Setup
+    private func setupTapHandlers() {
+
+        // ⭐ My Services Portfolio → Should open ServicesListViewController
+        let myServicesTap = UITapGestureRecognizer(target: self, action: #selector(openMyServices))
+        myServicesCard.isUserInteractionEnabled = true
+        myServicesCard.addGestureRecognizer(myServicesTap)
+
+        // (Optional: vendor taps, if needed later)
+    }
+
+    // MARK: - Open My Services -> ServicesListViewController
+    @objc private func openMyServices() {
+        let vc = ServicesListViewController()
+        vc.hidesBottomBarWhenPushed = true
+        
+        if let nav = navigationController {
+            nav.pushViewController(vc, animated: true)
+        } else {
+            let nav = UINavigationController(rootViewController: vc)
+            nav.modalPresentationStyle = .fullScreen
+            present(nav, animated: true)
+        }
     }
 }
+

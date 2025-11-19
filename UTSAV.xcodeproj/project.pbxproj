@@ -222,7 +222,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 3896CFDE2EBFA70E0099FE70 /* Build configuration list for PBXProject "UTSAVEventPlanner" */;
+			buildConfigurationList = 3896CFDE2EBFA70E0099FE70 /* Build configuration list for PBXProject "UTSAV" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -577,7 +577,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		3896CFDE2EBFA70E0099FE70 /* Build configuration list for PBXProject "UTSAVEventPlanner" */ = {
+		3896CFDE2EBFA70E0099FE70 /* Build configuration list for PBXProject "UTSAV" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3896D00F2EBFA70F0099FE70 /* Debug */,

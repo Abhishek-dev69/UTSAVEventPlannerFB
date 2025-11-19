@@ -1,14 +1,6 @@
-//
-//  SceneDelegate.swift
-//  UTSAVEventPlanner
-//
-//  Created by Prince Rana on 08/11/25.
-//
-
 import UIKit
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
-
 
     var window: UIWindow?
 
@@ -16,12 +8,30 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                willConnectTo session: UISceneSession,
                options connectionOptions: UIScene.ConnectionOptions) {
 
-        // ✅ IMPORTANT:
-        // Do NOT create a window here.
-        // Do NOT set rootViewController.
-        // The storyboard (Main.storyboard) will handle all of this.
+        guard let windowScene = (scene as? UIWindowScene) else { return }
 
-        guard (scene as? UIWindowScene) != nil else { return }
+        window = UIWindow(windowScene: windowScene)
+
+        let hasEvent = UserDefaults.standard.bool(forKey: "hasActiveEvent")
+
+        if hasEvent {
+            // 👉 User already created an event → directly open DashboardListViewController
+
+            let dashboardVC = DashboardListViewController()
+            let nav = UINavigationController(rootViewController: dashboardVC)
+
+            let tab = UITabBarController()
+            tab.viewControllers = [nav]
+
+            window?.rootViewController = tab
+        } else {
+            // 👉 First time → load Main.storyboard entry (HomeScene)
+            let storyboard = UIStoryboard(name: "Main", bundle: nil)
+            let rootVC = storyboard.instantiateInitialViewController()!
+            window?.rootViewController = rootVC
+        }
+
+        window?.makeKeyAndVisible()
     }
 
     func sceneDidDisconnect(_ scene: UIScene) { }
@@ -30,3 +40,4 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func sceneWillEnterForeground(_ scene: UIScene) { }
     func sceneDidEnterBackground(_ scene: UIScene) { }
 }
+

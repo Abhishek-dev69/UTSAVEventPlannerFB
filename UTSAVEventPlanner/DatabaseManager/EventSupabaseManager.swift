@@ -60,7 +60,12 @@ final class EventSupabaseManager {
     }
     
     // MARK: - INSERT EVENT
-    func insertEvent(details: EventDetails) async throws -> EventRecord {
+    /// Insert an event.
+    /// - Parameters:
+    ///   - details: EventDetails (your existing struct that holds event fields)
+    ///   - metadata: optional metadata dictionary (use this to pass eventTypeImage / eventTypeTitle etc)
+    /// - Returns: inserted EventRecord
+    func insertEvent(details: EventDetails, metadata: [String: String]? = nil) async throws -> EventRecord {
         
         let uid = try await ensureUserId()
         
@@ -68,7 +73,7 @@ final class EventSupabaseManager {
         let start = isoDate(details.startDate)
         let end = isoDate(details.endDate)
         
-        // Build object for Supabase
+        // Build object for Supabase. If caller provided metadata use it, otherwise insert empty dictionary.
         let insertObject = EventInsert(
             user_id: uid,
             event_name: details.eventName,
@@ -78,7 +83,7 @@ final class EventSupabaseManager {
             budget_in_paise: Int64(details.budgetInPaise),
             start_date: start,
             end_date: end,
-            metadata: [:]
+            metadata: metadata ?? [:]
         )
         
         // Insert into Supabase
@@ -96,7 +101,9 @@ final class EventSupabaseManager {
         
         let record = try decoder.decode(EventRecord.self, from: data)
         
-        print("Inserted Event →", String(data: data, encoding: .utf8) ?? "<json>")
+        if let raw = String(data: data, encoding: .utf8) {
+            print("Inserted Event →", raw)
+        }
         
         return record
     }
