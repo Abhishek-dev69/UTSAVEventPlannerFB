@@ -9,6 +9,10 @@ struct EventTypeItem {
 // MARK: - Controller
 final class EventTypeViewController: UIViewController {
 
+    // MARK: - New: Store Selected Event Type
+    private var selectedEventType: EventTypeItem?
+    private var selectedIndexPath: IndexPath?
+
     // Header: close button on the left
     private let closeButton: UIButton = {
         var config = UIButton.Configuration.plain()
@@ -23,16 +27,15 @@ final class EventTypeViewController: UIViewController {
         return b
     }()
 
-    // Centered title, larger and bold
+    // Centered title
     private let titleLabel: UILabel = {
         let l = UILabel()
         l.translatesAutoresizingMaskIntoConstraints = false
         l.text = "Select Your Client Event Type"
-        l.font = .systemFont(ofSize: 18, weight: .bold) // increased + bold
+        l.font = .systemFont(ofSize: 18, weight: .bold)
         l.textColor = .label
         l.textAlignment = .center
         l.numberOfLines = 0
-        // Allow the label to compress if needed, but prefer center
         l.setContentCompressionResistancePriority(.defaultHigh, for: .vertical)
         l.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         return l
@@ -85,8 +88,6 @@ final class EventTypeViewController: UIViewController {
         .init(title: "Holiday Party",    imageName: "event_holiday")
     ]
 
-    private var selectedIndexPath: IndexPath?
-
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
@@ -96,23 +97,17 @@ final class EventTypeViewController: UIViewController {
         nextButton.addTarget(self, action: #selector(nextTapped), for: .touchUpInside)
     }
 
-    // Hide nav bar while this VC is visible to remove the top white/nav area
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        if navigationController != nil {
-            navigationController?.setNavigationBarHidden(true, animated: false)
-        }
+        navigationController?.setNavigationBarHidden(true, animated: false)
     }
 
-    // Restore nav bar when leaving the screen
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        if navigationController != nil {
-            navigationController?.setNavigationBarHidden(false, animated: false)
-        }
+        navigationController?.setNavigationBarHidden(false, animated: false)
     }
 
-    // COMPACT buildLayout (reduced top spacing and centered header)
+    // MARK: - Layout
     private func buildLayout() {
         let header = UIView()
         header.translatesAutoresizingMaskIntoConstraints = false
@@ -124,107 +119,69 @@ final class EventTypeViewController: UIViewController {
         view.addSubview(nextButton)
 
         NSLayoutConstraint.activate([
-            // header sits close to safe area (notch)
             header.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 6),
             header.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
             header.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
 
-            // close button left
             closeButton.leadingAnchor.constraint(equalTo: header.leadingAnchor),
             closeButton.topAnchor.constraint(equalTo: header.topAnchor),
             closeButton.widthAnchor.constraint(equalToConstant: 36),
             closeButton.heightAnchor.constraint(equalToConstant: 36),
 
-            // center title horizontally inside header
             titleLabel.centerXAnchor.constraint(equalTo: header.centerXAnchor),
             titleLabel.centerYAnchor.constraint(equalTo: closeButton.centerYAnchor),
+            titleLabel.widthAnchor.constraint(lessThanOrEqualTo: header.widthAnchor, constant: -88),
 
-            // make sure the title doesn't grow so large that it overlaps the close button:
-            // header.width - leftPadding(12) - closeButtonWidth(36) - safety(16) => enforce max width
-            titleLabel.widthAnchor.constraint(lessThanOrEqualTo: header.widthAnchor, multiplier: 1.0, constant: -88),
-
-            // minimal header height
             header.bottomAnchor.constraint(equalTo: closeButton.bottomAnchor),
 
-            // collection below header (tight spacing)
             collectionView.topAnchor.constraint(equalTo: header.bottomAnchor, constant: 8),
             collectionView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
             collectionView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
             collectionView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
 
-            // next button
             nextButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             nextButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -24)
         ])
-
-        // ensure flow layout uses same insets
-        if let flow = collectionView.collectionViewLayout as? UICollectionViewFlowLayout {
-            flow.sectionInset = UIEdgeInsets(top: 0, left: 0, bottom: 12, right: 0)
-        }
     }
 
     private func showNextButton() {
-        if nextButton.isHidden {
-            nextButton.isHidden = false
-            nextButton.alpha = 0
-        }
+        nextButton.isHidden = false
         UIView.animate(withDuration: 0.22) {
             self.nextButton.alpha = 1
         }
     }
 
     private func hideNextButton() {
-        UIView.animate(withDuration: 0.18, animations: {
+        UIView.animate(withDuration: 0.18) {
             self.nextButton.alpha = 0
-        }, completion: { _ in
+        } completion: { _ in
             self.nextButton.isHidden = true
-        })
+        }
     }
 
     @objc private func closeTapped() {
-        // If embedded in a navigation controller:
         if let nav = navigationController {
-            // If this VC is NOT the first controller in the nav stack — just pop
-            if nav.viewControllers.first !== self {
-                nav.popViewController(animated: true)
-                return
-            }
-
-            // If this VC is the first in nav and the nav was presented modally, dismiss the nav
-            if presentingViewController != nil {
-                nav.dismiss(animated: true, completion: nil)
-                return
-            }
+            if nav.viewControllers.first !== self { nav.popViewController(animated: true); return }
+            if presentingViewController != nil { nav.dismiss(animated: true); return }
         }
-
-        // Otherwise if presented modally, dismiss
-        if presentingViewController != nil {
-            dismiss(animated: true, completion: nil)
-            return
-        }
-
-        // Fallback: try dismissing the root
-        view.window?.rootViewController?.dismiss(animated: true, completion: nil)
+        if presentingViewController != nil { dismiss(animated: true); return }
+        view.window?.rootViewController?.dismiss(animated: true)
     }
 
-    // NEXT → EventDetailsViewController (push if nav exists, else present wrapped in nav)
+    // MARK: - Next Button Pressed
     @objc private func nextTapped() {
-        guard let ip = selectedIndexPath else { return }
-        _ = items[ip.item] // chosen if you need it
+        guard let selectedEventType else { return }
 
         let vc = EventDetailsViewController()
+        vc.selectedEventType = selectedEventType   // ← PASS THE EVENT TYPE
 
-        // Preferred: push onto current navigation controller (if present)
         if let nav = navigationController {
             nav.pushViewController(vc, animated: true)
-            return
+        } else {
+            let nav = UINavigationController(rootViewController: vc)
+            nav.modalPresentationStyle = .fullScreen
+            present(nav, animated: true)
         }
-
-        // Fallback: present EventDetails wrapped in a nav controller so it shows a nav bar
-        let nav = UINavigationController(rootViewController: vc)
-        nav.modalPresentationStyle = .fullScreen
-        nav.navigationBar.prefersLargeTitles = false
-        present(nav, animated: true)
     }
 }
 
@@ -263,13 +220,11 @@ extension EventTypeViewController: UICollectionViewDataSource, UICollectionViewD
 
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
 
-        // Toggle if same item is tapped again
+        // Deselect if tapped again
         if selectedIndexPath == indexPath {
             selectedIndexPath = nil
+            selectedEventType = nil
             hideNextButton()
-            if let cell = collectionView.cellForItem(at: indexPath) as? EventTypeCell {
-                cell.setSelected(false, animated: true)
-            }
             return
         }
 
@@ -282,11 +237,12 @@ extension EventTypeViewController: UICollectionViewDataSource, UICollectionViewD
 
         // Select new
         selectedIndexPath = indexPath
+        selectedEventType = items[indexPath.item]   // ← STORE EVENT TYPE
+        showNextButton()
+
         if let cell = collectionView.cellForItem(at: indexPath) as? EventTypeCell {
             cell.setSelected(true, animated: true)
         }
-
-        showNextButton()
     }
 }
 
@@ -298,8 +254,6 @@ final class EventTypeCell: UICollectionViewCell {
     private let container = UIView()
     private let imageView = UIImageView()
     private let gradientLayer = CAGradientLayer()
-
-    // small black rounded background behind the title
     private let textBackground: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
@@ -311,7 +265,6 @@ final class EventTypeCell: UICollectionViewCell {
 
     private let titleLabel = UILabel()
     private let selectionBorder = CAShapeLayer()
-
     private let heartBadge: UIImageView = {
         let iv = UIImageView(image: UIImage(systemName: "heart.fill"))
         iv.translatesAutoresizingMaskIntoConstraints = false
@@ -347,7 +300,6 @@ final class EventTypeCell: UICollectionViewCell {
         gradientLayer.locations = [0.4, 0.8, 1.0]
         imageView.layer.addSublayer(gradientLayer)
 
-        // add text background and title
         container.addSubview(textBackground)
 
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -375,12 +327,10 @@ final class EventTypeCell: UICollectionViewCell {
             imageView.topAnchor.constraint(equalTo: container.topAnchor),
             imageView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
 
-            // text background
             textBackground.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
             textBackground.trailingAnchor.constraint(lessThanOrEqualTo: container.trailingAnchor, constant: -12),
             textBackground.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -12),
 
-            // title inside the pill
             titleLabel.leadingAnchor.constraint(equalTo: textBackground.leadingAnchor, constant: 8),
             titleLabel.trailingAnchor.constraint(equalTo: textBackground.trailingAnchor, constant: -8),
             titleLabel.topAnchor.constraint(equalTo: textBackground.topAnchor, constant: 6),
@@ -411,3 +361,4 @@ final class EventTypeCell: UICollectionViewCell {
         heartBadge.isHidden = !selected
     }
 }
+

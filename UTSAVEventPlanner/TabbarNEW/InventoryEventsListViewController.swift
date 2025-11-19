@@ -29,7 +29,10 @@ final class InventoryEventsListViewController: UIViewController {
 
     private func setupTable() {
         tableView.translatesAutoresizingMaskIntoConstraints = false
-        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "eventCell")
+        
+        // 🔥 Use card UI instead of default cell
+        tableView.register(EventPaymentCardCell.self, forCellReuseIdentifier: "EventPaymentCardCell")
+
         tableView.separatorStyle = .none
         tableView.rowHeight = 82
         tableView.dataSource = self
@@ -53,23 +56,22 @@ extension InventoryEventsListViewController: UITableViewDataSource, UITableViewD
     }
 
     func tableView(_ t: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let event = events[indexPath.row]
-        let cell = t.dequeueReusableCell(withIdentifier: "eventCell", for: indexPath)
 
-        cell.textLabel?.text = event.eventName
-        cell.textLabel?.font = .systemFont(ofSize: 17, weight: .medium)
-        cell.accessoryType = .disclosureIndicator
+        let cell = t.dequeueReusableCell(
+            withIdentifier: "EventPaymentCardCell",
+            for: indexPath
+        ) as! EventPaymentCardCell
 
+        cell.configure(with: events[indexPath.row])
         return cell
     }
 
     func tableView(_ t: UITableView, didSelectRowAt indexPath: IndexPath) {
         let event = events[indexPath.row]
 
-        let vc = InventoryOverviewViewController(event: event)   // FIXED HERE
+        let vc = InventoryOverviewViewController(event: event)
         vc.hidesBottomBarWhenPushed = true
 
         navigationController?.pushViewController(vc, animated: true)
     }
 }
-

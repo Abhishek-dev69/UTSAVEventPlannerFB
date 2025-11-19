@@ -14,15 +14,13 @@ struct EventDetails {
 
 final class EventDetailsViewController: UIViewController {
 
-    // --- Convenience factory: returns a UINavigationController with this VC as the root.
-    // Use this when you want to present the screen modally but still show a nav bar.
-    // Example:
-    //    let nav = EventDetailsViewController.wrappedInNavigation()
-    //    present(nav, animated: true)
+    // MARK: - NEW: event type selected from previous screen
+    var selectedEventType: EventTypeItem?
+
+    // Convenience wrapper
     static func wrappedInNavigation() -> UINavigationController {
         let vc = EventDetailsViewController()
         let nav = UINavigationController(rootViewController: vc)
-        // ensure standard appearance (match ConfirmationViewController behavior)
         nav.navigationBar.prefersLargeTitles = false
         nav.setNavigationBarHidden(false, animated: false)
         nav.modalPresentationStyle = .fullScreen
@@ -53,7 +51,6 @@ final class EventDetailsViewController: UIViewController {
         return b
     }()
 
-    // Fields (uses your RoundedTextField)
     private let eventName = RoundedTextField(placeholder: "Enter The Event Name")
     private let clientName = RoundedTextField(placeholder: "Enter the Client Name")
 
@@ -87,7 +84,6 @@ final class EventDetailsViewController: UIViewController {
         return tf
     }()
 
-    // Date pickers
     private let startPicker: UIDatePicker = {
         let p = UIDatePicker()
         p.datePickerMode = .date
@@ -103,12 +99,12 @@ final class EventDetailsViewController: UIViewController {
         return p
     }()
 
-    // Formatters
     private let dateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateStyle = .medium
         return f
     }()
+
     let indianFormatter: NumberFormatter = {
         let f = NumberFormatter()
         f.numberStyle = .currency
@@ -124,11 +120,9 @@ final class EventDetailsViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
 
-        // Title shown in nav-bar
         navigationItem.title = "Event Details"
         navigationItem.largeTitleDisplayMode = .never
 
-        // Left/back button which dismisses or pops depending on presentation
         let backItem = UIBarButtonItem(image: UIImage(systemName: "chevron.left"),
                                        style: .plain,
                                        target: self,
@@ -145,7 +139,6 @@ final class EventDetailsViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        // If hosted inside a navigation controller, ensure nav bar is visible
         navigationController?.setNavigationBarHidden(false, animated: false)
         navigationController?.navigationBar.prefersLargeTitles = false
     }
@@ -204,12 +197,14 @@ final class EventDetailsViewController: UIViewController {
         l.textColor = UIColor(white: 0.15, alpha: 1)
         return l
     }
+
     private func labeled(_ title: String, _ field: UIView) -> UIStackView {
         let s = UIStackView(arrangedSubviews: [sectionLabel(title), field])
         s.axis = .vertical
         s.spacing = 8
         return s
     }
+
     private func hStack() -> UIStackView {
         let s = UIStackView()
         s.axis = .horizontal
@@ -221,24 +216,26 @@ final class EventDetailsViewController: UIViewController {
     // MARK: Date pickers
     private func setupDatePickers() {
         startDateField.inputView = startPicker
-        endDateField.inputView   = endPicker
+        endDateField.inputView = endPicker
 
         startPicker.addTarget(self, action: #selector(startDateChanged), for: .valueChanged)
-        endPicker.addTarget(self,   action: #selector(endDateChanged),   for: .valueChanged)
+        endPicker.addTarget(self, action: #selector(endDateChanged), for: .valueChanged)
 
         startDateField.inputAccessoryView = toolbar(done: #selector(doneStart), cancel: #selector(cancelPicker))
-        endDateField.inputAccessoryView   = toolbar(done: #selector(doneEnd),   cancel: #selector(cancelPicker))
+        endDateField.inputAccessoryView = toolbar(done: #selector(doneEnd), cancel: #selector(cancelPicker))
     }
+
     private func toolbar(done: Selector, cancel: Selector) -> UIToolbar {
         let tb = UIToolbar()
         tb.items = [
             UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: cancel),
             UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
-            UIBarButtonItem(barButtonSystemItem: .done,   target: self, action: done)
+            UIBarButtonItem(barButtonSystemItem: .done, target: self, action: done)
         ]
         tb.sizeToFit()
         return tb
     }
+
     @objc private func startDateChanged() {
         let d = startPicker.date
         endPicker.minimumDate = d
@@ -248,19 +245,32 @@ final class EventDetailsViewController: UIViewController {
             endDateChanged()
         }
     }
+
     @objc private func endDateChanged() {
         let d = max(endPicker.date, startPicker.date)
         endPicker.date = d
         endDateField.text = dateFormatter.string(from: d)
     }
-    @objc private func doneStart() { startDateChanged(); startDateField.resignFirstResponder() }
-    @objc private func doneEnd()   { endDateChanged();   endDateField.resignFirstResponder() }
-    @objc private func cancelPicker() { view.endEditing(true) }
+
+    @objc private func doneStart() {
+        startDateChanged()
+        startDateField.resignFirstResponder()
+    }
+
+    @objc private func doneEnd() {
+        endDateChanged()
+        endDateField.resignFirstResponder()
+    }
+
+    @objc private func cancelPicker() {
+        view.endEditing(true)
+    }
 
     // MARK: Budget formatting
     private func setupBudgetFormatting() {
         budgetField.addTarget(self, action: #selector(formatBudget), for: .editingChanged)
     }
+
     @objc private func formatBudget() {
         let digits = budgetField.text?.filter(\.isNumber) ?? ""
         guard let n = Int(digits) else { budgetField.text = nil; return }
@@ -277,18 +287,21 @@ final class EventDetailsViewController: UIViewController {
         tap.cancelsTouchesInView = false
         view.addGestureRecognizer(tap)
     }
+
     @objc private func kbChanged(_ n: Notification) {
         guard
             let ui = n.userInfo,
             let frame = ui[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
             let dur = ui[UIResponder.keyboardAnimationDurationUserInfoKey] as? TimeInterval
         else { return }
+
         let bottom = max(0, view.convert(frame, from: nil).intersection(view.bounds).height)
         UIView.animate(withDuration: dur) {
             self.scrollView.contentInset.bottom = bottom + 12 + 56
             self.scrollView.verticalScrollIndicatorInsets.bottom = bottom
         }
     }
+
     @objc private func kbHidden(_ n: Notification) {
         let dur = (n.userInfo?[UIResponder.keyboardAnimationDurationUserInfoKey] as? TimeInterval) ?? 0.25
         UIView.animate(withDuration: dur) {
@@ -296,7 +309,10 @@ final class EventDetailsViewController: UIViewController {
             self.scrollView.verticalScrollIndicatorInsets.bottom = 0
         }
     }
-    @objc private func endEditingNow() { view.endEditing(true) }
+
+    @objc private func endEditingNow() {
+        view.endEditing(true)
+    }
 
     // MARK: Icon taps
     private func hookRightIconTaps() {
@@ -305,34 +321,37 @@ final class EventDetailsViewController: UIViewController {
         locationField.onRightIconTap(target: self, action: #selector(openLocationSearch))
 
         startDateField.addTarget(self, action: #selector(focusStartDate), for: .editingDidBegin)
-        endDateField.addTarget(self,   action: #selector(focusEndDate),   for: .editingDidBegin)
+        endDateField.addTarget(self, action: #selector(focusEndDate), for: .editingDidBegin)
     }
-    @objc private func focusStartDate() { startDateField.becomeFirstResponder() }
-    @objc private func focusEndDate()   { endDateField.becomeFirstResponder() }
+
+    @objc private func focusStartDate() {
+        startDateField.becomeFirstResponder()
+    }
+
+    @objc private func focusEndDate() {
+        endDateField.becomeFirstResponder()
+    }
 
     @objc private func openLocationSearch() {
         let vc = LocationSearchViewController()
         vc.onSelect = { [weak self] sel in
             self?.locationField.text = sel.displayName
         }
-        // If you want search to have nav controls, wrap it in a UINavigationController:
         let nav = UINavigationController(rootViewController: vc)
         nav.modalPresentationStyle = .fullScreen
-        vc.navigationItem.leftBarButtonItem = UIBarButtonItem(
-            image: UIImage(systemName: "xmark"),
-            style: .plain,
-            target: self,
-            action: #selector(dismissPresented)
-        )
+        vc.navigationItem.leftBarButtonItem = UIBarButtonItem(image: UIImage(systemName: "xmark"),
+                                                              style: .plain,
+                                                              target: self,
+                                                              action: #selector(dismissPresented))
         present(nav, animated: true)
     }
 
-    // MARK: Build + push
+    // MARK: Form Reader
     private func parseINR(_ text: String?) -> Int? {
         guard let t = text, !t.isEmpty else { return nil }
         let digits = t.filter(\.isNumber)
         guard let rupees = Int(digits) else { return nil }
-        return rupees * 100 // store as paise
+        return rupees * 100 // paise
     }
 
     private func readForm() throws -> EventDetails {
@@ -376,29 +395,27 @@ final class EventDetailsViewController: UIViewController {
                             endDate: eDate)
     }
 
-    // MARK: Actions
+    // MARK: Back button
     @objc private func didTapBack() {
-        // If presented modally (and this is the first controller in a nav stack), dismiss.
-        if presentingViewController != nil && (navigationController == nil || navigationController?.viewControllers.first === self) {
+        if presentingViewController != nil &&
+            (navigationController == nil || navigationController?.viewControllers.first === self) {
             dismiss(animated: true)
             return
         }
 
-        // Otherwise, if inside a navigation stack, pop.
         if let nav = navigationController, nav.viewControllers.count > 1 {
             nav.popViewController(animated: true)
             return
         }
 
-        // fallback: if nothing else, attempt to dismiss the root
-        view.window?.rootViewController?.dismiss(animated: true, completion: nil)
+        view.window?.rootViewController?.dismiss(animated: true)
     }
 
+    // MARK: Continue Button → INSERT EVENT
     @objc private func didTapContinue() {
         do {
             let details = try readForm()
 
-            // show a small loading HUD (simple)
             let hud = UIActivityIndicatorView(style: .large)
             hud.translatesAutoresizingMaskIntoConstraints = false
             hud.startAnimating()
@@ -410,27 +427,36 @@ final class EventDetailsViewController: UIViewController {
 
             Task {
                 do {
-                    // Insert event on server
-                    let record = try await EventSupabaseManager.shared.insertEvent(details: details)
 
-                    // assume 'record' is the EventRecord returned after insert
+                    // 🔥 NEW: metadata → only image
+                    let metadata = [
+                        "eventTypeImage": selectedEventType?.imageName ?? ""
+                    ]
+
+                    let record = try await EventSupabaseManager.shared.insertEvent(
+                        details: details,
+                        metadata: metadata             // ← UPDATED
+                    )
+
                     EventSession.shared.currentEventId = record.id
-
 
                     DispatchQueue.main.async {
                         hud.removeFromSuperview()
-                        // navigate to confirmation view with local details (we can also pass record.id if needed)
-                        let vc = ConfirmationViewController(details: details,
-                                                            currencyFormatter: self.indianFormatter,
-                                                            dateFormatter: self.dateFormatter)
+                        let vc = ConfirmationViewController(
+                            details: details,
+                            currencyFormatter: self.indianFormatter,
+                            dateFormatter: self.dateFormatter
+                        )
+
                         if let nav = self.navigationController {
                             nav.pushViewController(vc, animated: true)
                         } else {
                             let nav = UINavigationController(rootViewController: vc)
                             nav.modalPresentationStyle = .fullScreen
-                            self.present(nav, animated: true, completion: nil)
+                            self.present(nav, animated: true)
                         }
                     }
+
                 } catch {
                     DispatchQueue.main.async {
                         hud.removeFromSuperview()
@@ -448,8 +474,8 @@ final class EventDetailsViewController: UIViewController {
         }
     }
 
-
     @objc private func dismissPresented() {
         presentedViewController?.dismiss(animated: true)
     }
 }
+
