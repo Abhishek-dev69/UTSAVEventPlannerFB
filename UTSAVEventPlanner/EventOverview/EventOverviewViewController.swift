@@ -1,7 +1,3 @@
-//
-// EventOverviewViewController.swift
-//
-
 import UIKit
 
 final class EventOverviewViewController: UIViewController {
@@ -11,25 +7,25 @@ final class EventOverviewViewController: UIViewController {
 
     private var event: EventRecord
 
-    // Data (use your Supabase model names)
+    // Data
     private var cartItems: [CartItemRecord] = []
     private var inhouseItems: [CartItemRecord] = []
     private var outsourceItems: [CartItemRecord] = []
     private var totalAmount: Double = 0.0
-    private var receivedAmount: Double = 0.0   // payments total
+    private var receivedAmount: Double = 0.0
 
     // MARK: Init
     init(event: EventRecord) {
         self.event = event
         super.init(nibName: nil, bundle: nil)
     }
-    required init?(coder: NSCoder) {
-        fatalError("Use init(event:)")
-    }
+    required init?(coder: NSCoder) { fatalError("Use init(event:)") }
+
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(false, animated: true)
     }
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -37,9 +33,7 @@ final class EventOverviewViewController: UIViewController {
         setupNav()
         setupScroll()
 
-        Task {
-            await loadCartAndPayments()
-        }
+        Task { await loadCartAndPayments() }
     }
 
     private func setupNav() {
@@ -57,19 +51,26 @@ final class EventOverviewViewController: UIViewController {
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = .white
-        appearance.titleTextAttributes = [
-            .font: UIFont.systemFont(ofSize: 20, weight: .semibold)
-        ]
+        appearance.titleTextAttributes = [.font: UIFont.systemFont(ofSize: 20, weight: .semibold)]
 
         navigationController?.navigationBar.standardAppearance = appearance
         navigationController?.navigationBar.scrollEdgeAppearance = appearance
     }
+
     @objc private func backPressed() {
         navigationController?.popViewController(animated: true)
     }
 
+    // -----------------------------
+    // MARK: SCROLLVIEW SETUP (fix taps)
+    // -----------------------------
     private func setupScroll() {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
+        
+        // ❗Critical fixes for instant taps:
+        scrollView.delaysContentTouches = false
+        scrollView.canCancelContentTouches = false
+
         view.addSubview(scrollView)
 
         NSLayoutConstraint.activate([
@@ -94,102 +95,45 @@ final class EventOverviewViewController: UIViewController {
         ])
     }
 
-    // MARK: Load Cart & Payments
+    // -----------------------------
+    // MARK: LOAD DATA
+    // -----------------------------
     @MainActor
     private func loadCartAndPayments() async {
         do {
-            // 1) cart: use EventDataManager
-            let items = try await EventDataManager.shared.fetchCartItems(eventId: event.id)
-            self.cartItems = items
-
-            // 2) payments: use EventDataManager
-            let payments = try await EventDataManager.shared.fetchPayments(eventId: event.id)
-            self.receivedAmount = payments.reduce(0.0) { $0 + ($1.amount) }
-
-            // 3) compute derived data
-            computeFromCart()
-
-            // 4) build UI
-            buildAllSections()
+            cartItems = try await EventDataManager.shared.fetchCartItems(eventId: event.id)
+            receivedAmount = try await EventDataManager.shared.fetchPayments(eventId: event.id)
+                .reduce(0.0, { $0 + $1.amount })
         } catch {
-            print("Error loading event overview data:", error)
-            // show minimal UI so user can still navigate
-            computeFromCart()
-            buildAllSections()
+            print("Error loading:", error)
         }
+
+        computeFromCart()
+        buildAllSections()
     }
 
-    // MARK: Helpers to read fields robustly from CartItemRecord
-    // These assume CartItemRecord exposes Swift properties if you use JSONDecoder.convertFromSnakeCase.
-    // If your model uses other names, adjust accordingly.
-
-    /// Decide the source type string for an item with fallbacks:
-    /// 1) item.sourceType (preferred)
-    /// 2) metadata["type"] if present
-    /// 3) serviceName text check for "outsource"
-    /// default: "in_house"
-    private func sourceTypeString(for item: CartItemRecord) -> String {
-        // 1) direct property (common when using convertFromSnakeCase)
-        if let s = item.sourceType, !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return s.lowercased()
-        }
-
-        // 2) metadata (if recorded)
-        if let meta = item.metadata,
-           let t = meta["type"],
-           !t.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return t.lowercased()
-        }
-
-        // 3) fallback: check service name text (serviceName may be optional)
-        let svc = (item.serviceName ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if svc.contains("outsource") || svc.contains("outsourced") {
-            return "outsource"
-        }
-
-        // default
-        return "in_house"
+    private func sourceType(for item: CartItemRecord) -> String {
+        if let s = item.sourceType, !s.isEmpty { return s.lowercased() }
+        if let t = item.metadata?["type"], !t.isEmpty { return t.lowercased() }
+        let name = item.serviceName?.lowercased() ?? ""
+        return name.contains("outsource") ? "outsource" : "in_house"
     }
 
-    /// Compute a single item's line total safely:
-    /// prefer stored lineTotal (if present) else compute rate * quantity
-    private func lineTotalValue(for item: CartItemRecord) -> Double {
-        // prefer stored line total if present
-        if let stored = item.lineTotal {
-            return stored
-        }
-
-        // otherwise compute from rate and quantity
-        // handle rate as Double (most likely) and quantity as Int (optional)
-        let r = item.rate ?? 0.0
-        let q = Double(item.quantity ?? 0)
-        return r * q
+    private func lineTotal(for item: CartItemRecord) -> Double {
+        if let lt = item.lineTotal { return lt }
+        return (item.rate ?? 0) * Double(item.quantity ?? 0)
     }
 
-    // MARK: Data compute (adapts to your CartItemRecord fields)
     private func computeFromCart() {
-
-        // Grouping rule: treat items whose sourceType indicates outsource OR whose serviceName contains "outsource" as outsourced
-        inhouseItems = cartItems.filter {
-            let s = sourceTypeString(for: $0)
-            return s == "in_house" || s == "inhouse"
-        }
-        outsourceItems = cartItems.filter {
-            let s = sourceTypeString(for: $0)
-            return s == "outsource" || s == "outsourced"
-        }
-
-        // Compute totals:
-        // Prefer stored lineTotal if present, otherwise calculate rate * quantity
-        totalAmount = cartItems.reduce(0.0) { (acc: Double, item: CartItemRecord) -> Double in
-            let line = self.lineTotalValue(for: item)
-            return acc + line
-        }
+        inhouseItems = cartItems.filter { sourceType(for: $0) == "in_house" || sourceType(for: $0) == "inhouse" }
+        outsourceItems = cartItems.filter { sourceType(for: $0) == "outsource" }
+        totalAmount = cartItems.reduce(0) { $0 + lineTotal(for: $1) }
     }
 
-    // MARK: Build UI Sections
+    // -----------------------------
+    // MARK: BUILD SECTIONS
+    // -----------------------------
     private func buildAllSections() {
-        // Clear previous
         contentStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
         addClientRequirements()
@@ -199,91 +143,82 @@ final class EventOverviewViewController: UIViewController {
     }
 
     private func addClientRequirements() {
-        let inhouseCount = inhouseItems.count
-        let outsourceCount = outsourceItems.count
-        let subtitle = "\(inhouseCount) in-house · \(outsourceCount) outsourced"
+        let subtitle = "\(inhouseItems.count) in-house · \(outsourceItems.count) outsourced"
 
         let card = EventSectionCard(
             iconName: "checklist",
             title: "Client Requirements",
             subtitle: subtitle,
-            progress: computeProgressForRequirements(),
-            buttonTitle: "Open"
+            progress: computeProgressForRequirements()
         ) { [weak self] in
-            guard let self = self else { return }
-
-            let vc = ClientRequirementsViewController(
-                event: self.event,
-                cartItems: self.cartItems
+            guard let self else { return }
+            self.navigationController?.pushViewController(
+                ClientRequirementsViewController(event: self.event, cartItems: self.cartItems),
+                animated: true
             )
-            self.navigationController?.pushViewController(vc, animated: true)
         }
 
         contentStack.addArrangedSubview(card)
     }
 
     private func addBudgetCheckIn() {
-        // If you have budget in event (budgetInPaise), convert to rupees
-        let budgetInPaise = event.budgetInPaise
-        let budgetRupees = Double(budgetInPaise) / 100.0
-        // For now we use payments as a placeholder for "spent"; you will replace with budget_entries later
-        let spentPlaceholder = receivedAmount
-        let subtitle = "Spent ₹\(formatMoney(spentPlaceholder)) of ₹\(formatMoney(budgetRupees))"
+        let budgetRupees = Double(event.budgetInPaise) / 100.0
+        let spent = receivedAmount
 
-        let progressFloat: Float = budgetRupees > 0 ? Float(spentPlaceholder / budgetRupees) : 0.0
+        let subtitle = "Spent ₹\(formatMoney(spent)) of ₹\(formatMoney(budgetRupees))"
+        let progress: Float = budgetRupees > 0 ? Float(spent / budgetRupees) : 0
 
         let card = EventSectionCard(
             iconName: "indianrupeesign.circle",
             title: "Budget Check-in",
             subtitle: subtitle,
-            progress: progressFloat,
-            buttonTitle: "Open"
-        ) {
-            // TODO: open Budget screen (when implemented)
-        }
+            progress: progress
+        ) {}
 
         contentStack.addArrangedSubview(card)
     }
 
     private func addPaymentStatus() {
+        let percent = totalAmount > 0 ? (receivedAmount / totalAmount) : 0.0
 
-        let percentage = totalAmount > 0 ? (receivedAmount / totalAmount) : 0.0
-        let subtitle = "Received ₹\(formatMoney(receivedAmount)) of ₹\(formatMoney(totalAmount)) (\(Int(percentage * 100))%)"
+        let subtitle = "Received ₹\(formatMoney(receivedAmount)) of ₹\(formatMoney(totalAmount)) (\(Int(percent * 100))%)"
 
         let card = EventSectionCard(
             iconName: "rupeesign.circle",
             title: "Payment Status",
             subtitle: subtitle,
-            progress: Float(percentage),
-            buttonTitle: "Open"
+            progress: Float(percent)
         ) { [weak self] in
-            guard let self = self else { return }
-
-            let vc = PaymentListViewController(event: self.event)
-            self.navigationController?.pushViewController(vc, animated: true)
+            guard let self else { return }
+            self.navigationController?.pushViewController(
+                PaymentListViewController(event: self.event),
+                animated: true
+            )
         }
 
         contentStack.addArrangedSubview(card)
     }
+
     private func addInventory() {
         let card = EventSectionCard(
             iconName: "shippingbox",
             title: "Inventory Overview",
             subtitle: "Manage items & usage",
-            progress: 0.0,
-            buttonTitle: "Open"
+            progress: 0.0
         ) { [weak self] in
-            guard let self = self else { return }
-            let vc = InventoryOverviewViewController(event: self.event)
-            self.navigationController?.pushViewController(vc, animated: true)
+            guard let self else { return }
+            self.navigationController?.pushViewController(
+                InventoryOverviewViewController(event: self.event),
+                animated: true
+            )
         }
 
         contentStack.addArrangedSubview(card)
     }
-    // Simple requirement progress heuristic (replace with real logic later)
+
     private func computeProgressForRequirements() -> Float {
-        let total = max(1, cartItems.count) // avoid divide by zero
-        let done = Double(inhouseItems.count + outsourceItems.count) // placeholder: treat all added as "done"
+        let total = max(1, cartItems.count)
+        let done = Double(inhouseItems.count + outsourceItems.count)
         return Float(min(1.0, done / Double(total)))
     }
 

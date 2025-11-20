@@ -7,9 +7,13 @@ final class InventoryCheckboxCell: UITableViewCell {
     private let quantityLabel = UILabel()
     private let checkbox = UIButton(type: .system)
 
+    var onChecked: ((Bool) -> Void)?
+
     private var isChecked = false {
         didSet {
+            checkbox.tintColor = isChecked ? .systemPurple : .systemGray
             checkbox.setImage(UIImage(systemName: isChecked ? "checkmark.square.fill" : "square"), for: .normal)
+            onChecked?(isChecked)
         }
     }
 
@@ -18,11 +22,10 @@ final class InventoryCheckboxCell: UITableViewCell {
         backgroundColor = .clear
         selectionStyle = .none
 
-        card.layer.cornerRadius = 10
         card.backgroundColor = .white
-        card.layer.shadowColor = UIColor.black.cgColor
+        card.layer.cornerRadius = 10
         card.layer.shadowOpacity = 0.08
-        card.layer.shadowOffset = CGSize(width: 0, height: 2)
+        card.layer.shadowOffset = .init(width: 0, height: 2)
         card.layer.shadowRadius = 4
         card.translatesAutoresizingMaskIntoConstraints = false
 
@@ -34,11 +37,8 @@ final class InventoryCheckboxCell: UITableViewCell {
         quantityLabel.textColor = .gray
 
         contentView.addSubview(card)
-        card.addSubview(nameLabel)
-        card.addSubview(quantityLabel)
-        card.addSubview(checkbox)
+        [nameLabel, quantityLabel, checkbox].forEach { card.addSubview($0) }
 
-        card.translatesAutoresizingMaskIntoConstraints = false
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
         quantityLabel.translatesAutoresizingMaskIntoConstraints = false
         checkbox.translatesAutoresizingMaskIntoConstraints = false
@@ -68,11 +68,12 @@ final class InventoryCheckboxCell: UITableViewCell {
         isChecked.toggle()
     }
 
-    required init?(coder: NSCoder) { fatalError() }
-
     func configure(name: String, quantity: Int) {
         nameLabel.text = name
         quantityLabel.text = "Quantity: \(quantity)"
+        isChecked = false
     }
+
+    required init?(coder: NSCoder) { fatalError() }
 }
 

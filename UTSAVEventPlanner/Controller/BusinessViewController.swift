@@ -341,23 +341,34 @@ final class BusinessViewController: UIViewController {
             ("storefront", "storefront.fill"),
             ("cart", "cart.fill")
         ]
-
-        let homeVC = HomeSceneViewController()
-        let homeNav = UINavigationController(rootViewController: homeVC)
-        homeNav.tabBarItem = UITabBarItem(title: "Home", image: UIImage(systemName: symbols[0].0), selectedImage: UIImage(systemName: symbols[0].1))
-
+        
+        let dashVC = OnboardingWelcomeViewController()   // ALWAYS start here
+        let dashNav = UINavigationController(rootViewController: dashVC)
+        dashNav.tabBarItem = UITabBarItem(
+            title: "Dashboard",
+            image: UIImage(systemName: "house"),
+            selectedImage: UIImage(systemName: "house.fill")
+        )
+        
+        // Payments
         let paymentsVC = PaymentsRootController()
         let paymentsNav = UINavigationController(rootViewController: paymentsVC)
         paymentsNav.tabBarItem = UITabBarItem(
             title: "Payments",
-            image: UIImage(systemName: symbols[1].0),
-            selectedImage: UIImage(systemName: symbols[1].1)
+            image: UIImage(systemName: "creditcard"),
+            selectedImage: UIImage(systemName: "creditcard.fill")
         )
-
+        
+        // Services
         let servicesVC = ServicesViewController()
         let servicesNav = UINavigationController(rootViewController: servicesVC)
-        servicesNav.tabBarItem = UITabBarItem(title: "Services", image: UIImage(systemName: symbols[2].0), selectedImage: UIImage(systemName: symbols[2].1))
-
+        servicesNav.tabBarItem = UITabBarItem(
+            title: "Services",
+            image: UIImage(systemName: "storefront"),
+            selectedImage: UIImage(systemName: "storefront.fill")
+        )
+        
+        // Inventory
         let inventoryVC = InventoryRootController()
         let inventoryNav = UINavigationController(rootViewController: inventoryVC)
         inventoryNav.tabBarItem = UITabBarItem(
@@ -365,14 +376,12 @@ final class BusinessViewController: UIViewController {
             image: UIImage(systemName: "cart"),
             selectedImage: UIImage(systemName: "cart.fill")
         )
-
-
-        tabBar.viewControllers = [homeNav, paymentsNav, servicesNav, inventoryNav]
-
+        
+        tabBar.viewControllers = [dashNav, paymentsNav, servicesNav, inventoryNav]
         tabBar.tabBar.tintColor = UIColor(red: 139/255, green: 59/255, blue: 240/255, alpha: 1)
         tabBar.tabBar.isTranslucent = false
         tabBar.selectedIndex = 0
-
+        
         return tabBar
     }
 

@@ -25,10 +25,10 @@
             </objects>
             <point key="canvasLocation" x="-3810" y="-1918"/>
         </scene>
-        <!--Welcome View Controller-->
+        <!--Login View Controller-->
         <scene sceneID="VN5-5k-Ry5">
             <objects>
-                <viewController id="jlh-xp-KSH" customClass="WelcomeViewController" customModule="UTSAVEventPlanner" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController id="jlh-xp-KSH" customClass="LoginViewController" customModule="UTSAVEventPlanner" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" contentMode="scaleToFill" id="CdI-h7-cmh">
                         <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>

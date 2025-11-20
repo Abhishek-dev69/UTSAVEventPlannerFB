@@ -11,6 +11,19 @@ final class InventoryOverviewViewController: UIViewController {
     private let segmented = UISegmentedControl(items: ["My Services", "Vendor", "Post-Event"])
     private let tableView = UITableView(frame: .zero, style: .plain)
 
+    // MARK: Bottom Button (Only for Post-Event)
+    private let bottomButton: UIButton = {
+        let btn = UIButton(type: .system)
+        btn.setTitle("Mark as Received", for: .normal)
+        btn.setTitleColor(.white, for: .normal)
+        btn.backgroundColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
+        btn.layer.cornerRadius = 22
+        btn.isHidden = true
+        return btn
+    }()
+
+    private var selectedPostEventItem: InventoryItemRecord?
+
     init(event: EventRecord) {
         self.event = event
         super.init(nibName: nil, bundle: nil)
@@ -22,15 +35,16 @@ final class InventoryOverviewViewController: UIViewController {
         view.backgroundColor = .systemBackground
 
         setupNav()
+
+        // IMPORTANT: bottom button must be added BEFORE table view.
+        setupBottomButton()
         setupSegment()
         setupTable()
 
         Task { await loadInventory() }
     }
 
-
-    // MARK: UI Setup
-
+    // MARK: Navigation Bar
     private func setupNav() {
         navigationItem.title = "Inventory Overview"
         navigationItem.rightBarButtonItem = UIBarButtonItem(
@@ -41,6 +55,7 @@ final class InventoryOverviewViewController: UIViewController {
         )
     }
 
+    // MARK: Segment Control
     private func setupSegment() {
         segmented.selectedSegmentIndex = 0
         segmented.translatesAutoresizingMaskIntoConstraints = false
@@ -55,6 +70,7 @@ final class InventoryOverviewViewController: UIViewController {
         ])
     }
 
+    // MARK: Table
     private func setupTable() {
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.separatorStyle = .none
@@ -69,17 +85,35 @@ final class InventoryOverviewViewController: UIViewController {
             tableView.topAnchor.constraint(equalTo: segmented.bottomAnchor, constant: 12),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+
+            // table stays above bottom button
+            tableView.bottomAnchor.constraint(equalTo: bottomButton.topAnchor, constant: -14)
         ])
     }
 
+    // MARK: Bottom Button
+    private func setupBottomButton() {
+        bottomButton.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(bottomButton)
 
+        bottomButton.addTarget(self, action: #selector(receivedTapped), for: .touchUpInside)
+
+        NSLayoutConstraint.activate([
+            bottomButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            bottomButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            bottomButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
+            bottomButton.heightAnchor.constraint(equalToConstant: 50)
+        ])
+    }
+
+    // MARK: Segment Changed
     @objc private func segChanged() {
+        selectedPostEventItem = nil
+        bottomButton.isHidden = true
         tableView.reloadData()
     }
 
-
-    // MARK: Add Item
+    // MARK: Add New Item
     @objc private func addItem() {
         let vc = AddInventoryItemViewController(eventId: event.id)
         vc.onItemAdded = { [weak self] newItem in
@@ -88,11 +122,8 @@ final class InventoryOverviewViewController: UIViewController {
         navigationController?.pushViewController(vc, animated: true)
     }
 
-
-    // MARK: Append new item
     private func appendAndReload(_ item: InventoryItemRecord) {
-
-        let src = item.sourceType?.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) ?? "planner"
+        let src = item.sourceType?.lowercased() ?? "planner"
 
         if src == "vendor" {
             vendorItems.append(item)
@@ -107,48 +138,69 @@ final class InventoryOverviewViewController: UIViewController {
         }
     }
 
-
-    // MARK: Load all inventory
+    // MARK: Load Items from DB
     private func loadInventory() async {
         do {
             let items = try await InventoryDataManager.shared.fetchInventory(eventId: event.id)
 
-            // Normalize source type
-            plannerItems = items.filter {
-                ($0.sourceType ?? "planner")
-                    .lowercased()
-                    .trimmingCharacters(in: .whitespacesAndNewlines) == "planner"
-            }
-
-            vendorItems = items.filter {
-                ($0.sourceType ?? "")
-                    .lowercased()
-                    .trimmingCharacters(in: .whitespacesAndNewlines) == "vendor"
-            }
-
+            plannerItems = items.filter { ($0.sourceType ?? "planner").lowercased() == "planner" }
+            vendorItems = items.filter { ($0.sourceType ?? "").lowercased() == "vendor" }
             postEventItems = items
 
-            await MainActor.run {
-                tableView.reloadData()
-            }
+            await MainActor.run { tableView.reloadData() }
 
         } catch {
-            print("Failed to load inventory:", error)
+            print("Inventory load failed:", error)
+        }
+    }
+
+    // MARK: Mark as Received
+    @objc private func receivedTapped() {
+        guard let item = selectedPostEventItem else { return }
+
+        Task {
+            do {
+                try await InventoryDataManager.shared.deleteInventoryItem(itemId: item.id)
+
+                postEventItems.removeAll { $0.id == item.id }
+
+                await MainActor.run {
+                    selectedPostEventItem = nil
+                    bottomButton.isHidden = true
+                    tableView.reloadData()
+                }
+            } catch {
+                print("Error deleting:", error)
+            }
         }
     }
 }
-
 
 // MARK: - TableView
 extension InventoryOverviewViewController: UITableViewDataSource, UITableViewDelegate {
 
     func tableView(_ tv: UITableView, numberOfRowsInSection section: Int) -> Int {
+
+        let count: Int
+
         switch segmented.selectedSegmentIndex {
-        case 0: return plannerItems.count
-        case 1: return vendorItems.count
-        case 2: return postEventItems.count
-        default: return 0
+        case 0: count = plannerItems.count
+        case 1: count = vendorItems.count
+        case 2: count = postEventItems.count
+        default: count = 0
         }
+
+        if count == 0 {
+            let label = UILabel()
+            label.text = "No inventory added yet"
+            label.textColor = .gray
+            label.textAlignment = .center
+            tv.backgroundView = label
+        } else {
+            tv.backgroundView = nil
+        }
+
+        return count
     }
 
     func tableView(_ tv: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -171,6 +223,17 @@ extension InventoryOverviewViewController: UITableViewDataSource, UITableViewDel
             let item = postEventItems[indexPath.row]
             let cell = tv.dequeueReusableCell(withIdentifier: "InventoryCheckboxCell", for: indexPath) as! InventoryCheckboxCell
             cell.configure(name: item.name, quantity: item.quantity)
+
+            cell.onChecked = { [weak self] checked in
+                if checked {
+                    self?.selectedPostEventItem = item
+                    self?.bottomButton.isHidden = false
+                } else {
+                    self?.selectedPostEventItem = nil
+                    self?.bottomButton.isHidden = true
+                }
+            }
+
             return cell
 
         default:

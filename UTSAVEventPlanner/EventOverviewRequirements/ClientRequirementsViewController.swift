@@ -59,6 +59,8 @@ final class ClientRequirementsViewController: UIViewController {
         if cartItems.isEmpty {
             Task { await fetchAndSplitCart() }
         } else {
+            // ensure passed items are grouped and split correctly
+            groupCartItems()
             splitCartItems()
             tableView.reloadData()
         }
@@ -133,6 +135,62 @@ final class ClientRequirementsViewController: UIViewController {
         return "in_house"
     }
 
+    /// Group cartItems by serviceId+subserviceId so UI shows a single row per unique subservice
+    /// and sums quantity/lineTotal. This is defensive: if old data contains multiple rows,
+    /// we merge them for display.
+    private func groupCartItems() {
+        guard !cartItems.isEmpty else { return }
+
+        var grouped: [String: [CartItemRecord]] = [:]
+        for item in cartItems {
+            let sid = item.serviceId ?? item.serviceName ?? "noservice"
+            let subid = item.subserviceId ?? item.subserviceName ?? "nosub"
+            let key = "\(sid)|\(subid)"
+            var arr = grouped[key] ?? []
+            arr.append(item)
+            grouped[key] = arr
+        }
+
+        var compacted: [CartItemRecord] = []
+        for (_, items) in grouped {
+            guard let first = items.first else { continue }
+            let totalQty = items.reduce(0) { $0 + ($1.quantity ?? 0) }
+            let rate = first.rate ?? 0
+            let lineTotal = rate > 0 ? Double(totalQty) * rate : first.lineTotal
+
+            // Create a new CartItemRecord with aggregated quantity and computed lineTotal.
+            // Using memberwise init available on the struct.
+            let merged = CartItemRecord(
+                id: first.id,
+                userId: first.userId,
+                eventId: first.eventId,
+                serviceId: first.serviceId,
+                serviceName: first.serviceName,
+                subserviceId: first.subserviceId,
+                subserviceName: first.subserviceName,
+                rate: first.rate,
+                unit: first.unit,
+                quantity: totalQty,
+                lineTotal: lineTotal,
+                metadata: first.metadata,
+                createdAt: first.createdAt,
+                updatedAt: first.updatedAt,
+                sourceType: first.sourceType
+            )
+            compacted.append(merged)
+        }
+
+        // Maintain stable ordering: sort by serviceName then subserviceName
+        compacted.sort { lhs, rhs in
+            let lsvc = lhs.serviceName ?? ""
+            let rsvc = rhs.serviceName ?? ""
+            if lsvc != rsvc { return lsvc < rsvc }
+            return (lhs.subserviceName ?? "") < (rhs.subserviceName ?? "")
+        }
+
+        self.cartItems = compacted
+    }
+
     private func splitCartItems() {
         inhouse = cartItems.filter { sourceType(for: $0) == "in_house" || sourceType(for: $0) == "inhouse" }
         outsource = cartItems.filter { sourceType(for: $0) == "outsource" || sourceType(for: $0) == "outsourced" }
@@ -141,16 +199,21 @@ final class ClientRequirementsViewController: UIViewController {
     /// Fetch cart items for this event from server and update UI
     private func fetchAndSplitCart() async {
         do {
-            // Use EventDataManager to fetch event-scoped rows (EventDataManager.shared.fetchCartItems(eventId:))
+            // EventDataManager already fetches event-scoped rows
             let items = try await EventDataManager.shared.fetchCartItems(eventId: event.id)
+
             await MainActor.run {
                 self.cartItems = items
+                // group duplicates defensively before splitting
+                self.groupCartItems()
                 self.splitCartItems()
                 self.tableView.reloadData()
             }
         } catch {
             print("Failed to fetch cart items for event: \(error)")
             await MainActor.run {
+                // still attempt to show grouped/split existing local data
+                self.groupCartItems()
                 self.splitCartItems()
                 self.tableView.reloadData()
             }
@@ -163,6 +226,7 @@ final class ClientRequirementsViewController: UIViewController {
             await fetchAndSplitCart()
         } else {
             await MainActor.run {
+                self.groupCartItems()
                 self.splitCartItems()
                 self.tableView.reloadData()
             }

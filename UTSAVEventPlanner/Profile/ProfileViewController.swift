@@ -40,6 +40,8 @@ final class ProfileViewController: UIViewController {
         setupContinueButton()
         registerKeyboardNotifications()
         addTapToDismissKeyboard()
+
+        Task { await loadProfile() }
     }
 
     deinit { NotificationCenter.default.removeObserver(self) }
@@ -50,7 +52,6 @@ final class ProfileViewController: UIViewController {
         navigationController?.setNavigationBarHidden(false, animated: false)
         navigationItem.title = "Your Profile"
 
-        // LEFT → Back (Chevron)
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             image: UIImage(systemName: "chevron.left"),
             style: .plain,
@@ -58,7 +59,6 @@ final class ProfileViewController: UIViewController {
             action: #selector(backTapped)
         )
 
-        // RIGHT → Logout
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             title: "Logout",
             style: .done,
@@ -72,11 +72,9 @@ final class ProfileViewController: UIViewController {
     }
 
     @objc private func logoutTapped() {
-        // CLEAR SESSION (modify based on your app)
         EventSession.shared.currentEventId = nil
         CartManager.shared.clear()
 
-        // Go to welcome screen or login screen
         let welcomeVC = OnboardingWelcomeViewController()
         let nav = UINavigationController(rootViewController: welcomeVC)
         nav.modalPresentationStyle = .fullScreen
@@ -85,9 +83,11 @@ final class ProfileViewController: UIViewController {
            let window = scene.windows.first {
             window.rootViewController = nav
             window.makeKeyAndVisible()
-            UIView.transition(with: window, duration: 0.25,
+            UIView.transition(with: window,
+                              duration: 0.25,
                               options: .transitionCrossDissolve,
-                              animations: nil)
+                              animations: {},
+                              completion: nil)
         }
     }
 
@@ -229,7 +229,6 @@ final class ProfileViewController: UIViewController {
         return l
     }
 
-    // Row builder
     private func makeRow(title: String, control: UIControl, placeholder: String, keyboard: UIKeyboardType = .default) -> UIView {
         let row = UIView()
         row.heightAnchor.constraint(equalToConstant: 56).isActive = true
@@ -295,8 +294,74 @@ final class ProfileViewController: UIViewController {
         contentStack.addArrangedSubview(container)
     }
 
+    // MARK: - SAVE PROFILE (With Image Upload)
+
     @objc private func saveProfileTapped() {
-        navigationController?.popViewController(animated: true)
+        Task {
+            do {
+                let userId = try await SupabaseManager.shared.ensureUserId()
+
+                // Upload image if user set a custom one
+                var uploadedImageURL: String? = nil
+                if profileImageView.tintColor == nil,
+                   let img = profileImageView.image {
+                    uploadedImageURL =
+                        try await ProfileSupabaseManager.shared.uploadProfileImage(
+                            userId: userId,
+                            image: img
+                        )
+                }
+
+                let payload = UserProfileInsert(
+                    id: userId,
+                    full_name: nameField.text,
+                    email: emailField.text,
+                    phone: phoneField.text,
+                    business_name: businessNameField.text,
+                    business_address: businessAddressField.text,
+                    profile_image_url: uploadedImageURL
+                )
+
+                _ = try await ProfileSupabaseManager.shared.saveProfile(payload)
+
+                await MainActor.run {
+                    self.navigationController?.popViewController(animated: true)
+                }
+
+            } catch {
+                print("Profile save error:", error)
+            }
+        }
+    }
+
+    // MARK: - Load Profile
+
+    private func loadProfile() async {
+        do {
+            let uid = try await SupabaseManager.shared.ensureUserId()
+            if let p = try await ProfileSupabaseManager.shared.fetchProfile(for: uid) {
+
+                await MainActor.run {
+                    nameField.text = p.fullName
+                    emailField.text = p.email
+                    phoneField.text = p.phone
+                    businessNameField.text = p.businessName
+                    businessAddressField.text = p.businessAddress
+
+                    if let urlStr = p.profileImageUrl,
+                       let url = URL(string: urlStr),
+                       let data = try? Data(contentsOf: url),
+                       let img = UIImage(data: data) {
+
+                        self.profileImageView.image = img
+                        self.profileImageView.tintColor = nil
+                    }
+                }
+            }
+
+        } catch {
+            print("Failed to load profile:", error)
+        }
     }
 
     // MARK: - Image Picker
@@ -370,6 +435,7 @@ final class ProfileViewController: UIViewController {
     @objc private func endEditing() { view.endEditing(true) }
 }
 
+
 // MARK: - PHPicker
 
 @available(iOS 14, *)
@@ -389,6 +455,7 @@ extension ProfileViewController: PHPickerViewControllerDelegate {
         }
     }
 }
+
 
 // MARK: - UIImagePickerController
 

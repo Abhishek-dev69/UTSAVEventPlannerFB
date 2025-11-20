@@ -27,36 +27,44 @@ final class OnboardingWelcomeViewController: UIViewController {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: false)
         
-        Task { await loadEvents() }
+        Task { await loadState() }
     }
     
-    // MARK: - Events
+    // MARK: - Reload
     @objc private func reloadEvents() {
-        Task { await loadEvents() }
+        Task { await loadState() }
     }
     
-    private func loadEvents() async {
+    // MARK: - Main Logic (Services → Events → Dashboard)
+    private func loadState() async {
         do {
             let uid = try await EventSupabaseManager.shared.ensureUserId()
-            let events = try await EventSupabaseManager.shared.fetchUserEvents(userId: uid)
+            
+            // 1️⃣ Check if user has services
+            let services = try await SupabaseManager.shared.fetchServices()
             
             await MainActor.run {
-                if events.isEmpty {
-                    showCreateFirstEventOnboarding()
+                if services.isEmpty {
+                    // No services → show onboarding
+                    showOnboarding()
                 } else {
-                    showDashboard(events)
+                    // 2️⃣ Services exist → load events → show dashboard
+                    Task {
+                        let events = try await EventSupabaseManager.shared.fetchUserEvents(userId: uid)
+                        await MainActor.run { self.showDashboard(events) }
+                    }
                 }
             }
             
         } catch {
             await MainActor.run {
-                showCreateFirstEventOnboarding()
+                showOnboarding()
             }
         }
     }
     
     // MARK: - Show onboarding
-    private func showCreateFirstEventOnboarding() {
+    private func showOnboarding() {
         mainStack.isHidden = false
         
         dashboardVC?.willMove(toParent: nil)
@@ -93,9 +101,9 @@ final class OnboardingWelcomeViewController: UIViewController {
         dash.setEvents(events)
     }
     
-    // MARK: - CTA
+    // MARK: - CTA (Add Services)
     @IBAction func createEventTapped(_ sender: Any) {
-        let vc = EventTypeViewController()
+        let vc = ServiceAddingViewController()       // OPEN SERVICES SCREEN
         let nav = UINavigationController(rootViewController: vc)
         nav.modalPresentationStyle = .fullScreen
         present(nav, animated: true)
@@ -103,26 +111,32 @@ final class OnboardingWelcomeViewController: UIViewController {
     
     // MARK: - Styling
     private func styleUI() {
+        
+        // Update titles for Add Services onboarding
+        titleLabel.text = "Add your services"
+        headlineLabel.text = "Start by adding the services you offer"
+        bodyLabel.text = "Once you add services, you can create events from your dashboard."
+        
         if #available(iOS 15.0, *) {
             var cfg = UIButton.Configuration.filled()
-            cfg.title = ctaButton?.title(for: .normal) ?? "Create your first event"
+            cfg.title = "Add Services"
             cfg.baseBackgroundColor = UIColor(red: 0x8B/255, green: 0x3B/255, blue: 0xF0/255, alpha: 1)
             cfg.baseForegroundColor = .white
             cfg.cornerStyle = .large
             cfg.contentInsets = NSDirectionalEdgeInsets(top: 14, leading: 20, bottom: 14, trailing: 20)
-            ctaButton?.configuration = cfg
+            ctaButton.configuration = cfg
         } else {
-            ctaButton?.backgroundColor = UIColor(red: 0x8B/255, green: 0x3B/255, blue: 0xF0/255, alpha: 1)
-            ctaButton?.setTitleColor(.white, for: .normal)
+            ctaButton.backgroundColor = UIColor(red: 0x8B/255, green: 0x3B/255, blue: 0xF0/255, alpha: 1)
+            ctaButton.setTitle("Add Services", for: .normal)
+            ctaButton.setTitleColor(.white, for: .normal)
         }
         
-        ctaButton?.layer.cornerRadius = 28
-        ctaButton?.layer.masksToBounds = true
+        ctaButton.layer.cornerRadius = 28
+        ctaButton.layer.masksToBounds = true
         
-        headlineLabel?.textColor = .label
-        bodyLabel?.textColor = .secondaryLabel
-        titleLabel?.textColor = .label
-        onboardingImage?.contentMode = .scaleAspectFit
+        titleLabel.textColor = .label
+        headlineLabel.textColor = .label
+        bodyLabel.textColor = .secondaryLabel
+        onboardingImage.contentMode = .scaleAspectFit
     }
 }
-

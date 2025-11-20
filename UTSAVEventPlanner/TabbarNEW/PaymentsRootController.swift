@@ -9,9 +9,17 @@ final class PaymentsRootController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
         
-        // FIX: Set title here (root controller)
+        // Root title
         self.navigationItem.title = "Payments"
         navigationItem.largeTitleDisplayMode = .always
+        
+        // 🔥 Listen for event creation to refresh instantly
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(reloadEventsNow),
+            name: NSNotification.Name("ReloadEventsDashboard"),
+            object: nil
+        )
         
         Task { await loadEvents() }
     }
@@ -19,14 +27,21 @@ final class PaymentsRootController: UIViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
-        // FIX: Make sure nav bar is visible
+        // Always show nav bar
         navigationController?.navigationBar.isHidden = false
         
+        // Refresh when tab becomes visible again
         if let listVC = listVC {
             Task { await listVC.refreshEvents() }
         }
     }
     
+    // MARK: - Instant refresh when event is added
+    @objc private func reloadEventsNow() {
+        Task { await loadEvents() }
+    }
+    
+    // MARK: - Load Events
     private func loadEvents() async {
         do {
             let uid = try await SupabaseManager.shared.ensureUserId()
@@ -41,6 +56,7 @@ final class PaymentsRootController: UIViewController {
                         listVC = list
                         show(list)
                     }
+                    
                     Task { await listVC?.refreshEvents() }
                 }
             }
@@ -50,20 +66,24 @@ final class PaymentsRootController: UIViewController {
         }
     }
     
+    // MARK: - Swap between empty + list screens
     private func show(_ vc: UIViewController) {
+        
+        // Remove old child VC
         children.forEach {
             $0.willMove(toParent: nil)
             $0.view.removeFromSuperview()
             $0.removeFromParent()
         }
         
+        // Add new child VC
         addChild(vc)
         vc.view.frame = view.bounds
         vc.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(vc.view)
         vc.didMove(toParent: self)
         
-        // 🔥 FIX: Set navigation bar title based on which VC is visible
+        // Update title based on visible screen
         if vc is PaymentsEventsListViewController {
             self.navigationItem.title = "All Events Payments Tracks"
         } else {
