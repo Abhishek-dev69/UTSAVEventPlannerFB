@@ -10,6 +10,12 @@ final class DashboardListViewController: UIViewController {
     private let addButton = UIButton(type: .system)
     private let segments = UISegmentedControl(items: ["All Events", "Upcoming", "Completed"])
 
+    // Empty State
+    private let emptyStateView = UIView()
+    private let emptyIcon = UIImageView()
+    private let emptyLabel = UILabel()
+    private let emptySubLabel = UILabel()
+
     private var allEvents: [EventRecord] = []
     private var events: [EventRecord] = []
 
@@ -21,22 +27,22 @@ final class DashboardListViewController: UIViewController {
         setupHeader()
         setupSegments()
         setupTable()
+        setupEmptyState()
 
-        NotificationCenter.default.addObserver(self, selector: #selector(reloadEvents), name: NSNotification.Name("ReloadEventsDashboard"), object: nil)
+        NotificationCenter.default.addObserver(self,
+            selector: #selector(reloadEvents),
+            name: NSNotification.Name("ReloadEventsDashboard"),
+            object: nil)
 
         Task { await loadEvents() }
     }
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        // You previously hid nav bar here. Keep it hidden for the dashboard header
-        // but ensure profile push will show the nav bar before pushing.
         navigationController?.setNavigationBarHidden(true, animated: false)
     }
 
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
+    deinit { NotificationCenter.default.removeObserver(self) }
 
     // MARK: Header
     private func setupHeader() {
@@ -45,11 +51,8 @@ final class DashboardListViewController: UIViewController {
         avatar.layer.cornerRadius = 22
         avatar.clipsToBounds = true
         avatar.translatesAutoresizingMaskIntoConstraints = false
-        avatar.isUserInteractionEnabled = true // make it tappable
-
-        // add tap gesture to open profile
-        let tap = UITapGestureRecognizer(target: self, action: #selector(profileTapped))
-        avatar.addGestureRecognizer(tap)
+        avatar.isUserInteractionEnabled = true
+        avatar.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(profileTapped)))
 
         titleLabel.text = "Dashboard"
         titleLabel.font = .systemFont(ofSize: 22, weight: .bold)
@@ -80,20 +83,27 @@ final class DashboardListViewController: UIViewController {
             addButton.widthAnchor.constraint(equalToConstant: 48),
             addButton.heightAnchor.constraint(equalToConstant: 48)
         ])
+
+        // Pulse animation
+        UIView.animate(withDuration: 1.3,
+                       delay: 0,
+                       options: [.repeat, .autoreverse],
+                       animations: {
+            self.addButton.transform = CGAffineTransform(scaleX: 1.08, y: 1.08)
+        })
     }
 
-    // MARK: Segmented Control
+    // MARK: Segments
     private func setupSegments() {
         segments.selectedSegmentIndex = 0
         segments.backgroundColor = .clear
         segments.selectedSegmentTintColor = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
         segments.setTitleTextAttributes([.foregroundColor: UIColor.white], for: .selected)
         segments.setTitleTextAttributes([.foregroundColor: UIColor.gray], for: .normal)
-
         segments.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(segments)
-
         segments.addTarget(self, action: #selector(segmentedChanged), for: .valueChanged)
+
+        view.addSubview(segments)
 
         NSLayoutConstraint.activate([
             segments.topAnchor.constraint(equalTo: avatar.bottomAnchor, constant: 16),
@@ -103,7 +113,7 @@ final class DashboardListViewController: UIViewController {
         ])
     }
 
-    // MARK: TableView
+    // MARK: Table
     private func setupTable() {
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.backgroundColor = .clear
@@ -119,12 +129,64 @@ final class DashboardListViewController: UIViewController {
             tableView.topAnchor.constraint(equalTo: segments.bottomAnchor, constant: 18),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            // anchor to safe area bottom so bottom controls / home indicator don't overlap
             tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
         ])
     }
 
-    // MARK: Data Loading
+    // MARK: Empty State
+    private func setupEmptyState() {
+        emptyStateView.translatesAutoresizingMaskIntoConstraints = false
+        emptyIcon.translatesAutoresizingMaskIntoConstraints = false
+        emptyLabel.translatesAutoresizingMaskIntoConstraints = false
+        emptySubLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        emptyIcon.image = UIImage(systemName: "calendar.badge.plus")
+        emptyIcon.tintColor = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
+
+        emptyLabel.text = "No Events Yet"
+        emptyLabel.font = .systemFont(ofSize: 20, weight: .semibold)
+        emptyLabel.textColor = .darkGray
+        emptyLabel.textAlignment = .center
+
+        emptySubLabel.text = "Tap + to create your first event"
+        emptySubLabel.font = .systemFont(ofSize: 14)
+        emptySubLabel.textColor = .gray
+        emptySubLabel.textAlignment = .center
+
+        emptyStateView.alpha = 0
+
+        emptyStateView.addSubview(emptyIcon)
+        emptyStateView.addSubview(emptyLabel)
+        emptyStateView.addSubview(emptySubLabel)
+        view.addSubview(emptyStateView)
+
+        NSLayoutConstraint.activate([
+            emptyStateView.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            emptyStateView.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+
+            emptyIcon.centerXAnchor.constraint(equalTo: emptyStateView.centerXAnchor),
+            emptyIcon.topAnchor.constraint(equalTo: emptyStateView.topAnchor),
+            emptyIcon.widthAnchor.constraint(equalToConstant: 60),
+            emptyIcon.heightAnchor.constraint(equalToConstant: 60),
+
+            emptyLabel.topAnchor.constraint(equalTo: emptyIcon.bottomAnchor, constant: 12),
+            emptyLabel.centerXAnchor.constraint(equalTo: emptyStateView.centerXAnchor),
+
+            emptySubLabel.topAnchor.constraint(equalTo: emptyLabel.bottomAnchor, constant: 6),
+            emptySubLabel.centerXAnchor.constraint(equalTo: emptyStateView.centerXAnchor),
+            emptySubLabel.bottomAnchor.constraint(equalTo: emptyStateView.bottomAnchor)
+        ])
+    }
+
+    private func updateEmptyState() {
+        UIView.animate(withDuration: 0.3) {
+            let noEvents = self.events.isEmpty
+            self.emptyStateView.alpha = noEvents ? 1 : 0
+            self.tableView.alpha = noEvents ? 0 : 1
+        }
+    }
+
+    // MARK: Load Events
     @objc private func reloadEvents() {
         Task { await loadEvents() }
     }
@@ -138,42 +200,38 @@ final class DashboardListViewController: UIViewController {
                 self.allEvents = fetched
                 self.events = fetched
                 self.tableView.reloadData()
+                self.updateEmptyState()
             }
         } catch {
             print("Error loading events:", error)
         }
     }
 
+    // MARK: External Setter (Used by OnboardingWelcomeViewController)
     func setEvents(_ events: [EventRecord]) {
         self.allEvents = events
         self.events = events
-        if isViewLoaded { tableView.reloadData() }
+
+        if isViewLoaded {
+            tableView.reloadData()
+            updateEmptyState()
+        }
     }
 
-    // MARK: Segmented Filtering
+    // MARK: Segments
     @objc private func segmentedChanged() {
         switch segments.selectedSegmentIndex {
-        case 0:
-            events = allEvents
-        case 1:
-            // TODO: implement upcoming filter — requires EventRecord date field
-            events = allEvents.filter { event in
-                // placeholder: treat all as upcoming for now
-                return true
-            }
-        case 2:
-            // TODO: implement completed filter — requires EventRecord status field
-            events = allEvents.filter { event in
-                // placeholder: none completed
-                return false
-            }
-        default:
-            events = allEvents
+        case 0: events = allEvents
+        case 1: events = allEvents.filter { _ in true }    // placeholder
+        case 2: events = allEvents.filter { _ in false }   // placeholder
+        default: break
         }
+
         tableView.reloadData()
+        updateEmptyState()
     }
 
-    // MARK: Add Event
+    // MARK: Actions
     @objc private func addEventTapped() {
         let vc = EventTypeViewController()
         let nav = UINavigationController(rootViewController: vc)
@@ -181,21 +239,19 @@ final class DashboardListViewController: UIViewController {
         present(nav, animated: true)
     }
 
-    // MARK: Profile Tap
     @objc private func profileTapped() {
-        // Ensure navBar is visible on the pushed screen
         navigationController?.setNavigationBarHidden(false, animated: true)
-
-        let vc = ProfileViewController()
-        // prefer the profile screen to show the standard nav bar
-        navigationController?.pushViewController(vc, animated: true)
+        navigationController?.pushViewController(ProfileViewController(), animated: true)
     }
 }
 
-// MARK: - Table DataSource & Delegate
+
+// MARK: - Table Delegates
 extension DashboardListViewController: UITableViewDataSource, UITableViewDelegate {
 
-    func tableView(_ t: UITableView, numberOfRowsInSection section: Int) -> Int { events.count }
+    func tableView(_ t: UITableView, numberOfRowsInSection section: Int) -> Int {
+        events.count
+    }
 
     func tableView(_ t: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = t.dequeueReusableCell(withIdentifier: "EventCardCell", for: indexPath) as! EventCardCell
@@ -205,20 +261,13 @@ extension DashboardListViewController: UITableViewDataSource, UITableViewDelegat
 
     func tableView(_ t: UITableView, didSelectRowAt indexPath: IndexPath) {
         t.deselectRow(at: indexPath, animated: true)
-        let selectedEvent = events[indexPath.row]
-        let vc = EventOverviewViewController(event: selectedEvent)
 
+        let selectedEvent = events[indexPath.row]
         EventSession.shared.currentEventId = selectedEvent.id
 
-        if let nav = self.navigationController {
-            vc.hidesBottomBarWhenPushed = true
-            nav.pushViewController(vc, animated: true)
-        } else {
-            // fallback: present modally inside a nav controller
-            let nav = UINavigationController(rootViewController: vc)
-            nav.modalPresentationStyle = .fullScreen
-            present(nav, animated: true)
-        }
+        let vc = EventOverviewViewController(event: selectedEvent)
+        vc.hidesBottomBarWhenPushed = true
+        navigationController?.pushViewController(vc, animated: true)
     }
 }
 

@@ -9,34 +9,36 @@ final class EventSectionCard: UIView {
         title: String,
         subtitle: String,
         progress: Float,
-        buttonTitle: String,
         onTap: @escaping () -> Void
     ) {
         self.onTap = onTap
         super.init(frame: .zero)
-        setupUI(iconName: iconName, title: title, subtitle: subtitle, progress: progress, buttonTitle: buttonTitle)
+        setupUI(iconName: iconName, title: title, subtitle: subtitle, progress: progress)
     }
 
-    required init?(coder: NSCoder) { fatalError("init coder") }
+    required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
 
-    private func setupUI(iconName: String, title: String, subtitle: String, progress: Float, buttonTitle: String) {
+    private func setupUI(iconName: String, title: String, subtitle: String, progress: Float) {
 
         backgroundColor = .white
-        layer.cornerRadius = 20
+        layer.cornerRadius = 18
         layer.shadowColor = UIColor.black.cgColor
-        layer.shadowOpacity = 0.05
+        layer.shadowOpacity = 0.06
         layer.shadowRadius = 6
         layer.shadowOffset = CGSize(width: 0, height: 3)
 
         translatesAutoresizingMaskIntoConstraints = false
+        heightAnchor.constraint(greaterThanOrEqualToConstant: 95).isActive = true
 
-        // Icon container
+        // -------------------------
+        // ICON
+        // -------------------------
         let iconBG = UIView()
         iconBG.backgroundColor = UIColor(red: 245/255, green: 235/255, blue: 255/255, alpha: 1)
         iconBG.layer.cornerRadius = 14
         iconBG.translatesAutoresizingMaskIntoConstraints = false
-        iconBG.heightAnchor.constraint(equalToConstant: 48).isActive = true
         iconBG.widthAnchor.constraint(equalToConstant: 48).isActive = true
+        iconBG.heightAnchor.constraint(equalToConstant: 48).isActive = true
 
         let icon = UIImageView(image: UIImage(systemName: iconName))
         icon.tintColor = UIColor(red: 140/255, green: 75/255, blue: 245/255, alpha: 1)
@@ -50,57 +52,88 @@ final class EventSectionCard: UIView {
             icon.heightAnchor.constraint(equalToConstant: 22)
         ])
 
-        // Labels
+        // -------------------------
+        // TEXT CONTENT
+        // -------------------------
         let titleLabel = UILabel()
-        titleLabel.font = .systemFont(ofSize: 16, weight: .semibold)
         titleLabel.text = title
+        titleLabel.font = .systemFont(ofSize: 16, weight: .semibold)
 
         let subtitleLabel = UILabel()
-        subtitleLabel.font = .systemFont(ofSize: 14)
-        subtitleLabel.textColor = .gray
         subtitleLabel.text = subtitle
+        subtitleLabel.font = .systemFont(ofSize: 13)
+        subtitleLabel.textColor = .gray
 
-        let textStack = UIStackView(arrangedSubviews: [titleLabel, subtitleLabel])
-        textStack.axis = .vertical
-        textStack.spacing = 2
-
-        let topRow = UIStackView(arrangedSubviews: [iconBG, textStack])
-        topRow.axis = .horizontal
-        topRow.spacing = 14
-        topRow.alignment = .center
-
-        // Progress bar
         let progressView = UIProgressView()
+        progressView.progress = progress
         progressView.trackTintColor = .systemGray5
         progressView.progressTintColor = UIColor(red: 140/255, green: 75/255, blue: 245/255, alpha: 1)
-        progressView.layer.cornerRadius = 2
-        progressView.clipsToBounds = true
-        progressView.progress = progress
 
-        // Button
-        let btn = UIButton(type: .system)
-        btn.setTitle(buttonTitle, for: .normal)
-        btn.setTitleColor(.white, for: .normal)
-        btn.titleLabel?.font = .systemFont(ofSize: 16, weight: .medium)
-        btn.layer.cornerRadius = 18
-        btn.heightAnchor.constraint(equalToConstant: 40).isActive = true
+        let textStack = UIStackView(arrangedSubviews: [
+            titleLabel, subtitleLabel, progressView
+        ])
+        textStack.axis = .vertical
+        textStack.spacing = 6
 
-        btn.backgroundColor = UIColor(red: 140/255, green: 75/255, blue: 245/255, alpha: 1)
-        btn.addAction(UIAction(handler: { _ in self.onTap() }), for: .touchUpInside)
+        // -------------------------
+        // CHEVRON ( > ) ON RIGHT
+        // -------------------------
+        let chevron = UIImageView(image: UIImage(systemName: "chevron.right"))
+        chevron.tintColor = .gray
+        chevron.translatesAutoresizingMaskIntoConstraints = false
+        chevron.widthAnchor.constraint(equalToConstant: 16).isActive = true
 
-        let main = UIStackView(arrangedSubviews: [topRow, progressView, btn])
-        main.axis = .vertical
-        main.spacing = 14
-        main.translatesAutoresizingMaskIntoConstraints = false
+        // -------------------------
+        // MAIN HORIZONTAL STACK
+        // -------------------------
+        let mainRow = UIStackView(arrangedSubviews: [
+            iconBG, textStack, chevron
+        ])
+        mainRow.axis = .horizontal
+        mainRow.alignment = .center
+        mainRow.spacing = 14
+        mainRow.translatesAutoresizingMaskIntoConstraints = false
 
-        addSubview(main)
+        addSubview(mainRow)
 
         NSLayoutConstraint.activate([
-            main.topAnchor.constraint(equalTo: topAnchor, constant: 18),
-            main.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 18),
-            main.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -18),
-            main.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -18)
+            mainRow.topAnchor.constraint(equalTo: topAnchor, constant: 18),
+            mainRow.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 18),
+            mainRow.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -18),
+            mainRow.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -18)
         ])
+
+        // -------------------------
+        // FULL TAPPABLE BUTTON
+        // -------------------------
+        let tapButton = UIButton(type: .custom)
+        tapButton.translatesAutoresizingMaskIntoConstraints = false
+        tapButton.backgroundColor = .clear
+        tapButton.addTarget(self, action: #selector(handleTap), for: .touchUpInside)
+
+        addSubview(tapButton)
+
+        NSLayoutConstraint.activate([
+            tapButton.topAnchor.constraint(equalTo: topAnchor),
+            tapButton.leadingAnchor.constraint(equalTo: leadingAnchor),
+            tapButton.trailingAnchor.constraint(equalTo: trailingAnchor),
+            tapButton.bottomAnchor.constraint(equalTo: bottomAnchor)
+        ])
+    }
+
+    @objc private func handleTap() {
+        animateTap()
+        onTap()
+    }
+
+    private func animateTap() {
+        UIView.animate(withDuration: 0.08, animations: {
+            self.transform = CGAffineTransform(scaleX: 0.97, y: 0.97)
+        }) { _ in
+            UIView.animate(withDuration: 0.1) {
+                self.transform = .identity
+            }
+        }
     }
 }
 

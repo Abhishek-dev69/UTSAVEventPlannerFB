@@ -15,7 +15,7 @@ final class SubservicesListViewController: UIViewController {
         }
     }
 
-    // Call back to parent if they want updates (optional)
+    // Notify parent when subservices change
     var onSubservicesChanged: (([Subservice]) -> Void)?
 
     // Empty state
@@ -60,7 +60,7 @@ final class SubservicesListViewController: UIViewController {
         tableView.delegate = self
         tableView.tableFooterView = UIView()
 
-        // empty background view
+        // Empty background view
         let container = UIView(frame: tableView.bounds)
         container.addSubview(emptyLabel)
         emptyLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -84,17 +84,36 @@ final class SubservicesListViewController: UIViewController {
         emptyLabel.isHidden = !subservices.isEmpty
     }
 
-    // MARK: - Actions
+    // MARK: - Add Subservice
     @objc private func addTapped() {
         let addVC = AddSubserviceViewController()
         addVC.onSave = { [weak self] newSub in
             guard let self = self else { return }
-            self.subservices.append(newSub)
-            // notify parent
-            self.onSubservicesChanged?(self.subservices)
+
+            Task {
+                do {
+                    // Fetch latest service info to get correct id
+                    let all = try await SupabaseManager.shared.fetchServices()
+                    guard let svc = all.first(where: { $0.name == self.service.name }) else {
+                        print("❌ Service not found for adding subservice.")
+                        return
+                    }
+
+                    // Save to database
+                    try await SupabaseManager.shared.addSubservice(serviceId: svc.id, sub: newSub)
+
+                    // Update local list
+                    self.subservices.append(newSub)
+
+                    // Notify parent
+                    self.onSubservicesChanged?(self.subservices)
+
+                } catch {
+                    print("❌ Failed to add subservice:", error)
+                }
+            }
         }
 
-        // present as sheet (matches your app style)
         addVC.modalPresentationStyle = .pageSheet
         if let sheet = addVC.sheetPresentationController {
             sheet.detents = [.large()]
@@ -105,14 +124,20 @@ final class SubservicesListViewController: UIViewController {
     }
 }
 
+
 // MARK: - TableView
 extension SubservicesListViewController: UITableViewDataSource, UITableViewDelegate {
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int { subservices.count }
+
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return subservices.count
+    }
 
     func tableView(_ tableView: UITableView,
                    cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+
         let sub = subservices[indexPath.row]
         let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
+
         var cfg = cell.defaultContentConfiguration()
         cfg.text = sub.name
         cfg.secondaryText = "₹\(Int(sub.rate)) • \(sub.unit)"
@@ -121,7 +146,6 @@ extension SubservicesListViewController: UITableViewDataSource, UITableViewDeleg
         cfg.imageProperties.cornerRadius = 8
         cell.contentConfiguration = cfg
 
-        // accessory: edit button (reuse same pattern you used)
         let editButton = UIButton(type: .system)
         editButton.setImage(UIImage(systemName: "pencil.circle.fill"), for: .normal)
         editButton.tintColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
@@ -133,8 +157,9 @@ extension SubservicesListViewController: UITableViewDataSource, UITableViewDeleg
         return cell
     }
 
-    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        // optional: treat row tap as edit too
+    func tableView(_ tableView: UITableView,
+                   didSelectRowAt indexPath: IndexPath) {
+
         tableView.deselectRow(at: indexPath, animated: true)
         presentEdit(at: indexPath.row)
     }
@@ -148,11 +173,33 @@ extension SubservicesListViewController: UITableViewDataSource, UITableViewDeleg
         let editVC = EditSubserviceViewController()
         editVC.subserviceToEdit = sub
         editVC.parentServiceName = service.name
+
         editVC.onSave = { [weak self] updated in
             guard let self = self else { return }
-            self.subservices[index] = updated
-            self.onSubservicesChanged?(self.subservices)
+
+            Task {
+                do {
+                    // Get all services to find correct service/subservice id
+                    let all = try await SupabaseManager.shared.fetchServices()
+                    guard let svc = all.first(where: { $0.name == self.service.name }) else { return }
+                    guard let subId = svc.subservices?.first(where: { $0.name == sub.name })?.id else {
+                        print("❌ Subservice ID not found for update")
+                        return
+                    }
+
+                    // Update DB
+                    try await SupabaseManager.shared.updateSubservice(subId: subId, updated: updated)
+
+                    // Update local array
+                    self.subservices[index] = updated
+                    self.onSubservicesChanged?(self.subservices)
+
+                } catch {
+                    print("❌ Failed to update subservice:", error)
+                }
+            }
         }
+
         if let sheet = editVC.sheetPresentationController {
             sheet.detents = [.large()]
             sheet.prefersGrabberVisible = true
@@ -161,13 +208,40 @@ extension SubservicesListViewController: UITableViewDataSource, UITableViewDeleg
         present(editVC, animated: true)
     }
 
-    // allow delete
+    // MARK: - Delete Subservice
     func tableView(_ tableView: UITableView,
                    commit editingStyle: UITableViewCell.EditingStyle,
                    forRowAt indexPath: IndexPath) {
+
         if editingStyle == .delete {
-            subservices.remove(at: indexPath.row)
-            onSubservicesChanged?(subservices)
+            let sub = subservices[indexPath.row]
+
+            Task {
+                do {
+                    let all = try await SupabaseManager.shared.fetchServices()
+
+                    guard let svc = all.first(where: { $0.name == self.service.name }) else {
+                        print("❌ Service not found for delete")
+                        return
+                    }
+
+                    guard let subId = svc.subservices?
+                            .first(where: { $0.name == sub.name })?
+                            .id else {
+                        print("❌ Subservice ID not found for delete")
+                        return
+                    }
+
+                    try await SupabaseManager.shared.deleteSubservice(subId: subId)
+
+                    subservices.remove(at: indexPath.row)
+                    onSubservicesChanged?(subservices)
+
+                } catch {
+                    print("❌ Failed to delete subservice:", error)
+                }
+            }
         }
     }
 }
+

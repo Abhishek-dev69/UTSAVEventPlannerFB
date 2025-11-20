@@ -1,6 +1,6 @@
 //
 //  EstimateCartViewController.swift
-//  FINAL — corrected, complete
+//  FINAL — corrected & updated
 //
 
 import UIKit
@@ -18,8 +18,10 @@ final class PaddedLabel: UILabel {
 
     override var intrinsicContentSize: CGSize {
         let base = super.intrinsicContentSize
-        return CGSize(width: base.width + contentInset.left + contentInset.right,
-                      height: base.height + contentInset.top + contentInset.bottom)
+        return CGSize(
+            width: base.width + contentInset.left + contentInset.right,
+            height: base.height + contentInset.top + contentInset.bottom
+        )
     }
 }
 
@@ -69,7 +71,7 @@ final class EstimateCartViewController: UIViewController {
         return l
     }()
 
-    // bottom buttons container
+    // Bottom Buttons Area
     private let bottomContainer = UIView()
     private let saveDraftBtn = UIButton(type: .system)
     private let sendQuotationBtn = UIButton(type: .system)
@@ -79,7 +81,6 @@ final class EstimateCartViewController: UIViewController {
     private var servicesItems: [CartItem] { CartManager.shared.items.filter { $0.sourceType == "in_house" } }
     private var outsourcedItems: [CartItem] { CartManager.shared.items.filter { $0.sourceType == "outsource" } }
 
-    // Tax is editable
     private var taxPercent: Double { Double(taxField.text ?? "") ?? 0 }
 
     private lazy var currencyFormatter: NumberFormatter = {
@@ -90,11 +91,10 @@ final class EstimateCartViewController: UIViewController {
         return f
     }()
 
-    // MARK: Lifecycle
+    // MARK: VIEW DID LOAD
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        // ensure we show nav bar controls if this VC is presented inside a UINavigationController
         navigationController?.navigationBar.isHidden = false
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             image: UIImage(systemName: "chevron.left"),
@@ -112,6 +112,7 @@ final class EstimateCartViewController: UIViewController {
         setupPayment()
         setupBottomButtons()
         setupKeyboardNotifications()
+        setupKeyboardDismissRecognizer()   // 👈 NEW — dismiss keyboard on any tap
 
         CartManager.shared.addObserver(self)
 
@@ -125,22 +126,35 @@ final class EstimateCartViewController: UIViewController {
     }
 
     @objc private func closeTapped() {
-        // If pushed on navigation stack - pop, otherwise dismiss
         if let nav = navigationController, nav.viewControllers.firstIndex(of: self) ?? 0 > 0 {
             navigationController?.popViewController(animated: true)
         } else {
-            dismiss(animated: true, completion: nil)
+            dismiss(animated: true)
         }
     }
 
     // -------------------------------------------------------------
     // MARK: - Keyboard handling
     // -------------------------------------------------------------
+    private func setupKeyboardDismissRecognizer() {
+        let tap = UITapGestureRecognizer(target: self, action: #selector(endEditingForced))
+        tap.cancelsTouchesInView = false
+        view.addGestureRecognizer(tap)
+    }
+
+    @objc private func endEditingForced() { view.endEditing(true) }
+
     private func setupKeyboardNotifications() {
-        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(_:)),
-                                               name: UIResponder.keyboardWillShowNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillHide(_:)),
-                                               name: UIResponder.keyboardWillHideNotification, object: nil)
+        NotificationCenter.default.addObserver(self,
+            selector: #selector(keyboardWillShow(_:)),
+            name: UIResponder.keyboardWillShowNotification,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(self,
+            selector: #selector(keyboardWillHide(_:)),
+            name: UIResponder.keyboardWillHideNotification,
+            object: nil
+        )
     }
 
     @objc private func keyboardWillShow(_ note: Notification) {
@@ -155,29 +169,26 @@ final class EstimateCartViewController: UIViewController {
     }
 
     // -------------------------------------------------------------
-    // MARK: Scroll + content setup
+    // MARK: Scroll Setup
     // -------------------------------------------------------------
     private func setupScroll() {
         scroll.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(scroll)
 
-        // add bottomContainer before activating constraints so we can reference it
         bottomContainer.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(bottomContainer)
-        // bottomContainer will be further configured in setupBottomButtons()
 
         NSLayoutConstraint.activate([
             scroll.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scroll.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-
-            // keep scroll above the bottom container to prevent overlap
             scroll.bottomAnchor.constraint(equalTo: bottomContainer.topAnchor)
         ])
 
         content.axis = .vertical
         content.spacing = 16
         content.translatesAutoresizingMaskIntoConstraints = false
+
         scroll.addSubview(content)
 
         NSLayoutConstraint.activate([
@@ -190,24 +201,20 @@ final class EstimateCartViewController: UIViewController {
     }
 
     // -------------------------------------------------------------
-    // MARK: Sections (accordion)
+    // MARK: Sections (Accordion)
     // -------------------------------------------------------------
     private func setupSections() {
         content.addArrangedSubview(servicesHeader)
         let sContainer = addCard(for: servicesCard)
         content.addArrangedSubview(sContainer)
 
-        servicesHeader.onToggle = { open in
-            sContainer.isHidden = !open
-        }
+        servicesHeader.onToggle = { open in sContainer.isHidden = !open }
 
         content.addArrangedSubview(outsourcedHeader)
         let oContainer = addCard(for: outsourcedCard)
         content.addArrangedSubview(oContainer)
 
-        outsourcedHeader.onToggle = { open in
-            oContainer.isHidden = !open
-        }
+        outsourcedHeader.onToggle = { open in oContainer.isHidden = !open }
     }
 
     private func addCard(for stack: UIStackView) -> CardView {
@@ -216,11 +223,12 @@ final class EstimateCartViewController: UIViewController {
 
         stack.axis = .vertical
         stack.spacing = 12
-        stack.layoutMargins = UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
         stack.isLayoutMarginsRelativeArrangement = true
+        stack.layoutMargins = UIEdgeInsets(top: 10, left: 10, bottom: 10, right: 10)
 
         container.contentView.addSubview(stack)
         stack.translatesAutoresizingMaskIntoConstraints = false
+
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: container.contentView.topAnchor),
             stack.leadingAnchor.constraint(equalTo: container.contentView.leadingAnchor),
@@ -243,7 +251,7 @@ final class EstimateCartViewController: UIViewController {
 
         taxField.borderStyle = .roundedRect
         taxField.keyboardType = .decimalPad
-        taxField.text = "8.25"
+        taxField.placeholder = "0"   // 👈 changed from "8.25"
         taxField.widthAnchor.constraint(equalToConstant: 70).isActive = true
         taxField.addTarget(self, action: #selector(updateSummaryAction), for: .editingChanged)
 
@@ -257,23 +265,39 @@ final class EstimateCartViewController: UIViewController {
         grandTotalLabel.textColor = UIColor(red: 140/255, green: 77/255, blue: 246/255, alpha: 1)
 
         let subtotalRow = lineRow(label: "Subtotal", right: subtotalLabel)
-        let taxRow = UIStackView(arrangedSubviews: [UILabel(text: "Tax (%)"), taxField, UIView(), taxAmountLabel])
+
+        let taxRow = UIStackView(arrangedSubviews: [
+            UILabel(text: "Tax (%)"),
+            taxField,
+            UIView(),
+            taxAmountLabel
+        ])
         taxRow.axis = .horizontal
         taxRow.spacing = 8
         taxRow.alignment = .center
 
-        let discountRow = UIStackView(arrangedSubviews: [UILabel(text: "Discount (₹)"), discountField])
+        let discountRow = UIStackView(arrangedSubviews: [
+            UILabel(text: "Discount (₹)"),
+            discountField
+        ])
         discountRow.axis = .horizontal
         discountRow.spacing = 8
 
         let grandRow = lineRow(label: "Grand Total", right: grandTotalLabel)
 
-        let stack = UIStackView(arrangedSubviews: [title, subtotalRow, taxRow, discountRow, grandRow])
+        let stack = UIStackView(arrangedSubviews: [
+            title,
+            subtotalRow,
+            taxRow,
+            discountRow,
+            grandRow
+        ])
         stack.axis = .vertical
         stack.spacing = 14
 
         summaryCard.contentView.addSubview(stack)
         stack.translatesAutoresizingMaskIntoConstraints = false
+
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: summaryCard.contentView.topAnchor, constant: 12),
             stack.leadingAnchor.constraint(equalTo: summaryCard.contentView.leadingAnchor, constant: 12),
@@ -303,7 +327,11 @@ final class EstimateCartViewController: UIViewController {
         customAmountField.widthAnchor.constraint(equalToConstant: 90).isActive = true
         customAmountField.addTarget(self, action: #selector(updateSummaryAction), for: .editingChanged)
 
-        let row = UIStackView(arrangedSubviews: [partialPercentField, UILabel(text: "% or ₹"), customAmountField])
+        let row = UIStackView(arrangedSubviews: [
+            partialPercentField,
+            UILabel(text: "% or ₹"),
+            customAmountField
+        ])
         row.axis = .horizontal
         row.spacing = 8
         row.alignment = .center
@@ -312,12 +340,18 @@ final class EstimateCartViewController: UIViewController {
         balanceLabel.layer.cornerRadius = 8
         balanceLabel.layer.masksToBounds = true
 
-        let stack = UIStackView(arrangedSubviews: [title, UILabel(text: "Capture Partial Payment"), row, balanceLabel])
+        let stack = UIStackView(arrangedSubviews: [
+            title,
+            UILabel(text: "Capture Partial Payment"),
+            row,
+            balanceLabel
+        ])
         stack.axis = .vertical
         stack.spacing = 14
 
         paymentCard.contentView.addSubview(stack)
         stack.translatesAutoresizingMaskIntoConstraints = false
+
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: paymentCard.contentView.topAnchor, constant: 12),
             stack.leadingAnchor.constraint(equalTo: paymentCard.contentView.leadingAnchor, constant: 12),
@@ -329,12 +363,9 @@ final class EstimateCartViewController: UIViewController {
     }
 
     // -------------------------------------------------------------
-    // MARK: Bottom buttons
+    // MARK: Bottom Buttons
     // -------------------------------------------------------------
     private func setupBottomButtons() {
-        // bottomContainer already added in setupScroll; configure constraints now
-        bottomContainer.translatesAutoresizingMaskIntoConstraints = false
-
         NSLayoutConstraint.activate([
             bottomContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             bottomContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -342,7 +373,9 @@ final class EstimateCartViewController: UIViewController {
             bottomContainer.heightAnchor.constraint(equalToConstant: 140)
         ])
 
-        let topRow = UIStackView(arrangedSubviews: [saveDraftBtn, sendQuotationBtn])
+        let topRow = UIStackView(arrangedSubviews: [
+            saveDraftBtn, sendQuotationBtn
+        ])
         topRow.axis = .horizontal
         topRow.spacing = 12
         topRow.distribution = .fillEqually
@@ -382,7 +415,7 @@ final class EstimateCartViewController: UIViewController {
     }
 
     // -------------------------------------------------------------
-    // MARK: Build / rebuild cards
+    // MARK: Build Cards
     // -------------------------------------------------------------
     private func rebuildCards() {
         servicesCard.arrangedSubviews.forEach { $0.removeFromSuperview() }
@@ -418,7 +451,10 @@ final class EstimateCartViewController: UIViewController {
         del.setImage(UIImage(systemName: "trash.fill"), for: .normal)
         del.tintColor = .systemRed
         del.addAction(UIAction { _ in
-            CartManager.shared.removeItem(serviceName: item.serviceName, subserviceName: item.subserviceName)
+            CartManager.shared.removeItem(
+                serviceName: item.serviceName,
+                subserviceName: item.subserviceName
+            )
         }, for: .touchUpInside)
 
         let rate = textField(text: "\(Int(item.rate))", width: 80)
@@ -454,6 +490,7 @@ final class EstimateCartViewController: UIViewController {
 
         card.addSubview(stack)
         stack.translatesAutoresizingMaskIntoConstraints = false
+
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(equalTo: card.topAnchor, constant: 12),
             stack.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 12),
@@ -476,6 +513,7 @@ final class EstimateCartViewController: UIViewController {
     private func vertical(label: String, control: UIView) -> UIStackView {
         let lbl = UILabel(text: label)
         lbl.font = .systemFont(ofSize: 12)
+
         let v = UIStackView(arrangedSubviews: [lbl, control])
         v.axis = .vertical
         v.spacing = 6
@@ -483,7 +521,7 @@ final class EstimateCartViewController: UIViewController {
     }
 
     // -------------------------------------------------------------
-    // MARK: Summary calculation & update
+    // MARK: Summary Calculation
     // -------------------------------------------------------------
     @objc private func updateSummaryAction() { updateSummary() }
 
@@ -496,6 +534,7 @@ final class EstimateCartViewController: UIViewController {
 
         let discount = Double(discountField.text ?? "") ?? 0
         let grand = subtotal + taxValue - discount
+
         grandTotalLabel.text = currencyFormatter.string(from: NSNumber(value: grand))
 
         updateBalance(for: grand)
@@ -505,7 +544,8 @@ final class EstimateCartViewController: UIViewController {
         let custom = Double(customAmountField.text ?? "") ?? 0
         if custom > 0 {
             let remain = total - custom
-            balanceLabel.text = "Balance Remaining: \(currencyFormatter.string(from: NSNumber(value: remain)) ?? "₹0")"
+            balanceLabel.text =
+                "Balance Remaining: \(currencyFormatter.string(from: NSNumber(value: remain)) ?? "₹0")"
             return
         }
 
@@ -513,32 +553,42 @@ final class EstimateCartViewController: UIViewController {
         if p > 0 {
             let paid = total * p / 100
             let remain = total - paid
-            balanceLabel.text = "Balance Remaining: \(currencyFormatter.string(from: NSNumber(value: remain)) ?? "₹0")"
+            balanceLabel.text =
+                "Balance Remaining: \(currencyFormatter.string(from: NSNumber(value: remain)) ?? "₹0")"
             return
         }
 
-        balanceLabel.text = "Balance Remaining: \(currencyFormatter.string(from: NSNumber(value: total)) ?? "₹0")"
+        balanceLabel.text =
+            "Balance Remaining: \(currencyFormatter.string(from: NSNumber(value: total)) ?? "₹0")"
     }
 
     // -------------------------------------------------------------
-    // MARK: Rate / qty edit handlers
+    // MARK: Rate/Qty change
     // -------------------------------------------------------------
-    private func tagFor(_ item: CartItem) -> Int { (item.serviceName.hashValue ^ item.subserviceName.hashValue) & 0x7FFFFFFF }
-    private func itemForTag(_ tag: Int) -> CartItem? { CartManager.shared.items.first { tagFor($0) == tag } }
+    private func tagFor(_ item: CartItem) -> Int {
+        (item.serviceName.hashValue ^ item.subserviceName.hashValue) & 0x7FFFFFFF
+    }
+
+    private func itemForTag(_ tag: Int) -> CartItem? {
+        CartManager.shared.items.first { tagFor($0) == tag }
+    }
 
     @objc private func rateChanged(_ tf: UITextField) {
         guard let item = itemForTag(tf.tag) else { return }
         let newRate = Double(tf.text ?? "") ?? 0
 
         CartManager.shared.removeItem(serviceName: item.serviceName, subserviceName: item.subserviceName)
-        CartManager.shared.addItem(serviceId: item.serviceId,
-                                   serviceName: item.serviceName,
-                                   subserviceId: item.subserviceId,
-                                   subserviceName: item.subserviceName,
-                                   rate: newRate,
-                                   unit: item.unit,
-                                   quantity: item.quantity,
-                                   sourceType: item.sourceType)
+
+        CartManager.shared.addItem(
+            serviceId: item.serviceId,
+            serviceName: item.serviceName,
+            subserviceId: item.subserviceId,
+            subserviceName: item.subserviceName,
+            rate: newRate,
+            unit: item.unit,
+            quantity: item.quantity,
+            sourceType: item.sourceType
+        )
 
         rebuildCards()
         updateSummary()
@@ -548,71 +598,72 @@ final class EstimateCartViewController: UIViewController {
         guard let item = itemForTag(tf.tag) else { return }
         let qty = Int(tf.text ?? "") ?? 0
 
-        CartManager.shared.setQuantity(serviceName: item.serviceName, subserviceName: item.subserviceName, quantity: qty)
+        CartManager.shared.setQuantity(
+            serviceName: item.serviceName,
+            subserviceName: item.subserviceName,
+            quantity: qty
+        )
+
         rebuildCards()
         updateSummary()
     }
 
     // -------------------------------------------------------------
-    // MARK: Confirm order / navigation
+    // MARK: Confirm Order
     // -------------------------------------------------------------
     @objc private func confirmOrderTapped() {
         UserDefaults.standard.set(true, forKey: "event_registered")
+
         Task {
             do {
-                // 1) ensure event exists
                 guard let eventId = EventSession.shared.currentEventId else {
                     await MainActor.run {
-                        let a = UIAlertController(
+                        let alert = UIAlertController(
                             title: "Missing Event",
                             message: "Please fill event details before confirming.",
                             preferredStyle: .alert
                         )
-                        a.addAction(UIAlertAction(title: "OK", style: .default))
-                        self.present(a, animated: true)
+                        alert.addAction(UIAlertAction(title: "OK", style: .default))
+                        self.present(alert, animated: true)
                     }
                     return
                 }
 
-                // 2) link cart items to event (server)
                 try await EventSupabaseManager.shared.linkCartItemsToEvent(eventId: eventId)
 
-                // 3) NAVIGATION: Return to the app's Home (root tab) robustly
                 await MainActor.run {
                     let scenes = UIApplication.shared.connectedScenes
                         .compactMap { $0 as? UIWindowScene }
 
                     guard let window = scenes.first?.windows.first(where: { $0.isKeyWindow }),
                           let root = window.rootViewController else {
-                        self.view.window?.rootViewController?.dismiss(animated: false, completion: nil)
+                        self.view.window?.rootViewController?.dismiss(animated: false)
                         NotificationCenter.default.post(name: NSNotification.Name("ReloadEventsDashboard"), object: nil)
                         return
                     }
 
                     if let tab = root as? UITabBarController {
-                        tab.dismiss(animated: false, completion: nil)
+                        tab.dismiss(animated: false)
                         tab.selectedIndex = 0
                         if let nav = tab.selectedViewController as? UINavigationController {
                             nav.popToRootViewController(animated: false)
                         }
+                    } else if let nav = root as? UINavigationController {
+                        nav.popToRootViewController(animated: false)
+                        nav.dismiss(animated: false)
                     } else {
-                        if let nav = root as? UINavigationController {
-                            nav.popToRootViewController(animated: false)
-                            nav.dismiss(animated: false, completion: nil)
-                        } else {
-                            root.dismiss(animated: false, completion: nil)
-                        }
+                        root.dismiss(animated: false)
                     }
 
-                    self.presentingViewController?.dismiss(animated: false, completion: nil)
+                    self.presentingViewController?.dismiss(animated: false)
                     NotificationCenter.default.post(name: NSNotification.Name("ReloadEventsDashboard"), object: nil)
                 }
 
             } catch {
                 await MainActor.run {
-                    let a = UIAlertController(title: "Error", message: error.localizedDescription, preferredStyle: .alert)
-                    a.addAction(UIAlertAction(title: "OK", style: .default))
-                    self.present(a, animated: true)
+                    let alert = UIAlertController(title: "Error", message: error.localizedDescription, preferredStyle: .alert)
+                    alert.addAction(UIAlertAction(title: "OK", style: .default))
+                    self.present(alert, animated: true)
                 }
             }
         }
@@ -622,8 +673,8 @@ final class EstimateCartViewController: UIViewController {
     // MARK: Helpers
     // -------------------------------------------------------------
     private func lineRow(label: String, right: UIView) -> UIStackView {
-        let l = UILabel(text: label)
-        let row = UIStackView(arrangedSubviews: [l, UIView(), right])
+        let lbl = UILabel(text: label)
+        let row = UIStackView(arrangedSubviews: [lbl, UIView(), right])
         row.axis = .horizontal
         row.alignment = .center
         return row
@@ -654,6 +705,7 @@ final class CardView: UIView {
 
     private func setup() {
         backgroundColor = .clear
+
         contentView.backgroundColor = .white
         contentView.layer.cornerRadius = 12
         contentView.layer.shadowOpacity = 0.06
@@ -663,6 +715,7 @@ final class CardView: UIView {
         contentView.translatesAutoresizingMaskIntoConstraints = false
 
         addSubview(contentView)
+
         NSLayoutConstraint.activate([
             contentView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             contentView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
@@ -715,6 +768,7 @@ final class AccordionHeaderView: UIView {
         h.translatesAutoresizingMaskIntoConstraints = false
 
         card.contentView.addSubview(h)
+
         NSLayoutConstraint.activate([
             h.topAnchor.constraint(equalTo: card.contentView.topAnchor, constant: 12),
             h.leadingAnchor.constraint(equalTo: card.contentView.leadingAnchor, constant: 12),
@@ -728,9 +782,13 @@ final class AccordionHeaderView: UIView {
 
     @objc private func toggle() {
         isOpen.toggle()
+
         UIView.animate(withDuration: 0.25) {
-            self.chevron.transform = self.isOpen ? CGAffineTransform(rotationAngle: .pi / 2) : .identity
+            self.chevron.transform = self.isOpen
+                ? CGAffineTransform(rotationAngle: .pi / 2)
+                : .identity
         }
+
         onToggle?(isOpen)
     }
 }

@@ -174,7 +174,7 @@ final class OutsourceFormView: UIView {
             addButton.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -18)
         ])
 
-        // Add "Done" toolbars
+        // Add toolbars
         addDoneToolbar(to: nameField)
         addDoneToolbar(to: vendorField)
         addDoneToolbar(to: budgetField)
@@ -192,7 +192,6 @@ final class OutsourceFormView: UIView {
         endEditing(true)
     }
 
-    // Done toolbar for textfields
     private func addDoneToolbar(to textField: UITextField) {
         let toolbar = UIToolbar()
         toolbar.sizeToFit()
@@ -210,6 +209,26 @@ final class OutsourceFormView: UIView {
             UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(endEditingForce))
         ]
         return tb
+    }
+
+    // MARK: - Reset Form After Submit
+    private func resetForm() {
+        nameField.text = ""
+        descText.text = ""
+        vendorField.text = ""
+        budgetField.text = ""
+    }
+
+    // MARK: - Success Popup
+    private func showSuccessPopup(_ message: String) {
+        guard let vc = findViewController() else { return }
+
+        let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+        vc.present(alert, animated: true)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            alert.dismiss(animated: true)
+        }
     }
 
     // MARK: - Submit
@@ -238,6 +257,9 @@ final class OutsourceFormView: UIView {
         )
 
         onSubmit?(item)
+
+        resetForm()
+        showSuccessPopup("Material added to cart")
     }
 
     private func showValidationError(_ msg: String) {

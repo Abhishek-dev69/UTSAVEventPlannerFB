@@ -10,6 +10,9 @@ final class ServicePickerViewController: UIViewController, CartObserver {
     private let segmented = UISegmentedControl(items: ["In-House Services", "Outsource Services"])
     private let tableView = UITableView(frame: .zero, style: .plain)
 
+    // A container view for segmented control
+    private let segmentContainer = UIView()
+
     // Outsource form container
     private let outsourceContainer = UIView()
     private var outsourceForm: OutsourceFormView?
@@ -30,6 +33,7 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         view.backgroundColor = .white
 
         setupNav()
+        setupSegmentContainer()
         setupTable()
         setupOutsourceForm()
         setupBottomCart()
@@ -42,7 +46,7 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         Task {
             _ = try? await SupabaseManager.shared.ensureUserId()
 
-            // 🔥 IMPORTANT FIX — LOAD CART BY CURRENT EVENT
+            // Load cart with current event's ID
             let eventId = EventSession.shared.currentEventId
             CartManager.shared.loadFromServer(eventId: eventId)
 
@@ -54,10 +58,9 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         CartManager.shared.removeObserver(self)
     }
 
-    // MARK: - Navigation
+    // MARK: - Navigation Bar
     private func setupNav() {
         navigationItem.title = "Add Requirements"
-        navigationItem.titleView = segmented
 
         let back = UIButton(type: .system)
         back.setImage(UIImage(systemName: "chevron.left"), for: .normal)
@@ -68,6 +71,33 @@ final class ServicePickerViewController: UIViewController, CartObserver {
 
     @objc private func closeScreen() {
         dismiss(animated: true)
+    }
+
+    // MARK: - Segmented Control (below nav bar)
+    private func setupSegmentContainer() {
+
+        segmentContainer.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(segmentContainer)
+
+        // Segmented style
+        segmented.translatesAutoresizingMaskIntoConstraints = false
+        segmented.backgroundColor = UIColor(white: 0.95, alpha: 1)
+        segmented.layer.cornerRadius = 16
+        segmented.clipsToBounds = true
+
+        segmentContainer.addSubview(segmented)
+
+        NSLayoutConstraint.activate([
+            segmentContainer.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            segmentContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            segmentContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            segmentContainer.heightAnchor.constraint(equalToConstant: 50),
+
+            segmented.leadingAnchor.constraint(equalTo: segmentContainer.leadingAnchor, constant: 20),
+            segmented.trailingAnchor.constraint(equalTo: segmentContainer.trailingAnchor, constant: -20),
+            segmented.centerYAnchor.constraint(equalTo: segmentContainer.centerYAnchor),
+            segmented.heightAnchor.constraint(equalToConstant: 36)
+        ])
     }
 
     // MARK: - Table Setup
@@ -84,10 +114,10 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         view.addSubview(tableView)
 
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 6),
+            tableView.topAnchor.constraint(equalTo: segmentContainer.bottomAnchor, constant: 10),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -95)
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -110)
         ])
     }
 
@@ -100,10 +130,10 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         view.addSubview(outsourceContainer)
 
         NSLayoutConstraint.activate([
+            outsourceContainer.topAnchor.constraint(equalTo: segmentContainer.bottomAnchor, constant: 10),
             outsourceContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             outsourceContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            outsourceContainer.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 6),
-            outsourceContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -95)
+            outsourceContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -110)
         ])
 
         let form = OutsourceFormView()
@@ -136,16 +166,22 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         outsourceForm = form
     }
 
-    // MARK: - Bottom Cart
+    // MARK: - Bottom Cart (Figma Style)
     private func setupBottomCart() {
         bottomCartView.translatesAutoresizingMaskIntoConstraints = false
         bottomCartView.backgroundColor = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
-        bottomCartView.layer.cornerRadius = 26
+        bottomCartView.layer.cornerRadius = 32
         view.addSubview(bottomCartView)
 
-        cartIcon.tintColor = .white
+        let iconBg = UIView()
+        iconBg.translatesAutoresizingMaskIntoConstraints = false
+        iconBg.backgroundColor = .white
+        iconBg.layer.cornerRadius = 20
+        bottomCartView.addSubview(iconBg)
+
+        cartIcon.tintColor = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
         cartIcon.translatesAutoresizingMaskIntoConstraints = false
-        bottomCartView.addSubview(cartIcon)
+        iconBg.addSubview(cartIcon)
 
         cartLabel.font = .systemFont(ofSize: 16, weight: .semibold)
         cartLabel.textColor = .white
@@ -163,14 +199,19 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         NSLayoutConstraint.activate([
             bottomCartView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             bottomCartView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            bottomCartView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
-            bottomCartView.heightAnchor.constraint(equalToConstant: 64),
+            bottomCartView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
+            bottomCartView.heightAnchor.constraint(equalToConstant: 70),
 
-            cartIcon.leadingAnchor.constraint(equalTo: bottomCartView.leadingAnchor, constant: 16),
-            cartIcon.centerYAnchor.constraint(equalTo: bottomCartView.centerYAnchor),
+            iconBg.leadingAnchor.constraint(equalTo: bottomCartView.leadingAnchor, constant: 16),
+            iconBg.centerYAnchor.constraint(equalTo: bottomCartView.centerYAnchor),
+            iconBg.heightAnchor.constraint(equalToConstant: 40),
+            iconBg.widthAnchor.constraint(equalToConstant: 40),
 
-            cartLabel.leadingAnchor.constraint(equalTo: cartIcon.trailingAnchor, constant: 12),
-            cartLabel.topAnchor.constraint(equalTo: bottomCartView.topAnchor, constant: 10),
+            cartIcon.centerXAnchor.constraint(equalTo: iconBg.centerXAnchor),
+            cartIcon.centerYAnchor.constraint(equalTo: iconBg.centerYAnchor),
+
+            cartLabel.leadingAnchor.constraint(equalTo: iconBg.trailingAnchor, constant: 12),
+            cartLabel.topAnchor.constraint(equalTo: bottomCartView.topAnchor, constant: 14),
 
             cartTotalLabel.leadingAnchor.constraint(equalTo: cartLabel.leadingAnchor),
             cartTotalLabel.topAnchor.constraint(equalTo: cartLabel.bottomAnchor, constant: 2)
@@ -185,8 +226,8 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         nav.modalPresentationStyle = .fullScreen
         present(nav, animated: true)
     }
-    
-    // MARK: - Segmented Control
+
+    // MARK: - Segmented Control Logic
     @objc private func segmentChanged() {
         let isOutsource = segmented.selectedSegmentIndex == 1
 
