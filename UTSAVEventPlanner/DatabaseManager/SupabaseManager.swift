@@ -103,14 +103,11 @@ final class SupabaseManager {
     }
 
     // Ensure we have a user session (anonymous sign-in fallback)
+    // File: /mnt/data/SupabaseManager.swift
+    // TEMPORARY: testing static planner id
     func ensureUserId() async throws -> String {
-        if let session = try? await client.auth.session {
-            return session.user.id.uuidString
-        }
-
-        try await client.auth.signInAnonymously()
-        let session = try await client.auth.session
-        return session.user.id.uuidString
+        // Return the test planner id while you don't have real auth set up
+        return "2b7e9f1d-4e2f-4a2f-9c11-9f7ea6b8a2f2"
     }
 
     // MARK: - Services & Subservices

@@ -93,6 +93,9 @@ final class OutsourceRequirementCell: UITableViewCell {
             assignButton.widthAnchor.constraint(equalToConstant: 80)
         ])
     }
+    func setAssignAction(_ action: @escaping () -> Void) {
+        assignButton.addAction(UIAction { _ in action() }, for: .touchUpInside)
+    }
 
     // MARK: - Configure
     /// Safely configure cell from a server CartItemRecord (fields may be optional)
