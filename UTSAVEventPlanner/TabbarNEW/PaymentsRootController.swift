@@ -24,6 +24,10 @@ final class PaymentsRootController: UIViewController {
         Task { await loadEvents() }
     }
     
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
@@ -41,11 +45,11 @@ final class PaymentsRootController: UIViewController {
         Task { await loadEvents() }
     }
     
-    // MARK: - Load Events
+    // MARK: - Load Events (uses unified fetch used by Dashboard)
     private func loadEvents() async {
         do {
-            let uid = try await SupabaseManager.shared.ensureUserId()
-            let events = try await EventSupabaseManager.shared.fetchUserEvents(userId: uid)
+            // Use unified fetch used by Dashboard to avoid mismatch with other fetch variants.
+            let events = try await EventSupabaseManager.shared.fetchAllEventsForUser()
             
             await MainActor.run {
                 if events.isEmpty {
@@ -57,11 +61,13 @@ final class PaymentsRootController: UIViewController {
                         show(list)
                     }
                     
+                    // Ask child to refresh its own data
                     Task { await listVC?.refreshEvents() }
                 }
             }
             
         } catch {
+            print("PaymentsRootController.loadEvents error:", error)
             await MainActor.run { show(emptyVC) }
         }
     }
@@ -85,7 +91,7 @@ final class PaymentsRootController: UIViewController {
         
         // Update title based on visible screen
         if vc is PaymentsEventsListViewController {
-            self.navigationItem.title = "All Events Payments Tracks"
+            self.navigationItem.title = "All Events Payments Track"
         } else {
             self.navigationItem.title = "Payments"
         }

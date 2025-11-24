@@ -108,21 +108,21 @@ final class EventSupabaseManager {
         return record
     }
     // MARK: - Fetch All Events for User
+    // MARK: - Fetch All Events for User (Used in Payments + Inventory)
     func fetchUserEvents(userId: String) async throws -> [EventRecord] {
-        
+
         let response = try await client
             .from("events")
-            .select("*")
+            .select()
             .eq("user_id", value: userId)
-            .order("start_date", ascending: true)
+            .order("created_at", ascending: false)
             .execute()
-        
+
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        
+
         return try decoder.decode([EventRecord].self, from: response.data)
     }
-    
     
     // MARK: - FETCH EVENT BY ID
     func fetchEvent(id: String) async throws -> EventRecord {

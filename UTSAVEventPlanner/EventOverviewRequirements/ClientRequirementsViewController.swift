@@ -247,12 +247,32 @@ extension ClientRequirementsViewController: UITableViewDataSource, UITableViewDe
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 
         if selectedSegment == 0 {
-            let cell = tableView.dequeueReusableCell(withIdentifier: "InhouseRequirementCell", for: indexPath) as! InhouseRequirementCell
+            // IN-HOUSE CELL
+            let cell = tableView.dequeueReusableCell(
+                withIdentifier: "InhouseRequirementCell",
+                for: indexPath
+            ) as! InhouseRequirementCell
+
             cell.configure(item: inhouse[indexPath.row])
             return cell
+
         } else {
-            let cell = tableView.dequeueReusableCell(withIdentifier: "OutsourceRequirementCell", for: indexPath) as! OutsourceRequirementCell
+            // OUTSOURCE CELL
+            let cell = tableView.dequeueReusableCell(
+                withIdentifier: "OutsourceRequirementCell",
+                for: indexPath
+            ) as! OutsourceRequirementCell
+
             cell.configure(item: outsource[indexPath.row])
+
+            // ✅ setAssignAction only here because 'cell' exists here
+            cell.setAssignAction { [weak self] in
+                guard let self else { return }
+                let item = self.outsource[indexPath.row]
+                let vc = OutsourceRequirementDetailViewController(item: item)
+                self.navigationController?.pushViewController(vc, animated: true)
+            }
+
             return cell
         }
     }

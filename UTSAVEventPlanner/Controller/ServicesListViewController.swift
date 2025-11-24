@@ -56,7 +56,7 @@ final class ServicesListViewController: UIViewController {
     }
 
     private func setupSaveButton() {
-        saveButton.setTitle("Save & Continue", for: .normal)
+        saveButton.setTitle("Save", for: .normal)
         saveButton.setTitleColor(.white, for: .normal)
         saveButton.titleLabel?.font = .boldSystemFont(ofSize: 16)
         saveButton.backgroundColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
