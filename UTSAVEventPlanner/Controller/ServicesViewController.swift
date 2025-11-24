@@ -39,7 +39,15 @@ final class ServicesViewController: UIViewController {
         myServicesCard.isUserInteractionEnabled = true
         myServicesCard.addGestureRecognizer(myServicesTap)
 
-        // (Optional: vendor taps, if needed later)
+        // ⭐ Vendor Marketplace → VendorMarketplaceViewController
+        let vendorMarketplaceTap = UITapGestureRecognizer(target: self, action: #selector(openVendorMarketplace))
+        vendorMarketplaceCard.isUserInteractionEnabled = true
+        vendorMarketplaceCard.addGestureRecognizer(vendorMarketplaceTap)
+
+        // ⭐ My Vendors → MyVendorsViewController
+        let myVendorsTap = UITapGestureRecognizer(target: self, action: #selector(openMyVendors))
+        myVendorsCard.isUserInteractionEnabled = true
+        myVendorsCard.addGestureRecognizer(myVendorsTap)
     }
 
     // MARK: - Open My Services -> ServicesListViewController
@@ -55,5 +63,32 @@ final class ServicesViewController: UIViewController {
             present(nav, animated: true)
         }
     }
-}
 
+    // MARK: - Open Vendor Marketplace -> VendorMarketplaceViewController
+    @objc private func openVendorMarketplace() {
+        let vc = VendorMarketplaceViewController()
+        vc.hidesBottomBarWhenPushed = true
+
+        if let nav = navigationController {
+            nav.pushViewController(vc, animated: true)
+        } else {
+            let nav = UINavigationController(rootViewController: vc)
+            nav.modalPresentationStyle = .fullScreen
+            present(nav, animated: true)
+        }
+    }
+
+    // MARK: - Open My Vendors -> MyVendorsViewController
+    @objc private func openMyVendors() {
+        let vc = MyVendorsViewController()
+        vc.hidesBottomBarWhenPushed = true
+
+        if let nav = navigationController {
+            nav.pushViewController(vc, animated: true)
+        } else {
+            let nav = UINavigationController(rootViewController: vc)
+            nav.modalPresentationStyle = .fullScreen
+            present(nav, animated: true)
+        }
+    }
+}
