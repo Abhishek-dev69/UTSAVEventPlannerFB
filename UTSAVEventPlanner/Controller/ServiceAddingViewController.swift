@@ -428,7 +428,6 @@ extension ServiceAddingViewController: UITableViewDelegate, UITableViewDataSourc
         content.image = item.image
         content.imageProperties.maximumSize = CGSize(width: 40, height: 40)
         content.imageProperties.cornerRadius = 8
-        content.secondaryText = "Tap pencil to edit"
         content.secondaryTextProperties.font = .systemFont(ofSize: 12)
         cell.contentConfiguration = content
 

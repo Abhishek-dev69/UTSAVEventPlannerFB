@@ -17,7 +17,7 @@ final class AddSubserviceViewController: UIViewController {
     // MARK: - Internal state
     private var selectedImage: UIImage?
     private var selectedUnit = "Per event"
-    private let units = ["Per event", "Per hour", "Per person", "Per item"]
+    private let units = ["Per event","Per day"]
 
     // MARK: - UI
     private let scrollView = UIScrollView()

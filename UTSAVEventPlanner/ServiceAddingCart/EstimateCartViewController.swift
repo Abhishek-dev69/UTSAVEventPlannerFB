@@ -444,17 +444,29 @@ final class EstimateCartViewController: UIViewController {
         card.layer.borderWidth = 0.6
         card.translatesAutoresizingMaskIntoConstraints = false
 
-        let title = UILabel(text: item.subserviceName)
+        // Show serviceName for outsourced items, subserviceName for in-house ones
+        let titleText: String = (item.sourceType == "outsource") ? item.serviceName : item.subserviceName
+        let title = UILabel(text: titleText)
         title.font = .systemFont(ofSize: 15, weight: .semibold)
 
+        // Info button (SF Symbol) to show detailed requirements (subserviceName)
+        let infoBtn = UIButton(type: .system)
+        infoBtn.setImage(UIImage(systemName: "info.circle"), for: .normal)
+        infoBtn.tintColor = UIColor(white: 0.3, alpha: 1)
+        infoBtn.translatesAutoresizingMaskIntoConstraints = false
+        infoBtn.widthAnchor.constraint(equalToConstant: 28).isActive = true
+        infoBtn.heightAnchor.constraint(equalToConstant: 28).isActive = true
+        infoBtn.addAction(UIAction(handler: { [weak self] _ in
+            guard let self = self else { return }
+            self.showDetailsPopup(title: item.serviceName, details: item.subserviceName)
+        }), for: .touchUpInside)
+
+        // Delete uses canonical subserviceId for safety
         let del = UIButton(type: .system)
         del.setImage(UIImage(systemName: "trash.fill"), for: .normal)
         del.tintColor = .systemRed
         del.addAction(UIAction { _ in
-            CartManager.shared.removeItem(
-                serviceName: item.serviceName,
-                subserviceName: item.subserviceName
-            )
+            CartManager.shared.removeItem(subserviceId: item.subserviceId)
         }, for: .touchUpInside)
 
         let rate = textField(text: "\(Int(item.rate))", width: 80)
@@ -475,7 +487,13 @@ final class EstimateCartViewController: UIViewController {
         rate.addTarget(self, action: #selector(rateChanged(_:)), for: .editingDidEnd)
         qty.addTarget(self, action: #selector(qtyChanged(_:)), for: .editingDidEnd)
 
-        let topRow = UIStackView(arrangedSubviews: [title, UIView(), del])
+        // Title row: title + info button + spacer + delete
+        let leftTitleStack = UIStackView(arrangedSubviews: [title, infoBtn])
+        leftTitleStack.axis = .horizontal
+        leftTitleStack.spacing = 8
+        leftTitleStack.alignment = .center
+
+        let topRow = UIStackView(arrangedSubviews: [leftTitleStack, UIView(), del])
         topRow.axis = .horizontal
         topRow.alignment = .center
 
@@ -499,6 +517,12 @@ final class EstimateCartViewController: UIViewController {
         ])
 
         return card
+    }
+
+    private func showDetailsPopup(title: String, details: String) {
+        let alert = UIAlertController(title: title.isEmpty ? "Details" : title, message: details.isEmpty ? "No details provided." : details, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        present(alert, animated: true)
     }
 
     private func textField(text: String, width: CGFloat) -> UITextField {
@@ -577,7 +601,8 @@ final class EstimateCartViewController: UIViewController {
         guard let item = itemForTag(tf.tag) else { return }
         let newRate = Double(tf.text ?? "") ?? 0
 
-        CartManager.shared.removeItem(serviceName: item.serviceName, subserviceName: item.subserviceName)
+        // Use canonical subserviceId when replacing item
+        CartManager.shared.removeItem(subserviceId: item.subserviceId)
 
         CartManager.shared.addItem(
             serviceId: item.serviceId,
@@ -598,11 +623,8 @@ final class EstimateCartViewController: UIViewController {
         guard let item = itemForTag(tf.tag) else { return }
         let qty = Int(tf.text ?? "") ?? 0
 
-        CartManager.shared.setQuantity(
-            serviceName: item.serviceName,
-            subserviceName: item.subserviceName,
-            quantity: qty
-        )
+        // Use canonical setter by subserviceId
+        CartManager.shared.setQuantity(subserviceId: item.subserviceId, quantity: qty)
 
         rebuildCards()
         updateSummary()

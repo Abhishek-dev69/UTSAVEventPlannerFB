@@ -1,3 +1,8 @@
+//
+// EventOverviewViewController.swift
+// Updated: Budget card now opens a static BudgetDetailViewController
+//
+
 import UIKit
 
 final class EventOverviewViewController: UIViewController {
@@ -137,7 +142,7 @@ final class EventOverviewViewController: UIViewController {
         contentStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
 
         addClientRequirements()
-        addBudgetCheckIn()
+        addBudgetCheckIn()   // <-- opens BudgetDetailViewController now
         addPaymentStatus()
         addInventory()
     }
@@ -162,18 +167,24 @@ final class EventOverviewViewController: UIViewController {
     }
 
     private func addBudgetCheckIn() {
+        // compute sample values
         let budgetRupees = Double(event.budgetInPaise) / 100.0
+        // show receivedAmount here so it matches the sheet; using receivedAmount as "spent" (static for now)
         let spent = receivedAmount
-
         let subtitle = "Spent ₹\(formatMoney(spent)) of ₹\(formatMoney(budgetRupees))"
         let progress: Float = budgetRupees > 0 ? Float(spent / budgetRupees) : 0
 
+        // Push BudgetDetailViewController when tapped
         let card = EventSectionCard(
             iconName: "indianrupeesign.circle",
             title: "Budget Check-in",
             subtitle: subtitle,
             progress: progress
-        ) {}
+        ) { [weak self] in
+            guard let self else { return }
+            let budgetVC = BudgetDetailViewController()
+            self.navigationController?.pushViewController(budgetVC, animated: true)
+        }
 
         contentStack.addArrangedSubview(card)
     }
