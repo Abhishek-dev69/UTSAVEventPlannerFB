@@ -138,20 +138,18 @@ final class ServicePickerViewController: UIViewController, CartObserver {
 
         let form = OutsourceFormView()
 
+        // FIXED: use the CartManager convenience method to avoid swapped/hardcoded fields.
         form.onSubmit = { [weak self] item in
+            // Use helper to ensure correct mapping:
+            // service_name  <- item.serviceName (Service/Material Name field)
+            // subservice_name <- item.subserviceName (Detailed Description field)
+            CartManager.shared.addOutsource(item: item, quantity: 1)
 
-            CartManager.shared.addItem(
-                serviceId: nil,
-                serviceName: "Outsource",
-                subserviceId: UUID().uuidString,
-                subserviceName: item.name,
-                rate: item.estimatedBudget ?? 0,
-                unit: "*unit*",
-                quantity: 1,
-                sourceType: "outsource"
-            )
-
-            self?.cartDidChange()
+            // No need to call cartDidChange() manually; CartManager will notify observers.
+            // But update UI immediately to reflect local change
+            DispatchQueue.main.async {
+                self?.cartDidChange()
+            }
         }
 
         form.translatesAutoresizingMaskIntoConstraints = false

@@ -18,7 +18,7 @@ final class EditSubserviceViewController: UIViewController {
 
     private var selectedUnit = "Per event"
     private var selectedImage: UIImage?
-    private let units = ["Per event", "Per hour", "Per day", "Per item"]
+    private let units = ["Per event","Per day"]
 
     // MARK: - UI Elements
     private let scrollView = UIScrollView()
@@ -82,13 +82,14 @@ final class EditSubserviceViewController: UIViewController {
     }()
 
     private let imageIcon: UIImageView = {
-        let iv = UIImageView(image: UIImage(systemName: "pencil"))
+        let iv = UIImageView(image: UIImage(systemName: "photo"))
         iv.tintColor = .systemGray3
         iv.contentMode = .scaleAspectFit
         iv.translatesAutoresizingMaskIntoConstraints = false
+        iv.layer.cornerRadius = 12
+        iv.clipsToBounds = true
         return iv
     }()
-
     private let uploadHintLabel: UILabel = {
         let label = UILabel()
         label.text = "Tap to upload image"
@@ -251,7 +252,7 @@ final class EditSubserviceViewController: UIViewController {
             name: name,
             rate: rate,
             unit: selectedUnit,
-            image: selectedImage ?? UIImage(systemName: "pencil")
+            image: selectedImage
         )
         onSave?(updated)
         dismiss(animated: true)

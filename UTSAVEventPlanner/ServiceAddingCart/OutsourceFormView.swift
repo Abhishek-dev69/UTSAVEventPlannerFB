@@ -6,10 +6,28 @@ import UIKit
 
 // Simple model returned on submit
 struct OutsourceItem {
+    // Original fields (kept for backwards compatibility)
     var name: String
     var details: String
     var vendor: String?
     var estimatedBudget: Double?
+
+    // Computed properties that map to DB/cart naming expected elsewhere
+    var serviceName: String { return name }          // maps to service_name
+    var subserviceName: String { return details }    // maps to subservice_name
+
+    // Helper to build a payload dictionary matching backend field names
+    func payload() -> [String: Any] {
+        var p: [String: Any] = [
+            "service_name": serviceName,
+            "subservice_name": subserviceName
+        ]
+
+        if let v = vendor, !v.isEmpty { p["vendor"] = v }
+        if let b = estimatedBudget { p["estimated_budget"] = b }
+
+        return p
+    }
 }
 
 final class OutsourceFormView: UIView {
@@ -252,14 +270,14 @@ final class OutsourceFormView: UIView {
         let item = OutsourceItem(
             name: name,
             details: details,
-            vendor: vendor,
-            estimatedBudget: budget
+            vendor: vendor.isEmpty ? nil : vendor,
+            estimatedBudget: budget > 0 ? budget : nil
         )
 
         onSubmit?(item)
 
         resetForm()
-        showSuccessPopup("Material added to cart")
+        showSuccessPopup("Item added to cart")
     }
 
     private func showValidationError(_ msg: String) {
