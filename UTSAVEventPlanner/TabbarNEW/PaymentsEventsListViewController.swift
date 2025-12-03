@@ -5,7 +5,10 @@ final class PaymentsEventsListViewController: UIViewController {
     private let tableView = UITableView(frame: .zero, style: .plain)
     private var events: [EventRecord] = []
 
-    // Empty state label shown as table background when no events
+    // store per-event totals (eventId -> (total, remaining))
+    private var eventPayments: [String: (total: Double, remaining: Double)] = [:]
+
+    // Empty state label...
     private let emptyLabel: UILabel = {
         let l = UILabel()
         l.text = "No events found.\nCreate an event to start adding payments."
@@ -20,16 +23,19 @@ final class PaymentsEventsListViewController: UIViewController {
         super.viewDidLoad()
 
         view.backgroundColor = UIColor(white: 0.97, alpha: 1)
-        navigationItem.title = "All Events Payments Tracks"
+        navigationItem.title = "All Events Payments Track"
 
         setupTable()
+        Task { await refreshEvents() } // initial load
     }
 
     // Called by PaymentsRootController or pull-to-refresh
     func refreshEvents() async {
         do {
-            // Use unified fetch used across app (dashboard) to avoid mismatches
             events = try await EventSupabaseManager.shared.fetchAllEventsForUser()
+
+            // compute per-event totals concurrently
+            await computeEventSummaries()
 
             await MainActor.run {
                 tableView.reloadData()
@@ -45,11 +51,56 @@ final class PaymentsEventsListViewController: UIViewController {
         }
     }
 
+    // compute totals + remaining for each event concurrently
+    @MainActor
+    private func computeEventSummaries() async {
+        var map: [String: (Double, Double)] = [:]
+
+        await withTaskGroup(of: (String, Double, Double).self) { group in
+            for event in events {
+                group.addTask {
+                    var totalAmount: Double = 0.0
+                    do {
+                        let cart = try await EventDataManager.shared.fetchCartItems(eventId: event.id)
+                        totalAmount = cart.reduce(0.0) { acc, c in
+                            if let lt = c.lineTotal { return acc + lt }
+                            let r = c.rate ?? 0; let q = Double(c.quantity ?? 0)
+                            return acc + (r * q)
+                        }
+                    } catch {
+                        totalAmount = 0.0
+                    }
+
+                    var receivedAmount: Double = 0.0
+                    do {
+                        let payments = try await PaymentSupabaseManager.shared.fetchPayments(eventId: event.id)
+                        receivedAmount = payments.reduce(0.0) { $0 + $1.amount }
+                    } catch {
+                        receivedAmount = 0.0
+                    }
+
+                    let remaining = max(0.0, totalAmount - receivedAmount)
+                    return (event.id, totalAmount, remaining)
+                }
+            }
+
+            for await (id, total, remaining) in group {
+                map[id] = (total, remaining)
+            }
+        }
+
+        eventPayments = map
+    }
+
     private func setupTable() {
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.register(EventPaymentCardCell.self, forCellReuseIdentifier: "EventPaymentCardCell")
         tableView.separatorStyle = .none
-        tableView.rowHeight = 82
+
+        // <-- Use automatic sizing so cell can expand for long titles
+        tableView.rowHeight = UITableView.automaticDimension
+        tableView.estimatedRowHeight = 140
+
         tableView.dataSource = self
         tableView.delegate = self
         tableView.backgroundColor = .clear
@@ -93,18 +144,6 @@ extension PaymentsEventsListViewController: UITableViewDataSource, UITableViewDe
         events.count
     }
 
-    func tableView(_ t: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-
-        guard indexPath.row < events.count else {
-            return UITableViewCell()
-        }
-
-        let cell = t.dequeueReusableCell(withIdentifier: "EventPaymentCardCell", for: indexPath) as! EventPaymentCardCell
-        let record = events[indexPath.row]
-        cell.configure(with: record)
-        return cell
-    }
-
     func tableView(_ t: UITableView, didSelectRowAt indexPath: IndexPath) {
         t.deselectRow(at: indexPath, animated: true)
 
@@ -115,5 +154,27 @@ extension PaymentsEventsListViewController: UITableViewDataSource, UITableViewDe
         vc.hidesBottomBarWhenPushed = true
         navigationController?.pushViewController(vc, animated: true)
     }
+
+    func tableView(_ t: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+
+        guard indexPath.row < events.count else {
+            return UITableViewCell()
+        }
+
+        let cell = t.dequeueReusableCell(withIdentifier: "EventPaymentCardCell", for: indexPath) as! EventPaymentCardCell
+        let record = events[indexPath.row]
+        let summary = eventPayments[record.id]
+        if let s = summary {
+            cell.configure(with: record, total: s.total, remaining: s.remaining)
+        } else {
+            // not computed yet
+            cell.configure(with: record, total: nil, remaining: nil)
+        }
+        return cell
+    }
+
+    // IMPORTANT: remove fixed-height delegate method. If you previously had:
+    // func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat { return 100 }
+    // delete it. The automaticDimension above will size the cell correctly.
 }
 

@@ -86,10 +86,21 @@ final class ServicesListViewController: UIViewController {
             let records = try await SupabaseManager.shared.fetchServices()
 
             let mapped: [Service] = records.map { rec in
+                // Map subservice records to UI Subservice model.
+                // If your server returns an `is_fixed` field in SubserviceRecord,
+                // replace the `isFixed: true` below with `isFixed: $0.is_fixed ?? true`
                 let subs = (rec.subservices ?? []).map {
-                    Subservice(id: $0.id, name: $0.name, rate: $0.rate, unit: $0.unit, image: nil)
+                    Subservice(
+                        id: $0.id,
+                        name: $0.name,
+                        rate: $0.rate,
+                        unit: $0.unit,
+                        image: nil,
+                        isFixed: true
+                    )
                 }
-                return Service(name: rec.name, subservices: subs)
+                // Provide the service id as well (Service has id: String?)
+                return Service(id: rec.id, name: rec.name, subservices: subs)
             }
 
             await MainActor.run { self.services = mapped }

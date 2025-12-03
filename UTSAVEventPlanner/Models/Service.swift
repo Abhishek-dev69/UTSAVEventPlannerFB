@@ -1,28 +1,29 @@
 // Service.swift
 import UIKit
 
-// UI models
+// MARK: - UI MODELS
 struct Service {
-    var id: String?        // server id (uuid) or nil for local only
+    var id: String?
     var name: String
     var subservices: [Subservice]
 }
 
 struct Subservice {
-    let id: String?        // server uuid or temporary "local-xxxx"
+    var id: String?
     var name: String
     var rate: Double
     var unit: String
     var image: UIImage?
+    var isFixed: Bool        // REQUIRED
 }
 
-// Payloads for creating server rows
+// MARK: - CREATE PAYLOAD
 struct ServiceCreatePayload {
     var name: String
     var subservices: [Subservice]
 }
 
-// Server record decodable structs
+// MARK: - SERVER RECORDS
 struct SubserviceRecord: Codable {
     let id: String
     let service_id: String
@@ -30,21 +31,31 @@ struct SubserviceRecord: Codable {
     let rate: Double
     let unit: String
     let image_url: String?
+    let is_fixed: Bool?        // <-- IMPORTANT
 
     func toSubserviceModel() -> Subservice {
-        return Subservice(id: id, name: name, rate: rate, unit: unit, image: nil)
+        // read actual DB value
+        let fixed = is_fixed ?? true     // default true if missing
+
+        return Subservice(
+            id: id,
+            name: name,
+            rate: rate,
+            unit: unit,
+            image: nil,
+            isFixed: fixed
+        )
     }
 }
-
 struct ServiceRecord: Codable {
     let id: String
     let name: String
     let created_at: String?
-    var subservices: [SubserviceRecord]?
+    let subservices: [SubserviceRecord]?
 
     func toServiceModel() -> Service {
-        let uiSubs = subservices?.map { $0.toSubserviceModel() } ?? []
-        return Service(id: id, name: name, subservices: uiSubs)
+        let subs = subservices?.map { $0.toSubserviceModel() } ?? []
+        return Service(id: id, name: name, subservices: subs)
     }
 }
 

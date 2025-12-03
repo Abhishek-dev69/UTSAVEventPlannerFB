@@ -1,3 +1,4 @@
+// EventDetailsViewController.swift
 import UIKit
 import MapKit
 
@@ -14,8 +15,20 @@ struct EventDetails {
 
 final class EventDetailsViewController: UIViewController {
 
-    // MARK: Selected Event Type (from EventType flow)
+    // MARK: Selected Event Type (from EventType flow / picker)
     var selectedEventType: EventTypeItem?
+
+    // Local event type list (same items as EventTypeViewController)
+    private let eventTypes: [EventTypeItem] = [
+        .init(title: "Wedding",          imageName: "event_wedding"),
+        .init(title: "Birthday Party",   imageName: "event_birthday"),
+        .init(title: "Corporate Event",  imageName: "event_corporate"),
+        .init(title: "Baby Shower",      imageName: "event_babyshower"),
+        .init(title: "Engagement Party", imageName: "event_engagement"),
+        .init(title: "Anniversary",      imageName: "event_anniversary"),
+        .init(title: "Schools",          imageName: "event_schools"),
+        .init(title: "Holiday Party",    imageName: "event_holiday")
+    ]
 
     // MARK: UI
     private let scrollView = UIScrollView()
@@ -37,6 +50,14 @@ final class EventDetailsViewController: UIViewController {
     }()
 
     // MARK: Fields
+    // NEW: Event Type field (picker)
+    private let eventTypeField: RoundedTextField = {
+        let tf = RoundedTextField(placeholder: "Select Event Type")
+        tf.setRightIcon(systemName: "chevron.down")
+        tf.translatesAutoresizingMaskIntoConstraints = false
+        return tf
+    }()
+
     private let eventName = RoundedTextField(placeholder: "Enter The Event Name")
     private let clientName = RoundedTextField(placeholder: "Enter the Client Name")
     private let locationField: RoundedTextField = {
@@ -71,7 +92,7 @@ final class EventDetailsViewController: UIViewController {
         p.datePickerMode = .date
         p.minimumDate = Date()
         if #available(iOS 13.4, *) {
-            p.preferredDatePickerStyle = .wheels   // explicitly use wheels
+            p.preferredDatePickerStyle = .wheels
         }
         return p
     }()
@@ -84,6 +105,9 @@ final class EventDetailsViewController: UIViewController {
         }
         return p
     }()
+
+    // MARK: Event type picker
+    private let eventTypePicker = UIPickerView()
 
     private let dateFormatter: DateFormatter = {
         let df = DateFormatter()
@@ -121,6 +145,7 @@ final class EventDetailsViewController: UIViewController {
         setupKeyboardHandling()
         hookRightIconTaps()
         setupFieldPlaceholdersForExistingDates()
+        setupEventTypePicker()
 
         continueButton.addTarget(self, action: #selector(didTapContinue), for: .touchUpInside)
     }
@@ -166,6 +191,8 @@ final class EventDetailsViewController: UIViewController {
             continueButton.heightAnchor.constraint(equalToConstant: 56)
         ])
 
+        // Add fields in desired order: Event Type first
+        formStack.addArrangedSubview(labeled("Event Type", eventTypeField))
         formStack.addArrangedSubview(labeled("Event Name", eventName))
         formStack.addArrangedSubview(labeled("Client Name", clientName))
         formStack.addArrangedSubview(labeled("Location", locationField))
@@ -196,6 +223,41 @@ final class EventDetailsViewController: UIViewController {
         return s
     }
 
+    // MARK: Event type picker setup
+    private func setupEventTypePicker() {
+        eventTypePicker.delegate = self
+        eventTypePicker.dataSource = self
+
+        // Use picker as inputView for the eventTypeField
+        eventTypeField.inputView = eventTypePicker
+        eventTypeField.inputAccessoryView = makeToolbar(done: #selector(doneEventTypePicker), cancel: #selector(cancelEventTypePicker))
+
+        // If there's a preselected type, show it
+        if let pre = selectedEventType,
+           let idx = eventTypes.firstIndex(where: { $0.title == pre.title }) {
+            eventTypePicker.selectRow(idx, inComponent: 0, animated: false)
+            eventTypeField.text = pre.title
+        }
+    }
+
+    @objc private func doneEventTypePicker() {
+        // ensure text matches current selection
+        let row = eventTypePicker.selectedRow(inComponent: 0)
+        selectEventType(at: row)
+        eventTypeField.resignFirstResponder()
+    }
+
+    @objc private func cancelEventTypePicker() {
+        // if cancel, just dismiss
+        eventTypeField.resignFirstResponder()
+    }
+
+    private func selectEventType(at row: Int) {
+        guard row >= 0 && row < eventTypes.count else { return }
+        selectedEventType = eventTypes[row]
+        eventTypeField.text = selectedEventType?.title
+    }
+
     // MARK: Date pickers + accessory toolbar
     private func setupDatePickers() {
         // Attach as inputView so the picker is displayed when user taps the text field
@@ -206,11 +268,9 @@ final class EventDetailsViewController: UIViewController {
         startDateField.inputAccessoryView = makeToolbar(done: #selector(doneStart), cancel: #selector(cancelPicker))
         endDateField.inputAccessoryView = makeToolbar(done: #selector(doneEnd), cancel: #selector(cancelPicker))
 
-        // When the user rotates or gives focus, update the text fields accordingly
         startPicker.addTarget(self, action: #selector(startDateChanged), for: .valueChanged)
         endPicker.addTarget(self, action: #selector(endDateChanged), for: .valueChanged)
 
-        // Optional: when textfield begins editing, populate with current picker's formatted date
         startDateField.addTarget(self, action: #selector(startEditingBegan), for: .editingDidBegin)
         endDateField.addTarget(self, action: #selector(endEditingBegan), for: .editingDidBegin)
     }
@@ -227,7 +287,6 @@ final class EventDetailsViewController: UIViewController {
     }
 
     @objc private func startEditingBegan() {
-        // ensure text shows picker value immediately when editing begins
         startDateChanged()
     }
     @objc private func endEditingBegan() {
@@ -236,10 +295,8 @@ final class EventDetailsViewController: UIViewController {
 
     @objc private func startDateChanged() {
         let d = startPicker.date
-        // update min for end picker
         endPicker.minimumDate = d
         startDateField.text = dateFormatter.string(from: d)
-        // if end < start, advance end
         if endPicker.date < d {
             endPicker.date = d
             endDateChanged()
@@ -261,7 +318,6 @@ final class EventDetailsViewController: UIViewController {
         endDateField.resignFirstResponder()
     }
     @objc private func cancelPicker() {
-        // if cancel, just resign and don't change text
         startDateField.resignFirstResponder()
         endDateField.resignFirstResponder()
     }
@@ -315,9 +371,15 @@ final class EventDetailsViewController: UIViewController {
 
     // MARK: Right icon taps (RoundedTextField helper expected)
     private func hookRightIconTaps() {
+        // eventTypeField right icon should also open the picker
+        eventTypeField.onRightIconTap(target: self, action: #selector(openEventTypePicker))
         startDateField.onRightIconTap(target: self, action: #selector(focusStartDate))
         endDateField.onRightIconTap(target: self, action: #selector(focusEndDate))
         locationField.onRightIconTap(target: self, action: #selector(openLocationSearch))
+    }
+
+    @objc private func openEventTypePicker() {
+        eventTypeField.becomeFirstResponder()
     }
 
     @objc private func focusStartDate() { startDateField.becomeFirstResponder() }
@@ -359,6 +421,13 @@ final class EventDetailsViewController: UIViewController {
                 }
             }
         }
+
+        // Event Type optional? If you want to require it, uncomment the guard below.
+        /*
+        guard let _ = selectedEventType else {
+            throw FError.missing("Event Type")
+        }
+        */
 
         guard let name = eventName.text?.trimmingCharacters(in: .whitespaces), !name.isEmpty else {
             throw FError.missing("Event Name")
@@ -443,9 +512,24 @@ final class EventDetailsViewController: UIViewController {
     }
 
     private func setupFieldPlaceholdersForExistingDates() {
-        // set initial text for date fields to the pickers' current values (so it doesn't look empty)
         startDateField.text = dateFormatter.string(from: startPicker.date)
         endDateField.text = dateFormatter.string(from: endPicker.date)
+    }
+}
+
+// MARK: - UIPickerView DataSource/Delegate for Event Type
+extension EventDetailsViewController: UIPickerViewDataSource, UIPickerViewDelegate {
+    func numberOfComponents(in pickerView: UIPickerView) -> Int { 1 }
+    func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
+        eventTypes.count
+    }
+
+    func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
+        eventTypes[row].title
+    }
+
+    func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
+        selectEventType(at: row)
     }
 }
 

@@ -247,12 +247,16 @@ final class EditSubserviceViewController: UIViewController {
             return
         }
 
+        // Preserve existing isFixed value if present; default to true for safety
+        let isFixedValue = subserviceToEdit?.isFixed ?? true
+
         let updated = Subservice(
             id: subserviceToEdit?.id,
             name: name,
             rate: rate,
             unit: selectedUnit,
-            image: selectedImage
+            image: selectedImage,
+            isFixed: isFixedValue
         )
         onSave?(updated)
         dismiss(animated: true)

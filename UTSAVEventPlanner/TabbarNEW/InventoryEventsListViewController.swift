@@ -23,12 +23,20 @@ final class InventoryEventsListViewController: UIViewController {
         navigationItem.title = "Event Inventory Tracks"
 
         setupTable()
+
+        // observe inventory count updates
+        NotificationCenter.default.addObserver(self, selector: #selector(inventoryCountsUpdated(_:)), name: .inventoryCountsUpdated, object: nil)
+
+        Task { await refreshEvents() }
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
 
     // Public async refresh entry point (called by parent or pull-to-refresh)
     func refreshEvents() async {
         do {
-            // Use the unified fetch used across app (dashboard) to avoid mismatches
             events = try await EventSupabaseManager.shared.fetchAllEventsForUser()
 
             await MainActor.run {
@@ -36,13 +44,18 @@ final class InventoryEventsListViewController: UIViewController {
                 updateEmptyState()
                 tableView.refreshControl?.endRefreshing()
             }
-        } catch {
-            // Keep logs helpful for diagnosing sync/fetch issues
-            print("❌ Inventory refresh error:", error)
 
+            // kick off background loads for events with missing counts
+            for event in events {
+                if InventoryManager.shared.cachedSentQuantity(forEventId: event.id) == nil ||
+                    InventoryManager.shared.cachedReceivedQuantity(forEventId: event.id) == nil {
+                    Task { await InventoryManager.shared.loadCounts(forEventId: event.id) }
+                }
+            }
+        } catch {
+            print("❌ Inventory refresh error:", error)
             await MainActor.run {
                 tableView.refreshControl?.endRefreshing()
-                // Optionally keep previous events shown, but update empty state anyway
                 updateEmptyState()
             }
         }
@@ -51,11 +64,13 @@ final class InventoryEventsListViewController: UIViewController {
     private func setupTable() {
         tableView.translatesAutoresizingMaskIntoConstraints = false
 
-        // Register card UI cell
-        tableView.register(EventPaymentCardCell.self, forCellReuseIdentifier: "EventPaymentCardCell")
+        // register the new simplified inventory card
+        tableView.register(InventoryCardCell.self, forCellReuseIdentifier: "InventoryCardCell")
 
         tableView.separatorStyle = .none
-        tableView.rowHeight = 82
+        tableView.rowHeight = UITableView.automaticDimension
+        tableView.estimatedRowHeight = 120
+
         tableView.dataSource = self
         tableView.delegate = self
         tableView.backgroundColor = .clear
@@ -74,26 +89,28 @@ final class InventoryEventsListViewController: UIViewController {
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
 
-        // initial empty background
         updateEmptyState()
     }
 
     @objc private func pullToRefresh(_ sender: UIRefreshControl) {
-        Task {
-            await refreshEvents()
-        }
+        Task { await refreshEvents() }
     }
 
     private func updateEmptyState() {
-        if events.isEmpty {
-            tableView.backgroundView = emptyLabel
-        } else {
-            tableView.backgroundView = nil
+        tableView.backgroundView = events.isEmpty ? emptyLabel : nil
+    }
+
+    @objc private func inventoryCountsUpdated(_ note: Notification) {
+        guard let userInfo = note.userInfo,
+              let eventId = userInfo["eventId"] as? String else { return }
+
+        if let idx = events.firstIndex(where: { $0.id == eventId }) {
+            Task { @MainActor in
+                tableView.reloadRows(at: [IndexPath(row: idx, section: 0)], with: .none)
+            }
         }
     }
 }
-
-// MARK: - UITableViewDataSource / Delegate
 
 extension InventoryEventsListViewController: UITableViewDataSource, UITableViewDelegate {
 
@@ -103,18 +120,22 @@ extension InventoryEventsListViewController: UITableViewDataSource, UITableViewD
 
     func tableView(_ t: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 
-        guard indexPath.row < events.count else {
-            // Defensive: return an empty default cell if index out of bounds
-            return UITableViewCell()
+        guard indexPath.row < events.count else { return UITableViewCell() }
+
+        let cell = t.dequeueReusableCell(withIdentifier: "InventoryCardCell", for: indexPath) as! InventoryCardCell
+        let record = events[indexPath.row]
+
+        // try to read cached sent/received quantities
+        let cachedSent = InventoryManager.shared.cachedSentQuantity(forEventId: record.id)
+        let cachedReceived = InventoryManager.shared.cachedReceivedQuantity(forEventId: record.id)
+
+        cell.configure(with: record, sentQuantity: cachedSent, receivedQuantity: cachedReceived)
+
+        // kick off background load if either value is missing
+        if cachedSent == nil || cachedReceived == nil {
+            Task { await InventoryManager.shared.loadCounts(forEventId: record.id) }
         }
 
-        let cell = t.dequeueReusableCell(
-            withIdentifier: "EventPaymentCardCell",
-            for: indexPath
-        ) as! EventPaymentCardCell
-
-        let record = events[indexPath.row]
-        cell.configure(with: record)
         return cell
     }
 

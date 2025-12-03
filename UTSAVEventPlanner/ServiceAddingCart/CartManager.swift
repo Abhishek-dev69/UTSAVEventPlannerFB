@@ -123,6 +123,7 @@ final class CartManager {
         rate: Double,
         unit: String,
         quantity: Int = 1,
+        metadata: [String: String]? = nil,
         sourceType: String
     ) {
         print("🟢 addItem → \(subserviceName) [subserviceId: \(subserviceId)]")

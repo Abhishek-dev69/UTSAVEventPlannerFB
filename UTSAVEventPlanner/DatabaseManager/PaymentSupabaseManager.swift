@@ -57,4 +57,3 @@ final class PaymentSupabaseManager {
         return try JSONDecoder().decode([PaymentRecord].self, from: response.data).first!
     }
 }
-

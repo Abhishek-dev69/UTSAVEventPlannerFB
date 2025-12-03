@@ -95,7 +95,7 @@ final class InlineSplashViewController: UIViewController {
 
 
 // ---------------------------------------------------------------
-// MARK: - SceneDelegate (clean, no SplashViewController references)
+// MARK: - SceneDelegate (with OAuth callback handling)
 // ---------------------------------------------------------------
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
@@ -108,7 +108,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
 
         let w = UIWindow(windowScene: windowScene)
-        window = w
+        self.window = w
 
         // Create inline splash VC
         let splash = InlineSplashViewController()
@@ -117,31 +117,124 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         splash.onAnimationCompleted = { [weak self] in
             guard let self = self else { return }
 
+            // Example logic: check a simple UserDefaults flag to decide where to go.
+            // Replace this logic with your real onboarding / dashboard routing.
             let hasEvent = UserDefaults.standard.bool(forKey: "hasActiveEvent")
 
             let nextRoot: UIViewController
 
             if hasEvent {
-                // Dashboard flow
-                let dashboardVC = DashboardListViewController()
-                nextRoot = UINavigationController(rootViewController: dashboardVC)
+                // Dashboard flow — replace with your real dashboard controller
+                if let dashboard = tryInstantiateDashboard() {
+                    nextRoot = UINavigationController(rootViewController: dashboard)
+                } else {
+                    nextRoot = fallbackInitialController()
+                }
             } else {
-                // Load initial VC from Main.storyboard
-                let storyboard = UIStoryboard(name: "Main", bundle: nil)
-                nextRoot = storyboard.instantiateInitialViewController() ?? UIViewController()
+                // Load initial VC from Main.storyboard (or create programmatically)
+                nextRoot = fallbackInitialController()
             }
 
-            // Transition
+            // Cross-dissolve transition to the main UI
             UIView.transition(with: w,
                               duration: 0.35,
                               options: .transitionCrossDissolve,
                               animations: {
-                self.window?.rootViewController = nextRoot
-            })
+                w.rootViewController = nextRoot
+            }, completion: nil)
         }
 
         // Show splash immediately
         w.rootViewController = splash
         w.makeKeyAndVisible()
+
+        // If app was opened via URL while cold-starting, forward to auth handler here as well.
+        // This covers the case where the OAuth callback arrives before the app finishes launching.
+        if !connectionOptions.urlContexts.isEmpty {
+            for ctx in connectionOptions.urlContexts {
+                handleIncomingURL(ctx.url)
+            }
+        }
     }
+
+    // Called when the app receives an incoming URL while running (or in background)
+    func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
+        guard !URLContexts.isEmpty else { return }
+        for ctx in URLContexts {
+            handleIncomingURL(ctx.url)
+        }
+    }
+
+    private func handleIncomingURL(_ url: URL) {
+        NSLog("SceneDelegate: received URL -> %@", url.absoluteString)
+
+        // Forward the callback URL to SupabaseManager which will parse and complete the session.
+        Task { @MainActor in
+            do {
+                try await SupabaseManager.shared.handleAuthCallback(url)
+                NSLog("SceneDelegate: successfully handed callback to SupabaseManager")
+            } catch {
+                NSLog("SceneDelegate: failed to handle auth callback: %@", String(describing: error))
+                // Present a small alert so you notice the problem while debugging
+                presentAuthError(error)
+            }
+        }
+    }
+
+    // Present a brief alert on the visible root VC (useful while debugging auth)
+    private func presentAuthError(_ error: Error) {
+        guard let window = self.window, let root = window.rootViewController else {
+            return
+        }
+        let message = String(describing: error)
+        let alert = UIAlertController(title: "Auth callback failed", message: message, preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+
+        // Present on main thread
+        DispatchQueue.main.async {
+            // If splash is visible (and animation not finished) this will still present.
+            root.present(alert, animated: true, completion: nil)
+        }
+    }
+
+    // Helper: instantiate DashboardListViewController safely (if you have that class)
+    private func tryInstantiateDashboard() -> UIViewController? {
+        // If you have a DashboardListViewController class in your project, return it.
+        // Otherwise fallback to storyboard initial controller below.
+        if let cls = NSClassFromString("DashboardListViewController") as? UIViewController.Type {
+            return cls.init()
+        }
+        // If the class is in the module (Swift namespaced), try constructing directly:
+        if let dashboard = tryCreateSwiftDashboard() {
+            return dashboard
+        }
+        return nil
+    }
+
+    private func tryCreateSwiftDashboard() -> UIViewController? {
+        // If you can import or reference the Swift type directly, construct it here.
+        // For safety, we keep this a no-op if the symbol isn't present.
+        // Example: return DashboardListViewController()
+        return nil
+    }
+
+    // Helper: fallback initial controller from Main.storyboard (or blank VC)
+    private func fallbackInitialController() -> UIViewController {
+        let storyboard = UIStoryboard(name: "Main", bundle: nil)
+        if let initial = storyboard.instantiateInitialViewController() {
+            return initial
+        }
+        // As a last resort return a blank controller so app doesn't crash
+        let blank = UIViewController()
+        blank.view.backgroundColor = .systemBackground
+        return blank
+    }
+
+    // Optional: other lifecycle hooks you might use
+    func sceneDidDisconnect(_ scene: UIScene) { /* no-op */ }
+    func sceneDidBecomeActive(_ scene: UIScene) { /* no-op */ }
+    func sceneWillResignActive(_ scene: UIScene) { /* no-op */ }
+    func sceneWillEnterForeground(_ scene: UIScene) { /* no-op */ }
+    func sceneDidEnterBackground(_ scene: UIScene) { /* no-op */ }
 }
+
