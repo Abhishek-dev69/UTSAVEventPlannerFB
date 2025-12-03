@@ -4,10 +4,33 @@
 <dict>
 	<key>SchemeUserState</key>
 	<dict>
+		<key>Promises (Playground).xcscheme</key>
+		<dict>
+			<key>orderHint</key>
+			<integer>1</integer>
+		</dict>
 		<key>UTSAVEventPlanner.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
 			<integer>0</integer>
+		</dict>
+	</dict>
+	<key>SuppressBuildableAutocreation</key>
+	<dict>
+		<key>3896CFE22EBFA70E0099FE70</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>3896CFF82EBFA70F0099FE70</key>
+		<dict>
+			<key>primary</key>
+			<true/>
+		</dict>
+		<key>3896D0022EBFA70F0099FE70</key>
+		<dict>
+			<key>primary</key>
+			<true/>
 		</dict>
 	</dict>
 </dict>

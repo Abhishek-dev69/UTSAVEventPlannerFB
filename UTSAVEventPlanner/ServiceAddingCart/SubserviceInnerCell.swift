@@ -136,25 +136,70 @@ final class SubserviceInnerCell: UITableViewCell {
     }
 
     @objc private func addTapped() {
-        quantity = 1
-
         // Safely unwrap required values
         guard let serviceId = parentServiceId else { return }
         guard let sub = subservice else { return }
         guard let subId = sub.id else { return }         // ensure DB UUID available
         let subName = sub.name                          // assume non-optional name in model
 
-        CartManager.shared.addItem(
-            serviceId: serviceId,               // NEW required parameter
-            serviceName: parentService,
-            subserviceId: subId,                // DB UUID (unwrapped)
-            subserviceName: subName,
-            rate: sub.rate,
-            unit: sub.unit,
-            quantity: 1, sourceType: "in_house"
-            
-        )
-        updateUI()
+        // If fixed -> add immediately
+        if sub.isFixed {
+            quantity = 1
+
+            CartManager.shared.addItem(
+                serviceId: serviceId,
+                serviceName: parentService,
+                subserviceId: subId,
+                subserviceName: subName,
+                rate: sub.rate,
+                unit: sub.unit,
+                quantity: 1,
+                sourceType: "in_house"
+            )
+            updateUI()
+            return
+        }
+
+        // Negotiable -> show popup for price and notes
+        let alert = UIAlertController(title: "Enter price & notes", message: sub.name, preferredStyle: .alert)
+        alert.addTextField { tf in
+            tf.placeholder = "Price (₹)"
+            tf.keyboardType = .decimalPad
+            tf.text = "\(Int(sub.rate))"
+        }
+        alert.addTextField { tf in
+            tf.placeholder = "Notes (optional)"
+            tf.autocapitalizationType = .sentences
+        }
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        alert.addAction(UIAlertAction(title: "Add", style: .default, handler: { [weak self] _ in
+            guard let self = self else { return }
+            let priceText = alert.textFields?[0].text ?? ""
+            let notes = alert.textFields?[1].text ?? ""
+            let customRate = Double(priceText) ?? sub.rate
+
+            self.quantity = 1
+
+            CartManager.shared.addItem(
+                serviceId: serviceId,
+                serviceName: self.parentService,
+                subserviceId: subId,
+                subserviceName: subName,
+                rate: customRate,
+                unit: sub.unit,
+                quantity: 1,
+                metadata: notes.isEmpty ? nil : ["notes": notes],
+                sourceType: "in_house"
+            )
+            self.updateUI()
+        }))
+
+        if let vc = self.parentViewController {
+            vc.present(alert, animated: true)
+        } else if let root = UIApplication.shared.windows.first(where: { $0.isKeyWindow })?.rootViewController {
+            root.present(alert, animated: true)
+        }
     }
 
     @objc private func minusTapped() {
@@ -185,6 +230,19 @@ final class SubserviceInnerCell: UITableViewCell {
         )
 
         updateUI()
+    }
+}
+
+
+// MARK: - UIView helper to find owning view controller
+fileprivate extension UIView {
+    var parentViewController: UIViewController? {
+        var parentResponder: UIResponder? = self
+        while let next = parentResponder?.next {
+            if let vc = next as? UIViewController { return vc }
+            parentResponder = next
+        }
+        return nil
     }
 }
 

@@ -230,10 +230,9 @@ final class DashboardListViewController: UIViewController {
         tableView.reloadData()
         updateEmptyState()
     }
-
-    // MARK: Actions
     @objc private func addEventTapped() {
-        let vc = EventTypeViewController()
+        // Open EventDetailsViewController directly (event type is now a dropdown inside it)
+        let vc = EventDetailsViewController()
         let nav = UINavigationController(rootViewController: vc)
         nav.modalPresentationStyle = .fullScreen
         present(nav, animated: true)

@@ -2,8 +2,9 @@
 //  AddSubserviceViewController.swift
 //  UTSAVEventPlanner
 //
-//  Updated: Added keyboard-safe scroll, menu-safe scroll, tap dismiss, and layout fixes.
-//  UI & Logic remain unchanged.
+//  Updated: Added keyboard-safe scroll, menu-safe scroll, tap dismiss, layout fixes,
+//           and "Rate Type" (Fixed / Negotiable) option for subservices.
+//  UI & Logic largely unchanged otherwise.
 //
 
 import UIKit
@@ -47,6 +48,15 @@ final class AddSubserviceViewController: UIViewController {
 
     private let rateLabel = makeLabel("Rate")
     private let rateField = makeTextField(placeholder: "₹750", keyboard: .decimalPad)
+
+    // NEW: Rate type (Fixed / Negotiable)
+    private let rateTypeLabel = makeLabel("Rate Type")
+    private let rateTypeSegment: UISegmentedControl = {
+        let sc = UISegmentedControl(items: ["Fixed", "Negotiable"])
+        sc.selectedSegmentIndex = 0 // default to Fixed
+        sc.translatesAutoresizingMaskIntoConstraints = false
+        return sc
+    }()
 
     private let unitLabel = makeLabel("Unit")
     private let unitButton: UIButton = {
@@ -143,11 +153,12 @@ final class AddSubserviceViewController: UIViewController {
         uploadStack.translatesAutoresizingMaskIntoConstraints = false
         uploadBox.addSubview(uploadStack)
 
-        // main stack
+        // main stack: inserted rateTypeLabel & rateTypeSegment between rateField and unitLabel
         let mainStack = UIStackView(arrangedSubviews: [
             headerContainer,
             subcategoryLabel, subcategoryField,
             rateLabel, rateField,
+            rateTypeLabel, rateTypeSegment,    // <-- NEW
             unitLabel, unitButton,
             imageLabel, uploadBox,
             saveButton
@@ -208,6 +219,9 @@ final class AddSubserviceViewController: UIViewController {
         rateField.heightAnchor.constraint(equalToConstant: 44).isActive = true
         unitButton.heightAnchor.constraint(equalToConstant: 44).isActive = true
         unitButton.widthAnchor.constraint(equalToConstant: 120).isActive = true
+
+        // small height for the segment for consistent layout
+        rateTypeSegment.heightAnchor.constraint(equalToConstant: 36).isActive = true
     }
 
     private func setupActions() {
@@ -267,7 +281,10 @@ final class AddSubserviceViewController: UIViewController {
         }
 
         let tempId = "local-\(UUID().uuidString)"
-        let sub = Subservice(id: tempId, name: name, rate: rate, unit: selectedUnit, image: selectedImage)
+        let isFixed = (rateTypeSegment.selectedSegmentIndex == 0) // Fixed if index 0
+
+        // NOTE: Subservice initializer should include `isFixed: Bool`
+        let sub = Subservice(id: tempId, name: name, rate: rate, unit: selectedUnit, image: selectedImage, isFixed: isFixed)
         onSave?(sub)
         dismiss(animated: true)
     }

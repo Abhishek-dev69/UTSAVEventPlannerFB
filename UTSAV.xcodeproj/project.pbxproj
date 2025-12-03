@@ -37,7 +37,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		BC4B066D2EC46804001EF5FB /* Exceptions for "UTSAVEventPlanner" folder in "UTSAVEventPlanner" target */ = {
+		786F7D972EDA32E000EA058F /* Exceptions for "UTSAVEventPlanner" folder in "UTSAVEventPlanner" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -50,7 +50,7 @@
 		3896CFE52EBFA70E0099FE70 /* UTSAVEventPlanner */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				BC4B066D2EC46804001EF5FB /* Exceptions for "UTSAVEventPlanner" folder in "UTSAVEventPlanner" target */,
+				786F7D972EDA32E000EA058F /* Exceptions for "UTSAVEventPlanner" folder in "UTSAVEventPlanner" target */,
 			);
 			path = UTSAVEventPlanner;
 			sourceTree = "<group>";
