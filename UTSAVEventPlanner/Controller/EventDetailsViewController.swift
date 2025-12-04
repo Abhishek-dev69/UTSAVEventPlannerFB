@@ -508,7 +508,20 @@ final class EventDetailsViewController: UIViewController {
 
     // MARK: Helpers
     @objc private func didTapBack() {
-        navigationController?.popViewController(animated: true)
+        // If this controller is the root of a navigation stack that was presented modally,
+        // dismiss the whole modal. Otherwise, pop the navigation stack.
+        if let nav = navigationController {
+            if nav.viewControllers.first === self {
+                // Presented modally as a nav root -> dismiss
+                nav.dismiss(animated: true, completion: nil)
+            } else {
+                // Pushed onto an existing nav -> pop
+                nav.popViewController(animated: true)
+            }
+        } else {
+            // Fallback: not inside a navigation controller -> just dismiss
+            dismiss(animated: true, completion: nil)
+        }
     }
 
     private func setupFieldPlaceholdersForExistingDates() {
@@ -532,4 +545,3 @@ extension EventDetailsViewController: UIPickerViewDataSource, UIPickerViewDelega
         selectEventType(at: row)
     }
 }
-
