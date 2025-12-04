@@ -131,10 +131,6 @@ final class SupabaseManager {
         let idString = String(describing: session.user.id)
         return idString.isEmpty ? nil : idString
     }
-
-    // MARK: - OAuth URL builder
-    /// Build authorize URL. Important: to force PKCE code flow we pass the *hosted*
-    /// supabase callback as redirect_to. That prevents implicit-token fragments.
     func getOAuthSignInURL(providerName: String) throws -> URL {
         var components = URLComponents(url: supabaseBaseURL.appendingPathComponent("/auth/v1/authorize"),
                                        resolvingAgainstBaseURL: false)
@@ -143,14 +139,20 @@ final class SupabaseManager {
 
         components?.queryItems = [
             URLQueryItem(name: "provider", value: providerName),
+            // request code + PKCE
             URLQueryItem(name: "response_type", value: "code"),
             URLQueryItem(name: "flow_type", value: "pkce"),
+            // important: scopes and prompt
+            URLQueryItem(name: "scope", value: "openid email profile"),
+            URLQueryItem(name: "prompt", value: "consent"),
+            // force Supabase hosted callback (so Supabase performs code->token exchange)
             URLQueryItem(name: "redirect_to", value: hostedCallback)
         ]
 
         guard let url = components?.url else { throw NSError(domain: "SupabaseManager", code: -1, userInfo: nil) }
         return url
     }
+
 
     // MARK: - Handle callback
     /// Converts fragment (#...) to query (?...) so the SDK can parse token/code.
