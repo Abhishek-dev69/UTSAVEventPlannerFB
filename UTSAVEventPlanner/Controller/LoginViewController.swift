@@ -1,10 +1,11 @@
-//
 // LoginViewController.swift
 // UTSAV
 //
-// Full updated LoginViewController with improved Google OAuth UX & debug logging.
-// Replace your existing LoginViewController.swift with this file.
-//
+// Full updated LoginViewController with email/password form (replaces phone number).
+// Continue still navigates directly to BusinessViewController (no OTP).
+// Google & Apple sign-in unchanged.
+// Forgot password aligned to the right and card reduced in height.
+// "Don't have an account? Sign up" now matches the primary purple color.
 
 import UIKit
 import AVFoundation
@@ -24,10 +25,24 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
     private let videoCenterGuide = UILayoutGuide()
     private let cardView = UIView()
     private let titleLabel = UILabel()
-    private let phoneRow = UIStackView()
+
+    // Replaced phoneRow with a form-style stack (email + password + confirmPassword)
+    private let formStack = UIStackView()
+    private let emailTextField = UITextField()
+    private let passwordTextField = UITextField()
+    private let confirmPasswordTextField = UITextField() // shown only in sign-up mode
+
+    // Forgot password button (visible in log in mode)
+    private let forgotPasswordButton = UIButton(type: .system)
+
+    // keep countryButton for backwards compatibility in layout/state but hide it
     private let countryButton = UIButton(type: .system)
-    private let phoneTextField = UITextField()
+
     private let continueButton = UIButton(type: .system)
+
+    // NEW: signup toggle below the separator (placed above social buttons)
+    private let signupToggleButton = UIButton(type: .system)
+
     private let sepRow = UIStackView()
     private let leftLine = UIView()
     private let orLabel = UILabel()
@@ -43,11 +58,15 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
     // layout
     private let corner: CGFloat = 28
     private let edge: CGFloat = 20
-    private let fieldH: CGFloat = 52
+    private var fieldH: CGFloat = 50
 
     // state
-    private let requiredDigitsForIN = 10
     private var nextVideoIndex: Int = 0
+
+    // NEW: signing up state — toggles the title and button text
+    private var isSigningUp: Bool = false {
+        didSet { updateForSignUpState() }
+    }
 
     // keep strong ref to ASWebAuthenticationSession
     private var currentAuthSession: ASWebAuthenticationSession?
@@ -75,6 +94,9 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         styleUI()
         hookEvents()
         updateContinueEnabled(isValid: false)
+
+        // set initial title based on sign-up state
+        updateForSignUpState()
     }
 
     override func viewDidAppear(_ animated: Bool) {
@@ -94,7 +116,7 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         authTimeoutWorkItem?.cancel()
     }
 
-    // MARK: - UI builder (same structure as before)
+    // MARK: - UI builder
     private func buildUI() {
         [heroView, cardView, bottomCover].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
@@ -104,17 +126,28 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         heroView.addSubview(brandLabel)
         view.addLayoutGuide(videoCenterGuide)
 
-        [titleLabel, phoneRow, continueButton, sepRow, socialStack, footerLabel].forEach {
+        // include signupToggleButton in card's subviews
+        [titleLabel, formStack, forgotPasswordButton, continueButton, sepRow, signupToggleButton, socialStack, footerLabel].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
             cardView.addSubview($0)
         }
 
-        phoneRow.axis = .horizontal
-        phoneRow.spacing = 12
-        phoneRow.alignment = .fill
-        phoneRow.distribution = .fill
-        phoneRow.addArrangedSubview(countryButton)
-        phoneRow.addArrangedSubview(phoneTextField)
+        // Form stack (vertical) for email + password + confirmPassword
+        formStack.axis = .vertical
+        formStack.spacing = 12
+        formStack.alignment = .fill
+        formStack.distribution = .fill
+        formStack.addArrangedSubview(emailTextField)
+        formStack.addArrangedSubview(passwordTextField)
+        formStack.addArrangedSubview(confirmPasswordTextField)
+
+        confirmPasswordTextField.isHidden = true
+
+        // Keep country button but hidden (keeps previous layout code simple)
+        countryButton.isHidden = true
+
+        // Forgot password default hidden/shown handled by updateForSignUpState
+        forgotPasswordButton.isHidden = false
 
         sepRow.axis = .horizontal
         sepRow.alignment = .center
@@ -146,48 +179,74 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
             heroView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             heroView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             heroView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
             videoCenterGuide.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             videoCenterGuide.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             videoCenterGuide.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             videoCenterGuide.bottomAnchor.constraint(equalTo: cardView.topAnchor),
+
             brandLabel.centerXAnchor.constraint(equalTo: videoCenterGuide.centerXAnchor),
             brandLabel.centerYAnchor.constraint(equalTo: videoCenterGuide.centerYAnchor)
         ])
 
+        // reduced card height so it doesn't cover most of the screen
         cardBottomConstraint = cardView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
         cardBottomConstraint.isActive = true
 
         NSLayoutConstraint.activate([
             cardView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             cardView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            cardView.heightAnchor.constraint(greaterThanOrEqualToConstant: 260),
+            // smaller minimum height (was ~320/340) -> reduce to ~240 so background video remains visible
+            cardView.heightAnchor.constraint(greaterThanOrEqualToConstant: 240),
+
             bottomCover.topAnchor.constraint(equalTo: cardView.bottomAnchor),
             bottomCover.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             bottomCover.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             bottomCover.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            titleLabel.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 28),
+
+            titleLabel.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 22),
             titleLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: edge),
             titleLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -edge),
-            phoneRow.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 18),
-            phoneRow.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: edge),
-            phoneRow.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -edge),
-            phoneRow.heightAnchor.constraint(equalToConstant: fieldH),
-            countryButton.widthAnchor.constraint(equalToConstant: 110),
-            continueButton.topAnchor.constraint(equalTo: phoneRow.bottomAnchor, constant: 14),
+
+            formStack.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 14),
+            formStack.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: edge),
+            formStack.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -edge),
+
+            // forgot button sits under the form and aligned to right
+            forgotPasswordButton.topAnchor.constraint(equalTo: formStack.bottomAnchor, constant: 8),
+            forgotPasswordButton.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -edge),
+            // keep a left anchor so it doesn't expand too wide on large screens
+            forgotPasswordButton.leadingAnchor.constraint(greaterThanOrEqualTo: cardView.leadingAnchor, constant: edge),
+
+            continueButton.topAnchor.constraint(equalTo: forgotPasswordButton.bottomAnchor, constant: 8),
             continueButton.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: edge),
             continueButton.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -edge),
             continueButton.heightAnchor.constraint(equalToConstant: fieldH),
-            sepRow.topAnchor.constraint(equalTo: continueButton.bottomAnchor, constant: 16),
+
+            sepRow.topAnchor.constraint(equalTo: continueButton.bottomAnchor, constant: 14),
             sepRow.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: edge),
             sepRow.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -edge),
-            socialStack.topAnchor.constraint(equalTo: sepRow.bottomAnchor, constant: 12),
+
+            signupToggleButton.topAnchor.constraint(equalTo: sepRow.bottomAnchor, constant: 8),
+            signupToggleButton.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: edge),
+            signupToggleButton.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -edge),
+
+            socialStack.topAnchor.constraint(equalTo: signupToggleButton.bottomAnchor, constant: 12),
             socialStack.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: edge),
             socialStack.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -edge),
+
             footerLabel.topAnchor.constraint(equalTo: socialStack.bottomAnchor, constant: 10),
             footerLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: edge),
             footerLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -edge),
-            footerLabel.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -20)
+            footerLabel.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -16)
         ])
+
+        emailTextField.heightAnchor.constraint(equalToConstant: fieldH).isActive = true
+        passwordTextField.heightAnchor.constraint(equalToConstant: fieldH).isActive = true
+        confirmPasswordTextField.heightAnchor.constraint(equalToConstant: fieldH).isActive = true
+
+        // keep forgot button modest height
+        forgotPasswordButton.heightAnchor.constraint(equalToConstant: 28).isActive = true
 
         leftLine.heightAnchor.constraint(equalToConstant: 1).isActive = true
         rightLine.heightAnchor.constraint(equalToConstant: 1).isActive = true
@@ -221,10 +280,15 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         cardView.layer.shadowRadius = 12
         cardView.layer.shadowOffset = CGSize(width: 0, height: -2)
 
+        // Set default title (updateForSignUpState will override)
         titleLabel.text = "Log in or sign up"
-        titleLabel.font = .systemFont(ofSize: 28, weight: .bold)
+        titleLabel.font = .systemFont(ofSize: 26, weight: .bold)
         titleLabel.textColor = .label
 
+        // primary purple color used across interactive items
+        let primaryPurple = UIColor(red: 139/255, green: 59/255, blue: 240/255, alpha: 1)
+
+        // countryButton kept but hidden
         var c = UIButton.Configuration.filled()
         c.title = "🇮🇳  +91 ▾"
         c.baseBackgroundColor = .secondarySystemBackground
@@ -232,33 +296,81 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         c.cornerStyle = .large
         c.contentInsets = .init(top: 12, leading: 14, bottom: 12, trailing: 12)
         countryButton.configuration = c
+        countryButton.isHidden = true
 
-        phoneTextField.placeholder = "Enter Mobile Number"
-        phoneTextField.keyboardType = .numberPad
-        phoneTextField.textContentType = .telephoneNumber
-        phoneTextField.delegate = self
-        phoneTextField.backgroundColor = .secondarySystemBackground
-        phoneTextField.layer.cornerRadius = 14
-        phoneTextField.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 12, height: 1))
-        phoneTextField.leftViewMode = .always
-        phoneTextField.clearButtonMode = .whileEditing
-        phoneTextField.font = .systemFont(ofSize: 17)
-        phoneTextField.keyboardAppearance = .light
-        phoneTextField.inputAccessoryView = {
-            let accessory = UIView(frame: CGRect(x: 0, y: 0, width: view.bounds.width, height: 8))
-            accessory.backgroundColor = .systemBackground
-            return accessory
-        }()
+        // EMAIL FIELD
+        emailTextField.placeholder = "Email address"
+        emailTextField.keyboardType = .emailAddress
+        emailTextField.textContentType = .username
+        emailTextField.delegate = self
+        emailTextField.backgroundColor = .secondarySystemBackground
+        emailTextField.layer.cornerRadius = 12
+        emailTextField.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 12, height: 1))
+        emailTextField.leftViewMode = .always
+        emailTextField.clearButtonMode = .whileEditing
+        emailTextField.font = .systemFont(ofSize: 16)
+        emailTextField.keyboardAppearance = .light
+        emailTextField.autocapitalizationType = .none
+        emailTextField.autocorrectionType = .no
+        emailTextField.returnKeyType = .next
+
+        // PASSWORD FIELD
+        passwordTextField.placeholder = "Password (min 6 characters)"
+        passwordTextField.isSecureTextEntry = true
+        passwordTextField.textContentType = .password
+        passwordTextField.delegate = self
+        passwordTextField.backgroundColor = .secondarySystemBackground
+        passwordTextField.layer.cornerRadius = 12
+        passwordTextField.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 12, height: 1))
+        passwordTextField.leftViewMode = .always
+        passwordTextField.clearButtonMode = .whileEditing
+        passwordTextField.font = .systemFont(ofSize: 16)
+        passwordTextField.keyboardAppearance = .light
+        passwordTextField.autocapitalizationType = .none
+        passwordTextField.autocorrectionType = .no
+        passwordTextField.returnKeyType = .next
+
+        // CONFIRM PASSWORD FIELD
+        confirmPasswordTextField.placeholder = "Confirm password"
+        confirmPasswordTextField.isSecureTextEntry = true
+        confirmPasswordTextField.textContentType = .password
+        confirmPasswordTextField.delegate = self
+        confirmPasswordTextField.backgroundColor = .secondarySystemBackground
+        confirmPasswordTextField.layer.cornerRadius = 12
+        confirmPasswordTextField.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 12, height: 1))
+        confirmPasswordTextField.leftViewMode = .always
+        confirmPasswordTextField.clearButtonMode = .whileEditing
+        confirmPasswordTextField.font = .systemFont(ofSize: 16)
+        confirmPasswordTextField.keyboardAppearance = .light
+        confirmPasswordTextField.autocapitalizationType = .none
+        confirmPasswordTextField.autocorrectionType = .no
+        confirmPasswordTextField.returnKeyType = .go
+        confirmPasswordTextField.isHidden = true
 
         var cont = UIButton.Configuration.filled()
         cont.title = "Continue"
-        cont.baseBackgroundColor = UIColor(red: 0x8B/255, green: 0x3B/255, blue: 0xF0/255, alpha: 1)
+        cont.baseBackgroundColor = primaryPurple
         cont.baseForegroundColor = .white
         cont.cornerStyle = .large
         cont.contentInsets = .init(top: 14, leading: 20, bottom: 14, trailing: 20)
         continueButton.configuration = cont
-        continueButton.layer.cornerRadius = 14
+        continueButton.layer.cornerRadius = 12
         continueButton.layer.masksToBounds = true
+
+        // FORGOT PASSWORD BUTTON - align right and purple color to match primary
+        forgotPasswordButton.setTitle("Forgot password?", for: .normal)
+        forgotPasswordButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+        forgotPasswordButton.contentHorizontalAlignment = .right
+        forgotPasswordButton.setTitleColor(primaryPurple, for: .normal)
+        forgotPasswordButton.setTitleColor(primaryPurple.withAlphaComponent(0.5), for: .disabled)
+
+        // signup toggle (link-style) placed below the separator
+        signupToggleButton.setTitle("Don't have an account? Sign up", for: .normal)
+        signupToggleButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
+        signupToggleButton.contentHorizontalAlignment = .center
+        // MATCH signup color to the forgot password primary purple
+        signupToggleButton.setTitleColor(primaryPurple, for: .normal)
+        signupToggleButton.setTitleColor(primaryPurple.withAlphaComponent(0.5), for: .disabled)
 
         leftLine.backgroundColor = .tertiaryLabel
         rightLine.backgroundColor = .tertiaryLabel
@@ -268,7 +380,7 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
 
         styleGoogleButton()
 
-        appleButton.cornerRadius = 14
+        appleButton.cornerRadius = 12
         appleButton.heightAnchor.constraint(equalToConstant: fieldH).isActive = true
         appleButton.addTarget(self, action: #selector(appleTapped), for: .touchUpInside)
 
@@ -282,7 +394,7 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
     private func styleGoogleButton() {
         googleButton.configuration = nil
         googleButton.backgroundColor = .systemBackground
-        googleButton.layer.cornerRadius = 14
+        googleButton.layer.cornerRadius = 12
         googleButton.layer.borderWidth = 1
         googleButton.layer.borderColor = UIColor.systemGray3.cgColor
         googleButton.heightAnchor.constraint(equalToConstant: fieldH).isActive = true
@@ -296,11 +408,11 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         let icon = UIImageView(image: UIImage(named: "google_logo")?.withRenderingMode(.alwaysOriginal))
         icon.translatesAutoresizingMaskIntoConstraints = false
         icon.contentMode = .scaleAspectFit
-        icon.widthAnchor.constraint(equalToConstant: 32).isActive = true
-        icon.heightAnchor.constraint(equalToConstant: 32).isActive = true
+        icon.widthAnchor.constraint(equalToConstant: 28).isActive = true
+        icon.heightAnchor.constraint(equalToConstant: 28).isActive = true
         let label = UILabel()
         label.text = "Sign in with Google"
-        label.font = .systemFont(ofSize: 16, weight: .semibold)
+        label.font = .systemFont(ofSize: 15, weight: .semibold)
         label.textColor = .label
         row.addArrangedSubview(icon)
         row.addArrangedSubview(label)
@@ -316,8 +428,13 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
 
     // MARK: - events
     private func hookEvents() {
-        phoneTextField.addTarget(self, action: #selector(phoneChanged), for: .editingChanged)
+        emailTextField.addTarget(self, action: #selector(credentialsChanged), for: .editingChanged)
+        passwordTextField.addTarget(self, action: #selector(credentialsChanged), for: .editingChanged)
+        confirmPasswordTextField.addTarget(self, action: #selector(credentialsChanged), for: .editingChanged)
         continueButton.addTarget(self, action: #selector(continueTapped), for: .touchUpInside)
+
+        signupToggleButton.addTarget(self, action: #selector(toggleSignUpMode), for: .touchUpInside)
+        forgotPasswordButton.addTarget(self, action: #selector(forgotPasswordTapped), for: .touchUpInside)
 
         let tap = UITapGestureRecognizer(target: self, action: #selector(endEditingNow))
         tap.cancelsTouchesInView = false
@@ -336,11 +453,15 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
 
     @objc private func endEditingNow() { view.endEditing(true) }
 
-    @objc private func phoneChanged() {
-        let digits = phoneTextField.text?.filter(\.isNumber) ?? ""
-        let limited = String(digits.prefix(requiredDigitsForIN))
-        if limited != phoneTextField.text?.filter(\.isNumber) { phoneTextField.text = limited }
-        updateContinueEnabled(isValid: limited.count == requiredDigitsForIN)
+    @objc private func credentialsChanged() {
+        let email = emailTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let password = passwordTextField.text ?? ""
+        if isSigningUp {
+            let confirm = confirmPasswordTextField.text ?? ""
+            updateContinueEnabled(isValid: validateEmail(email) && password.count >= 6 && confirm == password)
+        } else {
+            updateContinueEnabled(isValid: validateEmail(email) && password.count >= 6)
+        }
     }
 
     private func updateContinueEnabled(isValid: Bool) {
@@ -348,13 +469,76 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         continueButton.alpha = isValid ? 1.0 : 0.6
     }
 
+    // MARK: - Continue action (go to BusinessViewController without OTP)
     @objc private func continueTapped() {
         view.endEditing(true)
-        let digits = phoneTextField.text?.filter(\.isNumber) ?? ""
-        guard digits.count == requiredDigitsForIN else { return }
-        let otpVC = OtpViewController(countryCode: "+91", phone: digits)
-        navigationController?.pushViewController(otpVC, animated: true)
+        let email = emailTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let password = passwordTextField.text ?? ""
+
+        guard validateEmail(email) else {
+            presentAuthErrorAlert("Invalid email", error: nil)
+            return
+        }
+        guard password.count >= 6 else {
+            presentAuthErrorAlert("Password must be at least 6 characters", error: nil)
+            return
+        }
+
+        if isSigningUp {
+            let confirm = confirmPasswordTextField.text ?? ""
+            guard confirm == password else {
+                presentAuthErrorAlert("Passwords do not match", error: nil)
+                return
+            }
+            // TODO: call your sign-up API here (e.g. SupabaseManager.shared.signUpWithEmail)
+            // For now, proceed to BusinessViewController after sign-up success
+            navigateToBusiness()
+            return
+        }
+
+        // LOGIN flow - navigate to BusinessViewController
+        navigateToBusiness()
     }
+
+    // centralized nav helper
+    private func navigateToBusiness() {
+        let businessVC = BusinessViewController()
+
+        if let nav = navigationController {
+            // Make sure nav bar is visible when we push (so Back will appear)
+            nav.setNavigationBarHidden(false, animated: true)
+            nav.pushViewController(businessVC, animated: true)
+        } else {
+            // fallback: present inside a nav controller so the presented VC still has a nav bar
+            let nav = UINavigationController(rootViewController: businessVC)
+            nav.modalPresentationStyle = .fullScreen
+            present(nav, animated: true)
+        }
+    }
+
+    // MARK: - Forgot password
+    @objc private func forgotPasswordTapped() {
+        let vc = ForgotPasswordViewController()
+        // make sure the pushed VC has a title (back button will show previous VC title)
+        vc.navigationItem.title = "Reset password"
+
+        if let nav = navigationController {
+            // ensure nav bar is visible, then push (Back button appears automatically)
+            nav.setNavigationBarHidden(false, animated: true)
+            nav.pushViewController(vc, animated: true)
+        } else {
+            // fallback: present inside nav so there is a nav bar and a close button
+            let nav = UINavigationController(rootViewController: vc)
+            vc.navigationItem.leftBarButtonItem = UIBarButtonItem(barButtonSystemItem: .close, target: self, action: #selector(dismissPresentedNav))
+            nav.modalPresentationStyle = .fullScreen
+            present(nav, animated: true)
+        }
+    }
+
+    @objc private func dismissPresentedNav() {
+        dismiss(animated: true)
+    }
+
 
     // MARK: - Google Sign-in via Supabase + ASWebAuthenticationSession
     @objc private func googleTapped() {
@@ -498,14 +682,20 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
     }
 
     // MARK: - TextField delegate
-    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-        if string.isEmpty { return true }
-        guard CharacterSet.decimalDigits.isSuperset(of: CharacterSet(charactersIn: string)) else { return false }
-        let current = textField.text ?? ""
-        if let r = Range(range, in: current) {
-            let new = current.replacingCharacters(in: r, with: string)
-            return new.filter(\.isNumber).count <= requiredDigitsForIN
+    // Allow normal typing for email/password and handle return chain
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        if textField == emailTextField {
+            passwordTextField.becomeFirstResponder()
+        } else if textField == passwordTextField && isSigningUp {
+            confirmPasswordTextField.becomeFirstResponder()
+        } else {
+            textField.resignFirstResponder()
+            continueTapped()
         }
+        return true
+    }
+
+    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
         return true
     }
 
@@ -549,6 +739,45 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
             })
             self.present(alert, animated: true)
         }
+    }
+
+    // MARK: - sign-up toggle handling
+    @objc private func toggleSignUpMode() {
+        isSigningUp.toggle()
+    }
+
+    private func updateForSignUpState() {
+        // Change the top title to reflect sign-in vs sign-up
+        DispatchQueue.main.async {
+            if self.isSigningUp {
+                self.titleLabel.text = "Sign up"
+                self.signupToggleButton.setTitle("Already have an account? Log in", for: .normal)
+                self.confirmPasswordTextField.isHidden = false
+                self.forgotPasswordButton.isHidden = true
+            } else {
+                self.titleLabel.text = "Log in"
+                self.signupToggleButton.setTitle("Don't have an account? Sign up", for: .normal)
+                self.confirmPasswordTextField.isHidden = true
+                self.forgotPasswordButton.isHidden = false
+            }
+            // update Continue button title
+            if var cfg = self.continueButton.configuration {
+                cfg.title = self.isSigningUp ? "Sign up" : "Continue"
+                self.continueButton.configuration = cfg
+            } else {
+                self.continueButton.setTitle(self.isSigningUp ? "Sign up" : "Continue", for: .normal)
+            }
+            // re-evaluate enable state
+            self.credentialsChanged()
+        }
+    }
+
+    // MARK: - email validation
+    private func validateEmail(_ email: String) -> Bool {
+        let pattern = #"^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$"#
+        let re = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive])
+        let range = NSRange(location: 0, length: email.utf16.count)
+        return re?.firstMatch(in: email, options: [], range: range) != nil
     }
 }
 
@@ -613,6 +842,7 @@ extension LoginViewController: ASAuthorizationControllerDelegate, ASAuthorizatio
         presentAuthErrorAlert("Apple sign-in error", error: error as? Error)
     }
 }
+
 extension LoginViewController: ASWebAuthenticationPresentationContextProviding {
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
         NSLog("🔵 presentationAnchor called - returning window")
