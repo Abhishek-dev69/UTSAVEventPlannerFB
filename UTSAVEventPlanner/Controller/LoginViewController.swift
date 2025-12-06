@@ -39,6 +39,7 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
     private let countryButton = UIButton(type: .system)
 
     private let continueButton = UIButton(type: .system)
+    private let continueActivity = UIActivityIndicatorView(style: .medium)
 
     // NEW: signup toggle below the separator (placed above social buttons)
     private let signupToggleButton = UIButton(type: .system)
@@ -171,6 +172,15 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
             googleActivity.centerYAnchor.constraint(equalTo: googleButton.centerYAnchor),
             googleActivity.trailingAnchor.constraint(equalTo: googleButton.trailingAnchor, constant: -16)
         ])
+
+        // Add continue activity to continue button (spinner at trailing)
+        continueActivity.translatesAutoresizingMaskIntoConstraints = false
+        continueButton.addSubview(continueActivity)
+        NSLayoutConstraint.activate([
+            continueActivity.centerYAnchor.constraint(equalTo: continueButton.centerYAnchor),
+            continueActivity.trailingAnchor.constraint(equalTo: continueButton.trailingAnchor, constant: -16)
+        ])
+        continueActivity.hidesWhenStopped = true
     }
 
     private func layoutUI() {
@@ -470,6 +480,7 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
     }
 
     // MARK: - Continue action (go to BusinessViewController without OTP)
+    // Replace your existing continueTapped() with this:
     @objc private func continueTapped() {
         view.endEditing(true)
         let email = emailTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -484,20 +495,63 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
             return
         }
 
-        if isSigningUp {
-            let confirm = confirmPasswordTextField.text ?? ""
-            guard confirm == password else {
-                presentAuthErrorAlert("Passwords do not match", error: nil)
-                return
-            }
-            // TODO: call your sign-up API here (e.g. SupabaseManager.shared.signUpWithEmail)
-            // For now, proceed to BusinessViewController after sign-up success
-            navigateToBusiness()
-            return
-        }
+        // Kick off async work inside a Task; UI updates are done on main queue (no await in @objc selector)
+        setContinueInProgress(true)
+        Task {
+            do {
+                if isSigningUp {
+                    let confirm = confirmPasswordTextField.text ?? ""
+                    guard confirm == password else {
+                        // immediate UI revert on main thread
+                        DispatchQueue.main.async {
+                            self.setContinueInProgress(false)
+                            self.presentAuthErrorAlert("Passwords do not match", error: nil)
+                        }
+                        return
+                    }
 
-        // LOGIN flow - navigate to BusinessViewController
-        navigateToBusiness()
+                    // Call Supabase signUp (async)
+                    let uid = try await SupabaseManager.shared.signUp(email: email, password: password, fullName: nil)
+                    NSLog("Email sign-up success - uid: %@", uid)
+
+                    // Back to main to update UI / navigate
+                    DispatchQueue.main.async {
+                        self.setContinueInProgress(false)
+                        self.navigateToBusiness()
+                    }
+                } else {
+                    // LOGIN flow - call Supabase signIn (async)
+                    let uid = try await SupabaseManager.shared.signIn(email: email, password: password)
+                    NSLog("Email sign-in success - uid: %@", uid)
+
+                    DispatchQueue.main.async {
+                        self.setContinueInProgress(false)
+                        self.navigateToBusiness()
+                    }
+                }
+            } catch {
+                NSLog("Email auth error: %@", String(describing: error))
+                DispatchQueue.main.async {
+                    self.setContinueInProgress(false)
+                    self.presentAuthErrorAlert("Authentication failed", error: error as? Error)
+                }
+            }
+        }
+    }
+
+    // helper to toggle continue spinner & disable UI
+    // Replace your async setContinueInProgress(_:) with this synchronous helper:
+    private func setContinueInProgress(_ inProgress: Bool) {
+        DispatchQueue.main.async {
+            self.continueButton.isEnabled = !inProgress
+            if inProgress {
+                self.continueActivity.startAnimating()
+                self.continueButton.alpha = 0.7
+            } else {
+                self.continueActivity.stopAnimating()
+                self.continueButton.alpha = 1.0
+            }
+        }
     }
 
     // centralized nav helper
@@ -862,3 +916,4 @@ extension LoginViewController: ASWebAuthenticationPresentationContextProviding {
         return window
     }
 }
+

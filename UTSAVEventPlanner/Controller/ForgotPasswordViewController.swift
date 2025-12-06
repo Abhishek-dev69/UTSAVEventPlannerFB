@@ -152,23 +152,39 @@ final class ForgotPasswordViewController: UIViewController {
 
         setLoading(true)
 
-        // TODO: Replace placeholder with real API call (Supabase / backend).
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            guard let self = self else { return }
-            self.setLoading(false)
+        Task {
+            do {
+                // If you want the reset link to deep-link back into your app, set redirectTo accordingly.
+                // Make sure the redirect URL is added in Supabase Auth Settings and Info.plist URL Types.
+                let redirectTo = "utsav://callback/reset-password" // optional, or use nil
+                try await SupabaseManager.shared.sendPasswordResetEmail(email: email, redirectTo: redirectTo)
 
-            let a = UIAlertController(title: "Email sent", message: "If an account exists for \(email) you'll receive a password reset email shortly.", preferredStyle: .alert)
-            a.addAction(UIAlertAction(title: "OK", style: .default) { _ in
-                if let nav = self.navigationController {
-                    nav.popViewController(animated: true)
-                } else {
-                    self.dismiss(animated: true)
+                await MainActor.run {
+                    self.setLoading(false)
+                    let a = UIAlertController(
+                        title: "Email sent",
+                        message: "If an account exists for \(email) you'll receive a password reset email shortly.",
+                        preferredStyle: .alert
+                    )
+                    a.addAction(UIAlertAction(title: "OK", style: .default) { _ in
+                        if let nav = self.navigationController {
+                            nav.popViewController(animated: true)
+                        } else {
+                            self.dismiss(animated: true)
+                        }
+                    })
+                    self.present(a, animated: true)
                 }
-            })
-            self.present(a, animated: true)
+            } catch {
+                // Show helpful error
+                await MainActor.run {
+                    self.setLoading(false)
+                    let errMsg = (error as NSError).localizedDescription
+                    self.showAlert(title: "Error sending reset email", message: errMsg)
+                }
+            }
         }
     }
-
     private func setLoading(_ loading: Bool) {
         sendButton.isEnabled = !loading
         if loading {
