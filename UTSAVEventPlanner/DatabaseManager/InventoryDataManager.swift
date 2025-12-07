@@ -2,13 +2,14 @@
 //  InventoryDataManager.swift
 //
 //  Inventory-only safe reflection + URLSession RPC fallback.
+//  Added: fetchLostPostEventRows(eventId:) to fetch lost/damaged post-event rows from DB.
 //
 
 import Foundation
 import Supabase
 
 // -----------------------------
-// Models (unchanged)
+// Models
 // -----------------------------
 struct InventoryItemRecord: Codable {
     let id: String
@@ -46,11 +47,12 @@ struct InventoryUsedUpdate: Encodable {
     let used: Int
 }
 
+// PostEventRow maps the shape we use in UI (matches vw_postevent_pending where possible)
 struct PostEventRow: Codable {
     let posteventId: String
     let inventoryItemId: String
     let eventId: String
-    let postQty: Int
+    var postQty: Int                // mutable so UI can decrement
     let state: String
     let note: String?
     let name: String
@@ -137,7 +139,6 @@ final class InventoryDataManager {
         }
 
         // 3) Try to read session accessToken if present (some clients keep session under auth)
-        // This is best-effort; we avoid KVC and attempt Mirror walk for nested fields.
         for child in clientMirror.children {
             if let label = child.label, label == "auth" {
                 let authMirror = Mirror(reflecting: child.value)
@@ -244,6 +245,77 @@ final class InventoryDataManager {
             .from("inventory_postevent")
             .insert([payload])
             .execute()
+    }
+
+    // --------------------------
+    // New: Fetch lost/damaged post-event rows (server-backed)
+    // --------------------------
+    /// Fetch post-event rows with state = 'lost' and include inventory item metadata.
+    /// Returns an array of PostEventRow constructed from the joined response.
+    func fetchLostPostEventRows(eventId: String) async throws -> [PostEventRow] {
+        // Select inventory_postevent rows with state = 'lost' and join inventory_items for meta
+        // The select string uses PostgREST embedding: inventory_items(*)
+        let response = try await client
+            .from("inventory_postevent")
+            .select("*, inventory_items(*)")
+            .eq("event_id", value: eventId)
+            .eq("state", value: "lost")
+            .order("updated_at", ascending: false)
+            .execute()
+
+        // Parse raw JSON and construct PostEventRow array
+        let raw = try JSONSerialization.jsonObject(with: response.data, options: []) as? [[String: Any]] ?? []
+
+        var rows: [PostEventRow] = []
+        for item in raw {
+            // PostgREST commonly returns 'id' for the postevent row; the migration earlier used id = uuid
+            let postId = (item["id"] as? String) ?? (item["postevent_id"] as? String) ?? ""
+            let invId = item["inventory_item_id"] as? String ?? ""
+            let evtId = item["event_id"] as? String ?? eventId
+
+            // quantity could be under "quantity" or "post_qty"
+            let qty: Int
+            if let q = item["quantity"] as? Int { qty = q }
+            else if let q = item["post_qty"] as? Int { qty = q }
+            else if let qString = item["quantity"] as? String, let q = Int(qString) { qty = q }
+            else if let qString = item["post_qty"] as? String, let q = Int(qString) { qty = q }
+            else { qty = 0 }
+
+            let state = item["state"] as? String ?? "lost"
+            let note = item["note"] as? String
+
+            // inventory_items nested object:
+            var name = ""
+            var invQuantity: Int? = nil
+            var unit: String? = nil
+            var sourceType: String? = nil
+            if let nested = item["inventory_items"] as? [String: Any] {
+                name = nested["name"] as? String ?? ""
+                if let nq = nested["quantity"] as? Int { invQuantity = nq }
+                else if let nqS = nested["quantity"] as? String, let nq = Int(nqS) { invQuantity = nq }
+                unit = nested["unit"] as? String
+                sourceType = nested["source_type"] as? String
+            }
+
+            let postCreatedAt = (item["created_at"] as? String) ?? (item["post_created_at"] as? String)
+
+            let row = PostEventRow(
+                posteventId: postId,
+                inventoryItemId: invId,
+                eventId: evtId,
+                postQty: qty,
+                state: state,
+                note: note,
+                name: name,
+                inventoryQuantity: invQuantity,
+                unit: unit,
+                sourceType: sourceType,
+                postCreatedAt: postCreatedAt
+            )
+            rows.append(row)
+        }
+
+        return rows
     }
 
     // --------------------------

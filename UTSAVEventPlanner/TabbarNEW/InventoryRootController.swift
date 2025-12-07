@@ -95,7 +95,7 @@ final class InventoryRootController: UIViewController {
 
         // Set appropriate navigation bar title based on which screen is visible
         if vc is InventoryEventsListViewController {
-            self.navigationItem.title = "All Events Allocated Inventory"
+            self.navigationItem.title = "Inventory"
         } else {
             self.navigationItem.title = "Inventory"
         }

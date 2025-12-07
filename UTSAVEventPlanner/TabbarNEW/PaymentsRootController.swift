@@ -91,7 +91,7 @@ final class PaymentsRootController: UIViewController {
         
         // Update title based on visible screen
         if vc is PaymentsEventsListViewController {
-            self.navigationItem.title = "All Events Payments Track"
+            self.navigationItem.title = "Payments"
         } else {
             self.navigationItem.title = "Payments"
         }
