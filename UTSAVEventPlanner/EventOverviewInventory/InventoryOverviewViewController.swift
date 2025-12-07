@@ -1,6 +1,6 @@
 //
 //  InventoryOverviewViewController.swift
-//  Uses sourceType ("planner" / "vendor") only; shows source on cards and uses post-event rows.
+//  Post-event: support partial qty Received / Lost and Lost/Damaged list
 //
 
 import UIKit
@@ -12,16 +12,18 @@ final class InventoryOverviewViewController: UIViewController {
     // inventory_items (allocated)
     private var plannerItems: [InventoryItemRecord] = []
     private var vendorItems: [InventoryItemRecord] = []
-    private var lostDamagedItems: [InventoryItemRecord] = []
 
     // post-event: use PostEventRow (pending rows from vw_postevent_pending)
     private var postEventRows: [PostEventRow] = []
+
+    // lost/damaged: server-backed list (fetched from inventory_postevent where state='lost')
+    private var lostDamagedRows: [PostEventRow] = []
 
     // updated segments
     private let segmented = UISegmentedControl(items: ["Allocated", "Post-Event", "Lost/Damaged"])
     private let tableView = UITableView(frame: .zero, style: .plain)
 
-    // bottom button kept for compatibility but unused in new per-row flow
+    // bottom button kept for compatibility (bulk action) but not used for single-row flow
     private let bottomButton: UIButton = {
         let btn = UIButton(type: .system)
         btn.setTitle("Mark as Received", for: .normal)
@@ -31,9 +33,6 @@ final class InventoryOverviewViewController: UIViewController {
         btn.isHidden = true
         return btn
     }()
-
-    // selected pending row (optional — not required by action-sheet flow)
-    private var selectedPostEventRow: PostEventRow?
 
     init(event: EventRecord) {
         self.event = event
@@ -53,6 +52,7 @@ final class InventoryOverviewViewController: UIViewController {
         Task {
             await loadInventory()
             await loadPostEventPending()
+            await loadLostRows()
         }
     }
 
@@ -112,8 +112,10 @@ final class InventoryOverviewViewController: UIViewController {
     }
 
     @objc private func segChanged() {
-        selectedPostEventRow = nil
-        bottomButton.isHidden = true
+        // optionally load lost rows only when switching to that segment:
+        if segmented.selectedSegmentIndex == 2 {
+            Task { await loadLostRows() }
+        }
         tableView.reloadData()
     }
 
@@ -121,37 +123,26 @@ final class InventoryOverviewViewController: UIViewController {
         let vc = AddInventoryItemViewController(eventId: event.id)
         vc.onItemAdded = { [weak self] newItem in
             self?.appendAndReload(newItem)
-            // Optionally refresh pending list if Add flow created a post-event row
-            Task { await self?.loadPostEventPending() }
+            Task {
+                await self?.loadPostEventPending()
+                await self?.loadLostRows()
+            }
         }
         navigationController?.pushViewController(vc, animated: true)
     }
 
     private func appendAndReload(_ item: InventoryItemRecord) {
         let src = (item.sourceType ?? "planner").lowercased()
-
-        if src == "vendor" {
-            vendorItems.append(item)
-        } else {
-            plannerItems.append(item)
-        }
-
-        DispatchQueue.main.async {
-            self.tableView.reloadData()
-        }
+        if src == "vendor" { vendorItems.append(item) } else { plannerItems.append(item) }
+        DispatchQueue.main.async { self.tableView.reloadData() }
     }
 
     // Load allocated inventory_items
     private func loadInventory() async {
         do {
             let items = try await InventoryDataManager.shared.fetchInventory(eventId: event.id)
-
-            // map only planner/vendor. If DB has "both" or other values, treat as planner by default.
             plannerItems = items.filter { (($0.sourceType ?? "planner").lowercased() == "planner") || (($0.sourceType ?? "").lowercased() != "vendor") }
             vendorItems = items.filter { ($0.sourceType ?? "").lowercased() == "vendor" }
-
-            lostDamagedItems = [] // you can populate by querying inventory_postevent where state='lost'
-
             await MainActor.run { tableView.reloadData() }
         } catch {
             print("Inventory load failed:", error)
@@ -171,23 +162,22 @@ final class InventoryOverviewViewController: UIViewController {
         }
     }
 
-    // Bottom button action: kept but repurposed to mark selected pending row as received if you need bulk action
-    @objc private func receivedTapped() {
-        guard let row = selectedPostEventRow else { return }
-
-        Task {
-            do {
-                try await InventoryDataManager.shared.markPostEventReceived(postEventId: row.posteventId, qty: row.postQty)
-                await MainActor.run {
-                    self.postEventRows.removeAll { $0.posteventId == row.posteventId }
-                    self.selectedPostEventRow = nil
-                    self.bottomButton.isHidden = true
-                    self.tableView.reloadData()
-                }
-            } catch {
-                print("Error marking received:", error)
+    // Load lost/damaged rows from server
+    private func loadLostRows() async {
+        do {
+            let rows = try await InventoryDataManager.shared.fetchLostPostEventRows(eventId: event.id)
+            await MainActor.run {
+                self.lostDamagedRows = rows
+                self.tableView.reloadData()
             }
+        } catch {
+            print("Failed to load lost rows:", error)
         }
+    }
+
+    // Bottom button action: mark selected pending row as received for bulk use (not used by per-row flow)
+    @objc private func receivedTapped() {
+        // kept for compatibility; not required for per-row actions
     }
 }
 
@@ -195,11 +185,9 @@ final class InventoryOverviewViewController: UIViewController {
 extension InventoryOverviewViewController: UITableViewDataSource, UITableViewDelegate {
 
     func tableView(_ tv: UITableView, numberOfRowsInSection section: Int) -> Int {
-        let count: Int
         switch segmented.selectedSegmentIndex {
         case 0:
-            // Allocated = planner + vendor combined
-            count = plannerItems.count + vendorItems.count
+            let count = plannerItems.count + vendorItems.count
             tv.backgroundView = (count == 0) ? {
                 let label = UILabel()
                 label.text = "No inventory added yet"
@@ -210,7 +198,7 @@ extension InventoryOverviewViewController: UITableViewDataSource, UITableViewDel
             return count
 
         case 1:
-            count = postEventRows.count
+            let count = postEventRows.count
             tv.backgroundView = (count == 0) ? {
                 let label = UILabel()
                 label.text = "No items in post-event"
@@ -221,7 +209,7 @@ extension InventoryOverviewViewController: UITableViewDataSource, UITableViewDel
             return count
 
         case 2:
-            count = lostDamagedItems.count
+            let count = lostDamagedRows.count
             tv.backgroundView = (count == 0) ? {
                 let label = UILabel()
                 label.text = "No lost / damaged items"
@@ -240,7 +228,6 @@ extension InventoryOverviewViewController: UITableViewDataSource, UITableViewDel
         switch segmented.selectedSegmentIndex {
 
         case 0:
-            // Allocated: combine planner then vendor
             let combined = plannerItems + vendorItems
             let item = combined[indexPath.row]
             let cell = tv.dequeueReusableCell(withIdentifier: "InventoryListCell", for: indexPath) as! InventoryListCell
@@ -252,26 +239,23 @@ extension InventoryOverviewViewController: UITableViewDataSource, UITableViewDel
             let cell = tv.dequeueReusableCell(withIdentifier: "InventoryCheckboxCell", for: indexPath) as! InventoryCheckboxCell
             cell.configure(name: row.name, quantity: row.postQty, sourceType: row.sourceType)
 
-            // When checkbox is checked -> show action sheet to choose Received or Lost
+            // When checkbox checked -> present actions (quantity selection included)
             cell.onChecked = { [weak self] checked in
                 guard let self = self else { return }
                 if checked {
-                    // present actions for this pending row
                     self.presentPostEventAction(for: row, at: indexPath)
                 } else {
-                    // if unchecked we don't persist anything; reload row to ensure consistent UI
-                    DispatchQueue.main.async {
-                        self.tableView.reloadRows(at: [indexPath], with: .none)
-                    }
+                    // Unchecked: restore UI state by reloading
+                    DispatchQueue.main.async { self.tableView.reloadRows(at: [indexPath], with: .none) }
                 }
             }
-
             return cell
 
         case 2:
-            let item = lostDamagedItems[indexPath.row]
+            let lost = lostDamagedRows[indexPath.row]
             let cell = tv.dequeueReusableCell(withIdentifier: "InventoryListCell", for: indexPath) as! InventoryListCell
-            cell.configure(name: item.name, quantity: item.quantity, sourceType: item.sourceType)
+            // Use name and postQty to show lost qty
+            cell.configure(name: lost.name, quantity: lost.postQty, sourceType: lost.sourceType)
             return cell
 
         default:
@@ -279,45 +263,31 @@ extension InventoryOverviewViewController: UITableViewDataSource, UITableViewDel
         }
     }
 
-    // Optional: improve UX by deselecting rows on tap
+    // UX: deselect row on tap
     func tableView(_ tv: UITableView, didSelectRowAt indexPath: IndexPath) {
         tv.deselectRow(at: indexPath, animated: true)
     }
 }
 
-// MARK: - Post-Event Actions
+// MARK: - Post-Event Actions (with partial-qty support)
 private extension InventoryOverviewViewController {
 
+    /// Present action sheet for a pending post-event row (Received / Lost). Quantity prompt included.
     func presentPostEventAction(for row: PostEventRow, at indexPath: IndexPath) {
-        let ac = UIAlertController(title: row.name, message: "Select action for this item", preferredStyle: .actionSheet)
+        let ac = UIAlertController(title: row.name, message: "Choose action for the pending quantity (Qty: \(row.postQty))", preferredStyle: .actionSheet)
 
         ac.addAction(UIAlertAction(title: "Mark as Received", style: .default, handler: { [weak self] _ in
-            guard let self = self else { return }
-            Task {
-                do {
-                    try await InventoryDataManager.shared.markPostEventReceived(postEventId: row.posteventId, qty: row.postQty)
-                    await MainActor.run {
-                        // remove only from pending list (Allocated remains unchanged)
-                        self.postEventRows.removeAll { $0.posteventId == row.posteventId }
-                        self.tableView.reloadData()
-                    }
-                } catch {
-                    print("Failed to mark received:", error)
-                    await MainActor.run { self.tableView.reloadRows(at: [indexPath], with: .none) }
-                }
-            }
+            self?.presentQuantityPrompt(for: row, maxQty: row.postQty, action: .received, at: indexPath)
         }))
 
         ac.addAction(UIAlertAction(title: "Mark as Lost / Damaged", style: .destructive, handler: { [weak self] _ in
-            self?.presentLostNoteDialog(for: row, at: indexPath)
+            self?.presentQuantityPrompt(for: row, maxQty: row.postQty, action: .lost, at: indexPath)
         }))
 
         ac.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: { [weak self] _ in
-            // revert checkbox UI by reloading row
             DispatchQueue.main.async { self?.tableView.reloadRows(at: [indexPath], with: .none) }
         }))
 
-        // For iPad safety
         if let pop = ac.popoverPresentationController, let cell = tableView.cellForRow(at: indexPath) {
             pop.sourceView = cell
             pop.sourceRect = cell.bounds
@@ -326,30 +296,76 @@ private extension InventoryOverviewViewController {
         present(ac, animated: true)
     }
 
-    func presentLostNoteDialog(for row: PostEventRow, at indexPath: IndexPath) {
-        let ac = UIAlertController(title: "Lost / Damaged", message: "Add an optional note", preferredStyle: .alert)
-        ac.addTextField { tf in tf.placeholder = "Note (optional)" }
-        ac.addAction(UIAlertAction(title: "Confirm", style: .destructive, handler: { [weak self] _ in
+    enum PostEventAction { case received, lost }
+
+    /// Ask user how many units to mark (1...maxQty). on confirm, call RPC and update local lists.
+    func presentQuantityPrompt(for row: PostEventRow, maxQty: Int, action: PostEventAction, at indexPath: IndexPath) {
+        let title = (action == .received) ? "Mark Received" : "Mark Lost / Damaged"
+        let ac = UIAlertController(title: title, message: "Enter quantity (1 - \(maxQty))", preferredStyle: .alert)
+        ac.addTextField { tf in
+            tf.keyboardType = .numberPad
+            tf.text = "\(maxQty)" // prefill with max
+        }
+
+        ac.addAction(UIAlertAction(title: "Confirm", style: action == .lost ? .destructive : .default, handler: { [weak self] _ in
             guard let self = self else { return }
-            let note = ac.textFields?.first?.text
+            guard let text = ac.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines), let qty = Int(text), qty >= 1, qty <= maxQty else {
+                // invalid input -> show quick alert and keep the row UI consistent
+                let err = UIAlertController(title: "Invalid quantity", message: "Please enter a number between 1 and \(maxQty).", preferredStyle: .alert)
+                err.addAction(UIAlertAction(title: "OK", style: .default) { _ in
+                    DispatchQueue.main.async { self.tableView.reloadRows(at: [indexPath], with: .none) }
+                })
+                self.present(err, animated: true)
+                return
+            }
+
             Task {
-                do {
-                    try await InventoryDataManager.shared.markPostEventLost(postEventId: row.posteventId, qty: row.postQty, note: note)
-                    await MainActor.run {
-                        // remove from pending
-                        self.postEventRows.removeAll { $0.posteventId == row.posteventId }
-                        self.tableView.reloadData()
-                    }
-                } catch {
-                    print("Failed to mark lost:", error)
-                    await MainActor.run { self.tableView.reloadRows(at: [indexPath], with: .none) }
-                }
+                await self.performPostEventAction(row: row, qty: qty, action: action, at: indexPath)
             }
         }))
+
         ac.addAction(UIAlertAction(title: "Cancel", style: .cancel, handler: { [weak self] _ in
-            self?.tableView.reloadRows(at: [indexPath], with: .none)
+            DispatchQueue.main.async { self?.tableView.reloadRows(at: [indexPath], with: .none) }
         }))
+
         present(ac, animated: true)
+    }
+
+    /// Perform RPC and update local lists/UI accordingly (partial qty supported).
+    func performPostEventAction(row: PostEventRow, qty: Int, action: PostEventAction, at indexPath: IndexPath) async {
+        switch action {
+        case .received:
+            do {
+                try await InventoryDataManager.shared.markPostEventReceived(postEventId: row.posteventId, qty: qty)
+
+                // authoritative refresh: re-fetch pending and lost rows and inventory
+                await loadPostEventPending()
+                await loadLostRows()
+                Task { await self.loadInventory() }
+
+                await MainActor.run { self.tableView.reloadData() }
+
+            } catch {
+                print("Failed to mark received:", error)
+                await MainActor.run { self.tableView.reloadRows(at: [indexPath], with: .none) }
+            }
+
+        case .lost:
+            do {
+                try await InventoryDataManager.shared.markPostEventLost(postEventId: row.posteventId, qty: qty, note: nil)
+
+                // authoritative refresh: re-fetch pending and lost rows and inventory
+                await loadPostEventPending()
+                await loadLostRows()
+                Task { await self.loadInventory() }
+
+                await MainActor.run { self.tableView.reloadData() }
+
+            } catch {
+                print("Failed to mark lost:", error)
+                await MainActor.run { self.tableView.reloadRows(at: [indexPath], with: .none) }
+            }
+        }
     }
 }
 

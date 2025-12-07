@@ -179,4 +179,3 @@ final class AddInventoryItemViewController: UIViewController {
         navigationController?.popViewController(animated: true)
     }
 }
-
