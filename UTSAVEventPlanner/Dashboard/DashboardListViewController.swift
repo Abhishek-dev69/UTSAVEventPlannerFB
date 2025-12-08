@@ -8,7 +8,7 @@ final class DashboardListViewController: UIViewController {
     private let avatar = UIImageView()
     private let titleLabel = UILabel()
     private let addButton = UIButton(type: .system)
-    private let segments = UISegmentedControl(items: ["All Events", "Upcoming", "Completed"])
+    private let segments = UISegmentedControl(items: ["All", "Upcoming", "Completed"])
 
     // Empty State
     private let emptyStateView = UIView()
@@ -58,10 +58,12 @@ final class DashboardListViewController: UIViewController {
         titleLabel.font = .systemFont(ofSize: 22, weight: .bold)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        addButton.setImage(UIImage(systemName: "plus"), for: .normal)
-        addButton.tintColor = .white
-        addButton.backgroundColor = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
-        addButton.layer.cornerRadius = 24
+        // --- UPDATED: Use plain purple plus icon, no circular background ---
+        let plusConfig = UIImage.SymbolConfiguration(pointSize: 20, weight: .bold)
+        addButton.setImage(UIImage(systemName: "plus", withConfiguration: plusConfig), for: .normal)
+        addButton.tintColor = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1) // Purple icon color
+        addButton.backgroundColor = .clear
+        addButton.layer.cornerRadius = 0
         addButton.translatesAutoresizingMaskIntoConstraints = false
         addButton.addTarget(self, action: #selector(addEventTapped), for: .touchUpInside)
 
@@ -80,17 +82,12 @@ final class DashboardListViewController: UIViewController {
 
             addButton.centerYAnchor.constraint(equalTo: avatar.centerYAnchor),
             addButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            addButton.widthAnchor.constraint(equalToConstant: 48),
-            addButton.heightAnchor.constraint(equalToConstant: 48)
+            // Smaller icon size for simple icon appearance
+            addButton.widthAnchor.constraint(equalToConstant: 24),
+            addButton.heightAnchor.constraint(equalToConstant: 24)
         ])
 
-        // Pulse animation
-        UIView.animate(withDuration: 1.3,
-                       delay: 0,
-                       options: [.repeat, .autoreverse],
-                       animations: {
-            self.addButton.transform = CGAffineTransform(scaleX: 1.08, y: 1.08)
-        })
+        // Removed pulse animation — not suitable for small plain icon
     }
 
     // MARK: Segments
