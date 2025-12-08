@@ -147,8 +147,11 @@ extension SubservicesListViewController: UITableViewDataSource, UITableViewDeleg
         cell.contentConfiguration = cfg
 
         let editButton = UIButton(type: .system)
-        editButton.setImage(UIImage(systemName: "pencil.circle.fill"), for: .normal)
+        // ---------- UPDATED: plain pencil (no circle) and purple tint ----------
+        let pencilConfig = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
+        editButton.setImage(UIImage(systemName: "pencil", withConfiguration: pencilConfig), for: .normal)
         editButton.tintColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
+        // --------------------------------------------------------------------
         editButton.frame = CGRect(x: 0, y: 0, width: 28, height: 28)
         editButton.tag = indexPath.row
         editButton.addTarget(self, action: #selector(editTapped(_:)), for: .touchUpInside)

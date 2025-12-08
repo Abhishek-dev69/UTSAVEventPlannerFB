@@ -35,7 +35,7 @@ final class EventPaymentCardCell: UITableViewCell {
         return iv
     }()
 
-    // middle: total & remaining
+    // middle: total & due
     private let totalLabel: UILabel = {
         let l = UILabel()
         l.translatesAutoresizingMaskIntoConstraints = false
@@ -120,7 +120,7 @@ final class EventPaymentCardCell: UITableViewCell {
         chevronView.widthAnchor.constraint(equalToConstant: 18).isActive = true
         chevronView.heightAnchor.constraint(equalToConstant: 20).isActive = true
 
-        // totals row content: total, spacer, remaining
+        // totals row content: total, spacer, due
         let spacer = UIView()
         spacer.translatesAutoresizingMaskIntoConstraints = false
         totalsRow.addArrangedSubview(totalLabel)
@@ -186,11 +186,13 @@ final class EventPaymentCardCell: UITableViewCell {
             totalLabel.text = "Total: ₹0"
         }
 
+        // ---------- UPDATED: use "Due:" instead of "Remaining:" ----------
         if let r = remaining {
-            remainingLabel.text = "Remaining: ₹\(formatMoney(r))"
+            remainingLabel.text = "Due: ₹\(formatMoney(r))"
         } else {
-            remainingLabel.text = "Remaining: ₹0"
+            remainingLabel.text = "Due: ₹0"
         }
+        // -----------------------------------------------------------------
 
         if let t = total, t > 0, let r = remaining {
             let received = max(0.0, t - r)

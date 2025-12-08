@@ -1,11 +1,3 @@
-//
-//  ServiceAddingViewController.swift
-//  UTSAVEventPlanner
-//
-//  Programmatic UI — UI improvements only. Functionality unchanged.
-//  Centers the empty-state label between the "Sub-Services" title and the save button.
-//
-
 import UIKit
 import Supabase
 
@@ -432,7 +424,9 @@ extension ServiceAddingViewController: UITableViewDelegate, UITableViewDataSourc
         cell.contentConfiguration = content
 
         let editButton = UIButton(type: .system)
-        editButton.setImage(UIImage(systemName: "pencil.circle.fill"), for: .normal)
+        // --- UPDATED: Use plain pencil (bold) without circle background ---
+        let pencilConfig = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
+        editButton.setImage(UIImage(systemName: "pencil", withConfiguration: pencilConfig), for: .normal)
         editButton.tintColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
         editButton.tag = indexPath.row
         editButton.addTarget(self, action: #selector(editButtonTapped(_:)), for: .touchUpInside)
@@ -467,3 +461,4 @@ extension ServiceAddingViewController: UITableViewDelegate, UITableViewDataSourc
         }
     }
 }
+

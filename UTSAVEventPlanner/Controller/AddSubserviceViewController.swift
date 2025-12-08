@@ -2,9 +2,9 @@
 //  AddSubserviceViewController.swift
 //  UTSAVEventPlanner
 //
-//  Updated: Added keyboard-safe scroll, menu-safe scroll, tap dismiss, layout fixes,
-//           and "Rate Type" (Fixed / Negotiable) option for subservices.
-//  UI & Logic largely unchanged otherwise.
+//  Updated: keyboard-safe scroll, tap dismiss, layout fixes,
+//           "Rate Type" implemented as radio-style selection (Fixed / Negotiable).
+//           Removed Unit selector (not required).
 //
 
 import UIKit
@@ -17,8 +17,11 @@ final class AddSubserviceViewController: UIViewController {
 
     // MARK: - Internal state
     private var selectedImage: UIImage?
-    private var selectedUnit = "Per event"
-    private let units = ["Per event","Per day"]
+    // Unit removed per request (no unit in this UI)
+    // Rate type state: true = Fixed, false = Negotiable
+    private var isFixedRate: Bool = true {
+        didSet { updateRateTypeButtons() }
+    }
 
     // MARK: - UI
     private let scrollView = UIScrollView()
@@ -49,30 +52,34 @@ final class AddSubserviceViewController: UIViewController {
     private let rateLabel = makeLabel("Rate")
     private let rateField = makeTextField(placeholder: "₹750", keyboard: .decimalPad)
 
-    // NEW: Rate type (Fixed / Negotiable)
+    // Rate type as radio-style selection
     private let rateTypeLabel = makeLabel("Rate Type")
-    private let rateTypeSegment: UISegmentedControl = {
-        let sc = UISegmentedControl(items: ["Fixed", "Negotiable"])
-        sc.selectedSegmentIndex = 0 // default to Fixed
-        sc.translatesAutoresizingMaskIntoConstraints = false
-        return sc
-    }()
 
-    private let unitLabel = makeLabel("Unit")
-    private let unitButton: UIButton = {
-        var cfg = UIButton.Configuration.filled()
-        cfg.baseBackgroundColor = .systemGray6
-        cfg.background.cornerRadius = 10
-        cfg.title = "Per event"
-        cfg.baseForegroundColor = .label
-        cfg.image = UIImage(systemName: "chevron.down")
-        cfg.imagePlacement = .trailing
-        cfg.imagePadding = 6
-        let b = UIButton(configuration: cfg)
-        b.layer.borderWidth = 0.6
-        b.layer.borderColor = UIColor.systemGray4.cgColor
+    private let fixedButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.setTitle("Fixed", for: .normal)
+        b.contentHorizontalAlignment = .leading
+        b.titleLabel?.font = .systemFont(ofSize: 15)
         b.translatesAutoresizingMaskIntoConstraints = false
         return b
+    }()
+
+    private let negotiableButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.setTitle("Negotiable", for: .normal)
+        b.contentHorizontalAlignment = .leading
+        b.titleLabel?.font = .systemFont(ofSize: 15)
+        b.translatesAutoresizingMaskIntoConstraints = false
+        return b
+    }()
+
+    private let rateButtonsStack: UIStackView = {
+        let s = UIStackView()
+        s.axis = .vertical
+        s.spacing = 8
+        s.alignment = .fill
+        s.translatesAutoresizingMaskIntoConstraints = false
+        return s
     }()
 
     private let imageLabel = makeLabel("Upload Image")
@@ -128,6 +135,9 @@ final class AddSubserviceViewController: UIViewController {
         setupActions()
         setupKeyboardObservers()
         setupTapToDismiss()
+
+        // initial radio button state
+        updateRateTypeButtons()
     }
 
     // MARK: - Setup
@@ -153,13 +163,16 @@ final class AddSubserviceViewController: UIViewController {
         uploadStack.translatesAutoresizingMaskIntoConstraints = false
         uploadBox.addSubview(uploadStack)
 
-        // main stack: inserted rateTypeLabel & rateTypeSegment between rateField and unitLabel
+        // rate type buttons stack
+        rateButtonsStack.addArrangedSubview(fixedButton)
+        rateButtonsStack.addArrangedSubview(negotiableButton)
+
+        // main stack: unit removed
         let mainStack = UIStackView(arrangedSubviews: [
             headerContainer,
             subcategoryLabel, subcategoryField,
             rateLabel, rateField,
-            rateTypeLabel, rateTypeSegment,    // <-- NEW
-            unitLabel, unitButton,
+            rateTypeLabel, rateButtonsStack,
             imageLabel, uploadBox,
             saveButton
         ])
@@ -217,11 +230,13 @@ final class AddSubserviceViewController: UIViewController {
 
         subcategoryField.heightAnchor.constraint(equalToConstant: 44).isActive = true
         rateField.heightAnchor.constraint(equalToConstant: 44).isActive = true
-        unitButton.heightAnchor.constraint(equalToConstant: 44).isActive = true
-        unitButton.widthAnchor.constraint(equalToConstant: 120).isActive = true
 
-        // small height for the segment for consistent layout
-        rateTypeSegment.heightAnchor.constraint(equalToConstant: 36).isActive = true
+        // rate button heights (tap targets)
+        fixedButton.heightAnchor.constraint(equalToConstant: 40).isActive = true
+        negotiableButton.heightAnchor.constraint(equalToConstant: 40).isActive = true
+
+        // small height for consistency
+        // (we no longer use UISegmentedControl so this is not required)
     }
 
     private func setupActions() {
@@ -231,27 +246,36 @@ final class AddSubserviceViewController: UIViewController {
         let tap = UITapGestureRecognizer(target: self, action: #selector(didTapAddImage))
         uploadBox.addGestureRecognizer(tap)
 
-        setupUnitMenu()
+        fixedButton.addTarget(self, action: #selector(didSelectFixed), for: .touchUpInside)
+        negotiableButton.addTarget(self, action: #selector(didSelectNegotiable), for: .touchUpInside)
     }
 
-    private func setupUnitMenu() {
-        unitButton.menu = UIMenu(children: units.map { title in
-            UIAction(title: title, state: title == selectedUnit ? .on : .off) { [weak self] _ in
-                guard let self else { return }
-                self.selectedUnit = title
+    // MARK: - Rate type actions (radio behavior)
+    @objc private func didSelectFixed() {
+        isFixedRate = true
+    }
 
-                if var cfg = self.unitButton.configuration {
-                    cfg.title = title
-                    self.unitButton.configuration = cfg
-                }
+    @objc private func didSelectNegotiable() {
+        isFixedRate = false
+    }
 
-                // Scroll so the save button stays visible
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                    self.scrollView.scrollRectToVisible(self.saveButton.frame, animated: true)
-                }
-            }
-        })
-        unitButton.showsMenuAsPrimaryAction = true
+    private func updateRateTypeButtons() {
+        // Use system SF symbols for radio appearance
+        // selected: largecircle.fill.circle, unselected: circle
+        let selectedImage = UIImage(systemName: "largecircle.fill.circle")
+        let unselectedImage = UIImage(systemName: "circle")
+
+        fixedButton.setImage(isFixedRate ? selectedImage : unselectedImage, for: .normal)
+        negotiableButton.setImage(isFixedRate ? unselectedImage : selectedImage, for: .normal)
+
+        // tint
+        let purple = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
+        fixedButton.tintColor = purple
+        negotiableButton.tintColor = purple
+
+        // padding between icon and title
+        fixedButton.imageEdgeInsets = .init(top: 0, left: -6, bottom: 0, right: 6)
+        negotiableButton.imageEdgeInsets = .init(top: 0, left: -6, bottom: 0, right: 6)
     }
 
     // MARK: - Actions
@@ -281,10 +305,7 @@ final class AddSubserviceViewController: UIViewController {
         }
 
         let tempId = "local-\(UUID().uuidString)"
-        let isFixed = (rateTypeSegment.selectedSegmentIndex == 0) // Fixed if index 0
-
-        // NOTE: Subservice initializer should include `isFixed: Bool`
-        let sub = Subservice(id: tempId, name: name, rate: rate, unit: selectedUnit, image: selectedImage, isFixed: isFixed)
+        let sub = Subservice(id: tempId, name: name, rate: rate, unit: "", image: selectedImage, isFixed: isFixedRate)
         onSave?(sub)
         dismiss(animated: true)
     }
