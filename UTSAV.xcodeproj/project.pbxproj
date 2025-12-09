@@ -41,6 +41,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
+				View/ServicesViewController.xib,
 			);
 			target = 3896CFE22EBFA70E0099FE70 /* UTSAVEventPlanner */;
 		};
