@@ -9,22 +9,7 @@
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
     </dependencies>
     <objects>
-        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="ServicesViewController" customModule="UTSAVEventPlanner" customModuleProvider="target">
-            <connections>
-                <outlet property="myServicesCard" destination="1uc-MG-1fb" id="qI0-7I-T2B"/>
-                <outlet property="myServicesCardImage" destination="xkU-pd-dMi" id="sMz-i6-fZi"/>
-                <outlet property="myServicesCardLabel" destination="FxI-LW-ChX" id="Eck-mi-c6a"/>
-                <outlet property="myVendorsCard" destination="Peg-n7-O7W" id="gpQ-0H-FZp"/>
-                <outlet property="myVendorsImage" destination="nDd-At-pIc" id="z1H-1E-kcy"/>
-                <outlet property="myVendorsLabel" destination="z5C-jR-0FL" id="4jy-RF-t8L"/>
-                <outlet property="titleLabel" destination="PiU-En-rMT" id="DUm-8h-DRI"/>
-                <outlet property="vendorMarketplaceCard" destination="qR4-cI-JaL" id="cOY-Gp-N4J"/>
-                <outlet property="vendorMarketplaceCardImage" destination="A1q-gS-hyF" id="vP7-Cg-ZyS"/>
-                <outlet property="vendorMarketplaceLabel" destination="LyI-RJ-saw" id="9Wt-du-rtE"/>
-                <outlet property="vendorTypeLabel" destination="BN4-zy-7xg" id="2sJ-Hp-YMS"/>
-                <outlet property="view" destination="Q5b-pe-lb4" id="dWX-PK-WHI"/>
-            </connections>
-        </placeholder>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner"/>
         <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
         <view contentMode="scaleToFill" id="Q5b-pe-lb4">
             <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>

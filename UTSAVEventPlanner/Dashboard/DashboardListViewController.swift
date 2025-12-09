@@ -22,6 +22,7 @@ final class DashboardListViewController: UIViewController {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        // MATCHED BACKGROUND: same soft gray as inventory/payments
         view.backgroundColor = UIColor(white: 0.97, alpha: 1)
 
         setupHeader()

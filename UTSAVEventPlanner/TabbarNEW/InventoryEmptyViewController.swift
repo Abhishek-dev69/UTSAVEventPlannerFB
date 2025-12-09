@@ -14,7 +14,7 @@ final class InventoryEmptyViewController: UIViewController {
 
     private func setupUI() {
         titleLabel.text = "No Events Yet"
-        titleLabel.font = .systemFont(ofSize: 22, weight: .semibold)
+        titleLabel.font = .systemFont(ofSize: 22, weight: .bold)
         titleLabel.textAlignment = .center
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
