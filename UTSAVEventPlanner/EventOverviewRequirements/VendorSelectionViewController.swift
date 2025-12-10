@@ -1,3 +1,8 @@
+//
+// VendorSelectionViewController.swift
+// EventPlanner - select vendor from marketplace and send proposal
+//
+
 import UIKit
 
 final class VendorSelectionViewController: UIViewController {
@@ -7,8 +12,14 @@ final class VendorSelectionViewController: UIViewController {
     private let segmented = UISegmentedControl(items: ["My Vendor", "Marketplace"])
     private let tableView = UITableView()
 
-    private var myVendors: [Vendor] = []
-    private var marketplaceVendors: [Vendor] = []
+    // myVendors (hardcoded sample as VendorRecord — replace with your own fetch if needed)
+    private var myVendors: [VendorRecord] = []
+
+    // marketplace vendors fetched from Supabase
+    private var marketplaceVendors: [VendorRecord] = []
+
+    // Loading indicator
+    private var loadingHud: UIActivityIndicatorView?
 
     init(requirement: CartItemRecord) {
         self.requirement = requirement
@@ -19,11 +30,11 @@ final class VendorSelectionViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Assign Vendor"
-        view.backgroundColor = .white
+        view.backgroundColor = .systemBackground
 
         setupSegment()
         setupTable()
-        loadVendors()
+        loadInitialData()
     }
 
     private func setupSegment() {
@@ -45,6 +56,7 @@ final class VendorSelectionViewController: UIViewController {
         tableView.dataSource = self
         tableView.delegate = self
         tableView.register(VendorCell.self, forCellReuseIdentifier: "VendorCell")
+        tableView.tableFooterView = UIView()
         view.addSubview(tableView)
 
         NSLayoutConstraint.activate([
@@ -55,22 +67,75 @@ final class VendorSelectionViewController: UIViewController {
         ])
     }
 
-    private func loadVendors() {
-        // Fetch from Supabase later
+    private func loadInitialData() {
+        // Example hardcoded myVendors using VendorRecord (so code compiles).
+        // Replace this with an actual Supabase query if you maintain a planner->vendor link table.
         myVendors = [
-            Vendor(id: "d1f3c0b8-6d9c-4c2b-8c7b-3a5e1f7b9a10", name: "GreenLeaf Floral", rating: 4.9, years: 8),
-            Vendor(id: "vendor-2", name: "The Gourmet Kitchen", rating: 4.7, years: 6)
+            VendorRecord(
+                id: "11111111-1111-1111-1111-111111111111",
+                userId: nil, fullName: "GreenLeaf Floral", role: "Florist",
+                bio: nil, email: nil, phone: nil, businessName: "GreenLeaf",
+                businessAddress: nil, avatarUrl: nil, avatarPath: nil,
+                createdAt: nil, updatedAt: nil
+            ),
+            VendorRecord(
+                id: "22222222-2222-2222-2222-222222222222",
+                userId: nil, fullName: "The Gourmet Kitchen", role: "Caterer",
+                bio: nil, email: nil, phone: nil, businessName: "Gourmet Kitchen",
+                businessAddress: nil, avatarUrl: nil, avatarPath: nil,
+                createdAt: nil, updatedAt: nil
+            )
         ]
 
-        marketplaceVendors = [
-            Vendor(id: "vendor-3", name: "Blossom & Vine", rating: 4.8, years: 10),
-            Vendor(id: "vendor-4", name: "The Flower Boutique", rating: 4.7, years: 5)
-        ]
+        // fetch marketplace vendors from Supabase
+        fetchMarketplaceVendors()
+    }
+
+    @objc private func segChanged() {
         tableView.reloadData()
     }
 
-    @objc private func segChanged() { tableView.reloadData() }
+    // MARK: - Loading indicator
+    private func showLoading(_ show: Bool) {
+        if show {
+            if loadingHud == nil {
+                let hud = UIActivityIndicatorView(style: .large)
+                hud.center = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
+                hud.autoresizingMask = [.flexibleLeftMargin, .flexibleRightMargin, .flexibleTopMargin, .flexibleBottomMargin]
+                view.addSubview(hud)
+                hud.startAnimating()
+                loadingHud = hud
+            }
+        } else {
+            loadingHud?.removeFromSuperview()
+            loadingHud = nil
+        }
+    }
+
+    // MARK: - Fetch marketplace vendors
+    private func fetchMarketplaceVendors() {
+        showLoading(true)
+        Task {
+            do {
+                let records = try await VendorManager.shared.fetchAllVendors()
+                await MainActor.run {
+                    self.marketplaceVendors = records
+                    self.tableView.reloadData()
+                    self.showLoading(false)
+                }
+            } catch {
+                await MainActor.run {
+                    self.showLoading(false)
+                    let a = UIAlertController(title: "Error", message: error.localizedDescription, preferredStyle: .alert)
+                    a.addAction(UIAlertAction(title: "OK", style: .default))
+                    self.present(a, animated: true)
+                }
+            }
+        }
+    }
 }
+
+// MARK: - Table datasource / delegate
 
 extension VendorSelectionViewController: UITableViewDataSource, UITableViewDelegate {
 
@@ -79,16 +144,30 @@ extension VendorSelectionViewController: UITableViewDataSource, UITableViewDeleg
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "VendorCell", for: indexPath) as! VendorCell
-        let vendor = segmented.selectedSegmentIndex == 0 ? myVendors[indexPath.row] : marketplaceVendors[indexPath.row]
-        cell.configure(vendor: vendor)
 
+        guard let cell = tableView.dequeueReusableCell(withIdentifier: "VendorCell", for: indexPath) as? VendorCell else {
+            return UITableViewCell()
+        }
+
+        let record = segmented.selectedSegmentIndex == 0 ? myVendors[indexPath.row] : marketplaceVendors[indexPath.row]
+        cell.configure(with: record)
+
+        // When user taps "Select" on the VendorCell, open the proposal screen
         cell.onSelect = { [weak self] in
-            guard let self else { return }
-            let vc = VendorProposalViewController(vendor: vendor, requirement: self.requirement)
+            guard let self = self else { return }
+            let vc = VendorProposalViewController(vendor: record, requirement: self.requirement)
             self.navigationController?.pushViewController(vc, animated: true)
         }
 
         return cell
     }
+
+    // row tap opens proposal as well
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        let record = segmented.selectedSegmentIndex == 0 ? myVendors[indexPath.row] : marketplaceVendors[indexPath.row]
+        let vc = VendorProposalViewController(vendor: record, requirement: requirement)
+        navigationController?.pushViewController(vc, animated: true)
+    }
 }
+

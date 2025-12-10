@@ -1,38 +1,30 @@
+//
+// VendorMarketplaceViewController.swift
+// EventPlanner - marketplace fetch from shared Supabase
+//
+
 import UIKit
+import Supabase
 
 final class VendorMarketplaceViewController: UIViewController {
 
-    struct Vendor {
-        let name: String
-        let category: String
-        let rating: Double
-        let imageName: String
-    }
+    private var vendors: [VendorRecord] = []
+    private var filteredVendors: [VendorRecord] = []
 
     private let tableView = UITableView(frame: .zero, style: .plain)
     private let searchBar = UISearchBar()
 
-    private var vendors: [Vendor] = [
-        Vendor(name: "Cuisine Catering", category: "Catering", rating: 4.5, imageName: "vendor_catering"),
-        Vendor(name: "Capture Moments Photography", category: "Photography", rating: 4.8, imageName: "vendor_photography"),
-        Vendor(name: "Vikash Decoration", category: "Decoration", rating: 4.8, imageName: "vendor_decoration")
-    ]
-
-    private var filteredVendors: [Vendor] = []
+    private var imageCache = NSCache<NSString, UIImage>()
 
     override func viewDidLoad() {
         super.viewDidLoad()
-
         title = "Vendor Marketplace"
         view.backgroundColor = .systemBackground
 
-        filteredVendors = vendors
-
         setupSearchBar()
         setupTableView()
+        loadVendors()
     }
-
-    // MARK: - UI Setup
 
     private func setupSearchBar() {
         searchBar.placeholder = "Search vendors"
@@ -49,28 +41,65 @@ final class VendorMarketplaceViewController: UIViewController {
         tableView.backgroundColor = .clear
         tableView.tableHeaderView = searchBar
         tableView.rowHeight = 110
-
         tableView.register(VendorMarketplaceCell.self,
                            forCellReuseIdentifier: VendorMarketplaceCell.reuseIdentifier)
 
         view.addSubview(tableView)
-
         NSLayoutConstraint.activate([
             tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 0),
-            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: 0),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
     }
+
+    // MARK: - Data Loading
+
+    private func loadVendors() {
+        showLoading(true)
+        Task {
+            do {
+                let list = try await VendorManager.shared.fetchAllVendors()
+                await MainActor.run {
+                    self.vendors = list
+                    self.filteredVendors = list
+                    self.tableView.reloadData()
+                    self.showLoading(false)
+                }
+            } catch {
+                await MainActor.run {
+                    self.showLoading(false)
+                    self.showAlert(title: "Error", message: error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    // MARK: - Helpers
+
+    private func showLoading(_ show: Bool) {
+        if show {
+            let hud = UIActivityIndicatorView(style: .large)
+            hud.center = view.center
+            hud.tag = 5555
+            hud.startAnimating()
+            view.addSubview(hud)
+        } else {
+            view.viewWithTag(5555)?.removeFromSuperview()
+        }
+    }
+
+    private func showAlert(title: String, message: String) {
+        let a = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        a.addAction(UIAlertAction(title: "OK", style: .default))
+        present(a, animated: true)
+    }
 }
 
-// MARK: - UITableViewDataSource
+// MARK: - Table DataSource/Delegate
 
-extension VendorMarketplaceViewController: UITableViewDataSource {
-
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return filteredVendors.count
-    }
+extension VendorMarketplaceViewController: UITableViewDataSource, UITableViewDelegate {
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int { filteredVendors.count }
 
     func tableView(_ tableView: UITableView,
                    cellForRowAt indexPath: IndexPath) -> UITableViewCell {
@@ -82,59 +111,86 @@ extension VendorMarketplaceViewController: UITableViewDataSource {
             return UITableViewCell()
         }
 
-        cell.configure(with: filteredVendors[indexPath.row])
+        let vendor = filteredVendors[indexPath.row]
+        cell.nameLabel.text = vendor.fullName ?? "Unknown"
+        cell.categoryLabel.text = vendor.role ?? vendor.businessName ?? ""
+        cell.setRating(4.5)
+
+        // placeholder
+        cell.thumbnailImageView.image = UIImage(systemName: "person.crop.square")
+
+        if let urlString = VendorManager.shared.resolvedAvatarURLString(for: vendor),
+           let url = URL(string: urlString) {
+            let cacheKey = NSString(string: url.absoluteString)
+            if let cached = imageCache.object(forKey: cacheKey) {
+                cell.thumbnailImageView.image = cached
+            } else {
+                cell.currentImageURL = url
+                let req = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 30)
+                URLSession.shared.dataTask(with: req) { [weak self, weak cell] data, _, _ in
+                    guard let self = self, let data = data, let img = UIImage(data: data) else { return }
+                    DispatchQueue.main.async {
+                        if cell?.currentImageURL == url {
+                            cell?.thumbnailImageView.image = img
+                        }
+                        self.imageCache.setObject(img, forKey: cacheKey)
+                    }
+                }.resume()
+            }
+        }
+
         return cell
+    }
+
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
+        let vendor = filteredVendors[indexPath.row]
+        let vc = VendorDetailViewController(vendorId: vendor.id)
+        navigationController?.pushViewController(vc, animated: true)
     }
 }
 
-// MARK: - UITableViewDelegate
-
-extension VendorMarketplaceViewController: UITableViewDelegate {
-    // Add didSelectRowAt if you need navigation on tap later
-}
-
-// MARK: - UISearchBarDelegate
+// MARK: - Search
 
 extension VendorMarketplaceViewController: UISearchBarDelegate {
     func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
-        if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if q.isEmpty {
             filteredVendors = vendors
         } else {
             filteredVendors = vendors.filter {
-                $0.name.lowercased().contains(searchText.lowercased()) ||
-                $0.category.lowercased().contains(searchText.lowercased())
+                let name = $0.fullName ?? ""
+                let role = $0.role ?? ""
+                return name.lowercased().contains(q.lowercased()) ||
+                       role.lowercased().contains(q.lowercased())
             }
         }
         tableView.reloadData()
     }
-
-    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
-        searchBar.resignFirstResponder()
-    }
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) { searchBar.resignFirstResponder() }
 }
 
-// MARK: - Custom Cell with Rating
+// MARK: - Cell (kept local but you can reuse your existing UI)
 
 final class VendorMarketplaceCell: UITableViewCell {
 
     static let reuseIdentifier = "VendorMarketplaceCell"
 
-    private let cardView = UIView()
-    private let nameLabel = UILabel()
-    private let categoryLabel = UILabel()
-    private let thumbnailImageView = UIImageView()
-    private let ratingContainerView = UIView()
+    let cardView = UIView()
+    let nameLabel = UILabel()
+    let categoryLabel = UILabel()
+    let thumbnailImageView = UIImageView()
+    let ratingContainerView = UIView()
     private let ratingLabel = UILabel()
+
+    // hold the image url for reuse-safety
+    var currentImageURL: URL?
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupUI()
     }
-
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        setupUI()
-    }
+    required init?(coder: NSCoder) { super.init(coder: coder); setupUI() }
 
     private func setupUI() {
         selectionStyle = .none
@@ -144,11 +200,9 @@ final class VendorMarketplaceCell: UITableViewCell {
         cardView.backgroundColor = .white
         cardView.layer.cornerRadius = 12
         cardView.layer.shadowColor = UIColor.black.cgColor
-        cardView.layer.shadowOpacity = 0.1
+        cardView.layer.shadowOpacity = 0.06
         cardView.layer.shadowOffset = CGSize(width: 0, height: 2)
-        cardView.layer.shadowRadius = 4
-
-        contentView.addSubview(cardView)
+        cardView.layer.shadowRadius = 6
 
         thumbnailImageView.translatesAutoresizingMaskIntoConstraints = false
         thumbnailImageView.contentMode = .scaleAspectFill
@@ -179,6 +233,8 @@ final class VendorMarketplaceCell: UITableViewCell {
         cardView.addSubview(ratingContainerView)
         ratingContainerView.addSubview(ratingLabel)
 
+        contentView.addSubview(cardView)
+
         NSLayoutConstraint.activate([
             cardView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
             cardView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
@@ -186,34 +242,36 @@ final class VendorMarketplaceCell: UITableViewCell {
             cardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
 
             thumbnailImageView.centerYAnchor.constraint(equalTo: cardView.centerYAnchor),
-            thumbnailImageView.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -16),
-            thumbnailImageView.widthAnchor.constraint(equalToConstant: 80),
-            thumbnailImageView.heightAnchor.constraint(equalToConstant: 70),
+            thumbnailImageView.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 12),
+            thumbnailImageView.widthAnchor.constraint(equalToConstant: 76),
+            thumbnailImageView.heightAnchor.constraint(equalToConstant: 76),
 
-            nameLabel.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 14),
-            nameLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 16),
-            nameLabel.trailingAnchor.constraint(lessThanOrEqualTo: thumbnailImageView.leadingAnchor, constant: -12),
+            nameLabel.leadingAnchor.constraint(equalTo: thumbnailImageView.trailingAnchor, constant: 12),
+            nameLabel.trailingAnchor.constraint(equalTo: ratingContainerView.leadingAnchor, constant: -8),
+            nameLabel.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 18),
 
-            categoryLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 4),
             categoryLabel.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
-            categoryLabel.trailingAnchor.constraint(lessThanOrEqualTo: thumbnailImageView.leadingAnchor, constant: -12),
+            categoryLabel.trailingAnchor.constraint(equalTo: nameLabel.trailingAnchor),
+            categoryLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 6),
 
-            ratingContainerView.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
-            ratingContainerView.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -10),
-            ratingContainerView.widthAnchor.constraint(greaterThanOrEqualToConstant: 60),
-            ratingContainerView.heightAnchor.constraint(equalToConstant: 20),
+            ratingContainerView.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -12),
+            ratingContainerView.centerYAnchor.constraint(equalTo: cardView.centerYAnchor),
+            ratingContainerView.widthAnchor.constraint(equalToConstant: 48),
+            ratingContainerView.heightAnchor.constraint(equalToConstant: 28),
 
-            ratingLabel.leadingAnchor.constraint(equalTo: ratingContainerView.leadingAnchor, constant: 8),
-            ratingLabel.trailingAnchor.constraint(equalTo: ratingContainerView.trailingAnchor, constant: -8),
-            ratingLabel.topAnchor.constraint(equalTo: ratingContainerView.topAnchor, constant: 2),
-            ratingLabel.bottomAnchor.constraint(equalTo: ratingContainerView.bottomAnchor, constant: -2)
+            ratingLabel.centerXAnchor.constraint(equalTo: ratingContainerView.centerXAnchor),
+            ratingLabel.centerYAnchor.constraint(equalTo: ratingContainerView.centerYAnchor)
         ])
     }
 
-    func configure(with vendor: VendorMarketplaceViewController.Vendor) {
-        nameLabel.text = vendor.name
-        categoryLabel.text = vendor.category
-        ratingLabel.text = String(format: "%.1f ★", vendor.rating)
-        thumbnailImageView.image = UIImage(named: vendor.imageName)
+    func setRating(_ r: Double) {
+        ratingLabel.text = String(format: "%.1f", r)
+    }
+
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        thumbnailImageView.image = nil
+        currentImageURL = nil
     }
 }
+
