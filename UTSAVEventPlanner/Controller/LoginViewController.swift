@@ -1,11 +1,7 @@
 // LoginViewController.swift
 // UTSAV
 //
-// Full updated LoginViewController with email/password form (replaces phone number).
-// Continue still navigates directly to BusinessViewController (no OTP).
-// Google & Apple sign-in unchanged.
-// Forgot password aligned to the right and card reduced in height.
-// "Don't have an account? Sign up" now matches the primary purple color.
+// (Full file; password fields now have eye icons to toggle visibility — fixed so typing works.)
 
 import UIKit
 import AVFoundation
@@ -29,6 +25,8 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
     // Replaced phoneRow with a form-style stack (email + password + confirmPassword)
     private let formStack = UIStackView()
     private let emailTextField = UITextField()
+
+    // PASSWORD FIELDS (with eye buttons)
     private let passwordTextField = UITextField()
     private let confirmPasswordTextField = UITextField() // shown only in sign-up mode
 
@@ -356,6 +354,11 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         confirmPasswordTextField.autocorrectionType = .no
         confirmPasswordTextField.returnKeyType = .go
         confirmPasswordTextField.isHidden = true
+
+        // --- REPLACED: add eye toggle buttons to password fields (safe, touch-friendly) ---
+        addPasswordVisibilityToggle(to: passwordTextField, selector: #selector(togglePasswordVisibility(_:)))
+        addPasswordVisibilityToggle(to: confirmPasswordTextField, selector: #selector(toggleConfirmPasswordVisibility(_:)))
+        // ----------------------------------------------------------------
 
         var cont = UIButton.Configuration.filled()
         cont.title = "Continue"
@@ -833,6 +836,70 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         let range = NSRange(location: 0, length: email.utf16.count)
         return re?.firstMatch(in: email, options: [], range: range) != nil
     }
+
+    // MARK: - Password visibility helpers (FIXED)
+    // This implementation places a UIButton directly as the textField.rightView (no wrapper),
+    // uses .custom button so it won't intercept typing, and preserves caret/selection.
+    private func addPasswordVisibilityToggle(to field: UITextField, selector: Selector) {
+        let btn = UIButton(type: .custom)
+        btn.frame = CGRect(x: 0, y: 0, width: 44, height: 30) // touch-friendly size
+        btn.contentMode = .center
+        if #available(iOS 13.0, *) {
+            let image = UIImage(systemName: "eye")?.withRenderingMode(.alwaysTemplate)
+            btn.setImage(image, for: .normal)
+        } else {
+            btn.setTitle("Show", for: .normal)
+            btn.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+        }
+        btn.tintColor = .secondaryLabel
+        btn.addTarget(self, action: selector, for: .touchUpInside)
+        btn.accessibilityLabel = "Toggle password visibility"
+
+        // assign directly as rightView (no container) — avoids touch-blocking layout issues
+        field.rightView = btn
+        field.rightViewMode = .always
+        field.isUserInteractionEnabled = true
+    }
+
+    @objc private func togglePasswordVisibility(_ sender: UIButton) {
+        toggleSecureEntry(for: passwordTextField, button: sender)
+    }
+
+    @objc private func toggleConfirmPasswordVisibility(_ sender: UIButton) {
+        toggleSecureEntry(for: confirmPasswordTextField, button: sender)
+    }
+
+    private func toggleSecureEntry(for field: UITextField, button: UIButton) {
+        // Save current responder & selection
+        let wasFirstResponder = field.isFirstResponder
+        let selectedRange = field.selectedTextRange
+
+        // Toggle secure text entry
+        field.isSecureTextEntry.toggle()
+
+        // Update button image/title
+        if #available(iOS 13.0, *) {
+            let name = field.isSecureTextEntry ? "eye" : "eye.slash"
+            button.setImage(UIImage(systemName: name)?.withRenderingMode(.alwaysTemplate), for: .normal)
+        } else {
+            button.setTitle(field.isSecureTextEntry ? "Show" : "Hide", for: .normal)
+        }
+
+        // Workaround to force refresh of secure entry display without losing text
+        let current = field.text
+        field.text = nil
+        field.text = current
+
+        // Restore first responder and selection (restore on next runloop for safety)
+        if wasFirstResponder {
+            field.becomeFirstResponder()
+            DispatchQueue.main.async {
+                field.selectedTextRange = selectedRange
+            }
+        } else {
+            field.selectedTextRange = selectedRange
+        }
+    }
 }
 
 // MARK: - Video helpers (same as original)
@@ -916,4 +983,3 @@ extension LoginViewController: ASWebAuthenticationPresentationContextProviding {
         return window
     }
 }
-
