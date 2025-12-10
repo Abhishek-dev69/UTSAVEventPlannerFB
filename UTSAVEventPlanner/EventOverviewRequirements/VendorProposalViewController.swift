@@ -1,13 +1,13 @@
 //
 //  VendorProposalViewController.swift
-//  Updated to match Figma-style UI
+//  Updated to match Figma-style UI and use VendorRecord model
 //
 
 import UIKit
 
 final class VendorProposalViewController: UIViewController {
 
-    private let vendor: Vendor
+    private let vendor: VendorRecord
     private let requirement: CartItemRecord
 
     // Top card
@@ -25,7 +25,7 @@ final class VendorProposalViewController: UIViewController {
     // Date picker
     private let datePicker = UIDatePicker()
 
-    init(vendor: Vendor, requirement: CartItemRecord) {
+    init(vendor: VendorRecord, requirement: CartItemRecord) {
         self.vendor = vendor
         self.requirement = requirement
         super.init(nibName: nil, bundle: nil)
@@ -118,7 +118,7 @@ final class VendorProposalViewController: UIViewController {
         vendorField.borderStyle = .roundedRect
         vendorField.heightAnchor.constraint(equalToConstant: 50).isActive = true
         vendorField.translatesAutoresizingMaskIntoConstraints = false
-        vendorField.text = vendor.name
+        vendorField.isUserInteractionEnabled = false // read-only
         stack.addArrangedSubview(vendorField)
 
         // Budget
@@ -228,7 +228,9 @@ final class VendorProposalViewController: UIViewController {
         descriptionLabel.text = requirement.subserviceName ?? ""
 
         // Default vendor is passed, budget default uses rate * qty
-        vendorField.text = vendor.name
+        // Use vendor.fullName if available, else businessName
+        vendorField.text = vendor.fullName ?? vendor.businessName ?? ""
+
         let rate = requirement.rate ?? 0
         let qty = requirement.quantity ?? 1
         let total = Int(rate * Double(qty))
@@ -251,12 +253,13 @@ final class VendorProposalViewController: UIViewController {
 
         let completionDate = dateField.text ?? ""
         let notes = notesText.text ?? ""
+        let vendorIdToSend = vendor.userId ?? vendor.id
 
         Task {
             do {
                 try await VendorProposalSupabaseManager.shared.sendProposal(
                     eventId: eventId,
-                    vendorId: vendor.id,
+                    vendorId: vendorIdToSend,
                     serviceName: requirement.serviceName ?? "",
                     description: requirement.subserviceName ?? "",
                     budget: budget,
@@ -285,3 +288,4 @@ final class VendorProposalViewController: UIViewController {
         }
     }
 }
+
