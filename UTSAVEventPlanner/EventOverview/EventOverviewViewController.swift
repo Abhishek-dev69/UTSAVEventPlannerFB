@@ -1,6 +1,8 @@
 //
 // EventOverviewViewController.swift
-// Updated: Budget card now opens a static BudgetDetailViewController
+// Updated: header shows Client Name + labeled fields (Date, Location, Guests)
+// Fixed: conditional binding error for non-optional guestCount
+// Updated: 2025-12-11
 //
 
 import UIKit
@@ -18,6 +20,13 @@ final class EventOverviewViewController: UIViewController {
     private var outsourceItems: [CartItemRecord] = []
     private var totalAmount: Double = 0.0
     private var receivedAmount: Double = 0.0
+
+    // Header UI
+    private let headerCard = UIView()
+    private let headerClientLabel = UILabel()    // now shows CLIENT NAME (bold)
+    private let headerDateLabel = UILabel()
+    private let headerLocationLabel = UILabel()
+    private let headerGuestLabel = UILabel()
 
     // MARK: Init
     init(event: EventRecord) {
@@ -37,11 +46,13 @@ final class EventOverviewViewController: UIViewController {
         view.backgroundColor = UIColor(white: 0.97, alpha: 1)
         setupNav()
         setupScroll()
+        setupHeaderCard()   // header added before building sections
 
         Task { await loadCartAndPayments() }
     }
 
     private func setupNav() {
+        // Keep navigation title as event name
         navigationItem.title = event.eventName
 
         let backItem = UIBarButtonItem(
@@ -71,8 +82,8 @@ final class EventOverviewViewController: UIViewController {
     // -----------------------------
     private func setupScroll() {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
-        
-        // ❗Critical fixes for instant taps:
+
+        // improve tap responsiveness
         scrollView.delaysContentTouches = false
         scrollView.canCancelContentTouches = false
 
@@ -101,19 +112,79 @@ final class EventOverviewViewController: UIViewController {
     }
 
     // -----------------------------
+    // MARK: HEADER CARD SETUP
+    // -----------------------------
+    private func setupHeaderCard() {
+        headerCard.translatesAutoresizingMaskIntoConstraints = false
+        headerCard.backgroundColor = .white
+        headerCard.layer.cornerRadius = 14
+        headerCard.layer.shadowColor = UIColor.black.cgColor
+        headerCard.layer.shadowOpacity = 0.06
+        headerCard.layer.shadowRadius = 8
+        headerCard.layer.shadowOffset = CGSize(width: 0, height: 6)
+
+        headerClientLabel.translatesAutoresizingMaskIntoConstraints = false
+        headerClientLabel.font = .systemFont(ofSize: 18, weight: .semibold)
+        headerClientLabel.numberOfLines = 2
+
+        headerDateLabel.translatesAutoresizingMaskIntoConstraints = false
+        headerDateLabel.font = .systemFont(ofSize: 13)
+        headerDateLabel.textColor = .secondaryLabel
+        headerDateLabel.numberOfLines = 2
+
+        headerLocationLabel.translatesAutoresizingMaskIntoConstraints = false
+        headerLocationLabel.font = .systemFont(ofSize: 13)
+        headerLocationLabel.textColor = .secondaryLabel
+        headerLocationLabel.numberOfLines = 2
+
+        headerGuestLabel.translatesAutoresizingMaskIntoConstraints = false
+        headerGuestLabel.font = .systemFont(ofSize: 13)
+        headerGuestLabel.textColor = .secondaryLabel
+
+        // header content layout
+        headerCard.addSubview(headerClientLabel)
+        headerCard.addSubview(headerDateLabel)
+        headerCard.addSubview(headerLocationLabel)
+        headerCard.addSubview(headerGuestLabel)
+
+        NSLayoutConstraint.activate([
+            headerClientLabel.topAnchor.constraint(equalTo: headerCard.topAnchor, constant: 16),
+            headerClientLabel.leadingAnchor.constraint(equalTo: headerCard.leadingAnchor, constant: 16),
+            headerClientLabel.trailingAnchor.constraint(equalTo: headerCard.trailingAnchor, constant: -16),
+
+            headerDateLabel.topAnchor.constraint(equalTo: headerClientLabel.bottomAnchor, constant: 10),
+            headerDateLabel.leadingAnchor.constraint(equalTo: headerCard.leadingAnchor, constant: 16),
+            headerDateLabel.trailingAnchor.constraint(equalTo: headerCard.trailingAnchor, constant: -16),
+
+            headerLocationLabel.topAnchor.constraint(equalTo: headerDateLabel.bottomAnchor, constant: 10),
+            headerLocationLabel.leadingAnchor.constraint(equalTo: headerCard.leadingAnchor, constant: 16),
+            headerLocationLabel.trailingAnchor.constraint(equalTo: headerCard.trailingAnchor, constant: -16),
+
+            headerGuestLabel.topAnchor.constraint(equalTo: headerLocationLabel.bottomAnchor, constant: 10),
+            headerGuestLabel.leadingAnchor.constraint(equalTo: headerCard.leadingAnchor, constant: 16),
+            headerGuestLabel.trailingAnchor.constraint(equalTo: headerCard.trailingAnchor, constant: -16),
+            headerGuestLabel.bottomAnchor.constraint(equalTo: headerCard.bottomAnchor, constant: -16)
+        ])
+
+        // Insert header at top of content stack
+        contentStack.addArrangedSubview(headerCard)
+    }
+
+    // -----------------------------
     // MARK: LOAD DATA
     // -----------------------------
     @MainActor
     private func loadCartAndPayments() async {
         do {
             cartItems = try await EventDataManager.shared.fetchCartItems(eventId: event.id)
-            receivedAmount = try await EventDataManager.shared.fetchPayments(eventId: event.id)
-                .reduce(0.0, { $0 + $1.amount })
+            let payments = try await EventDataManager.shared.fetchPayments(eventId: event.id)
+            receivedAmount = payments.reduce(0.0, { $0 + $1.amount })
         } catch {
             print("Error loading:", error)
         }
 
         computeFromCart()
+        updateHeaderContent()
         buildAllSections()
     }
 
@@ -139,10 +210,15 @@ final class EventOverviewViewController: UIViewController {
     // MARK: BUILD SECTIONS
     // -----------------------------
     private func buildAllSections() {
-        contentStack.arrangedSubviews.forEach { $0.removeFromSuperview() }
+        // remove everything after header (keep header as first)
+        let keepHeader = contentStack.arrangedSubviews.first == headerCard
+        contentStack.arrangedSubviews.forEach { view in
+            if keepHeader && view === headerCard { return }
+            view.removeFromSuperview()
+        }
 
         addClientRequirements()
-        addBudgetCheckIn()   // <-- opens BudgetDetailViewController now
+        addBudgetCheckIn()
         addPaymentStatus()
         addInventory()
     }
@@ -167,14 +243,11 @@ final class EventOverviewViewController: UIViewController {
     }
 
     private func addBudgetCheckIn() {
-        // compute sample values
         let budgetRupees = Double(event.budgetInPaise) / 100.0
-        // show receivedAmount here so it matches the sheet; using receivedAmount as "spent" (static for now)
         let spent = receivedAmount
         let subtitle = "Spent ₹\(formatMoney(spent)) of ₹\(formatMoney(budgetRupees))"
         let progress: Float = budgetRupees > 0 ? Float(spent / budgetRupees) : 0
 
-        // Push BudgetDetailViewController when tapped
         let card = EventSectionCard(
             iconName: "indianrupeesign.circle",
             title: "Budget Check-in",
@@ -191,7 +264,6 @@ final class EventOverviewViewController: UIViewController {
 
     private func addPaymentStatus() {
         let percent = totalAmount > 0 ? (receivedAmount / totalAmount) : 0.0
-
         let subtitle = "Received ₹\(formatMoney(receivedAmount)) of ₹\(formatMoney(totalAmount)) (\(Int(percent * 100))%)"
 
         let card = EventSectionCard(
@@ -238,6 +310,64 @@ final class EventOverviewViewController: UIViewController {
         f.numberStyle = .decimal
         f.maximumFractionDigits = 2
         return f.string(from: NSNumber(value: value)) ?? "0"
+    }
+
+    // -----------------------------
+    // MARK: HEADER CONTENT UPDATES
+    // -----------------------------
+    private func updateHeaderContent() {
+        // Show client name in the header (bold). If missing, fallback to eventName.
+        let client = (event.clientName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        headerClientLabel.text = !client.isEmpty ? client : (event.eventName)
+
+        headerDateLabel.text = composedDateString(startISO: event.startDate ?? "", endISO: event.endDate ?? "")
+
+        // Location label prefixed with "Location:"
+        let locRaw = (event.location ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        headerLocationLabel.text = !locRaw.isEmpty ? "Location: \(locRaw)" : "Location: not available"
+
+        // Guests label prefixed with "Guests:"
+        let guestText: String
+        // event.guestCount is non-optional Int in your model; handle accordingly
+        if event.guestCount > 0 {
+            guestText = "Guests: \(event.guestCount) Registered Attendees"
+        } else {
+            guestText = "Guests: —"
+        }
+        headerGuestLabel.text = guestText
+    }
+
+    private func composedDateString(startISO: String, endISO: String) -> String {
+        // Try ISO8601 (with time) first, then yyyy-MM-dd, then fallback to raw
+        let iso = ISO8601DateFormatter()
+        let dfShort = DateFormatter()
+        dfShort.dateStyle = .medium
+        dfShort.timeStyle = .short
+
+        // helper parse attempts:
+        func parseDate(_ s: String) -> Date? {
+            if s.isEmpty { return nil }
+            if let d = iso.date(from: s) { return d }
+            let df = DateFormatter()
+            df.dateFormat = "yyyy-MM-dd"
+            df.timeZone = TimeZone(secondsFromGMT: 0)
+            if let d = df.date(from: s) { return d }
+            return nil
+        }
+
+        if let s = parseDate(startISO), let e = parseDate(endISO) {
+            if Calendar.current.isDate(s, inSameDayAs: e) {
+                return dfShort.string(from: s)
+            } else {
+                return "\(dfShort.string(from: s)) - \(dfShort.string(from: e))"
+            }
+        } else if let s = parseDate(startISO) {
+            return dfShort.string(from: s)
+        } else if !startISO.isEmpty || !endISO.isEmpty {
+            return "\(startISO) \(endISO)"
+        } else {
+            return "Date not set"
+        }
     }
 }
 

@@ -61,8 +61,8 @@ final class ProfileSupabaseManager {
 
         // Upload new image
         try await bucket.upload(
-            path: path,
-            file: data,
+            path,
+            data: data,
             options: FileOptions(contentType: "image/jpeg")
         )
 

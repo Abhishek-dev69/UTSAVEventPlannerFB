@@ -133,7 +133,7 @@ final class AddBudgetViewController: UIViewController {
     }
 
     @objc private func attachTapped() {
-        var picker = PHPickerViewController(configuration: PHPickerConfiguration(photoLibrary: .shared()))
+        let picker = PHPickerViewController(configuration: PHPickerConfiguration(photoLibrary: .shared()))
         picker.delegate = self
         present(picker, animated: true)
     }
@@ -142,8 +142,8 @@ final class AddBudgetViewController: UIViewController {
         view.endEditing(true)
         let amount = Double(amountField.text ?? "") ?? 0
         let vendor = vendorField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let category = categoryField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let date = dateField.text ?? ""
+        _ = categoryField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        _ = dateField.text ?? ""
 
         guard amount > 0, !vendor.isEmpty else {
             let a = UIAlertController(title: "Missing info", message: "Please enter amount and vendor.", preferredStyle: .alert)
