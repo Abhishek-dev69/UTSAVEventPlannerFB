@@ -114,7 +114,6 @@ extension VendorMarketplaceViewController: UITableViewDataSource, UITableViewDel
         let vendor = filteredVendors[indexPath.row]
         cell.nameLabel.text = vendor.fullName ?? "Unknown"
         cell.categoryLabel.text = vendor.role ?? vendor.businessName ?? ""
-        cell.setRating(4.5)
 
         // placeholder
         cell.thumbnailImageView.image = UIImage(systemName: "person.crop.square")
@@ -180,8 +179,6 @@ final class VendorMarketplaceCell: UITableViewCell {
     let nameLabel = UILabel()
     let categoryLabel = UILabel()
     let thumbnailImageView = UIImageView()
-    let ratingContainerView = UIView()
-    private let ratingLabel = UILabel()
 
     // hold the image url for reuse-safety
     var currentImageURL: URL?
@@ -217,22 +214,9 @@ final class VendorMarketplaceCell: UITableViewCell {
         categoryLabel.font = UIFont.systemFont(ofSize: 13)
         categoryLabel.textColor = .secondaryLabel
 
-        ratingContainerView.translatesAutoresizingMaskIntoConstraints = false
-        ratingContainerView.layer.cornerRadius = 10
-        ratingContainerView.clipsToBounds = true
-        ratingContainerView.backgroundColor = UIColor.systemPurple
-
-        ratingLabel.translatesAutoresizingMaskIntoConstraints = false
-        ratingLabel.font = UIFont.systemFont(ofSize: 12, weight: .medium)
-        ratingLabel.textColor = .white
-        ratingLabel.textAlignment = .center
-
         cardView.addSubview(thumbnailImageView)
         cardView.addSubview(nameLabel)
         cardView.addSubview(categoryLabel)
-        cardView.addSubview(ratingContainerView)
-        ratingContainerView.addSubview(ratingLabel)
-
         contentView.addSubview(cardView)
 
         NSLayoutConstraint.activate([
@@ -247,25 +231,13 @@ final class VendorMarketplaceCell: UITableViewCell {
             thumbnailImageView.heightAnchor.constraint(equalToConstant: 76),
 
             nameLabel.leadingAnchor.constraint(equalTo: thumbnailImageView.trailingAnchor, constant: 12),
-            nameLabel.trailingAnchor.constraint(equalTo: ratingContainerView.leadingAnchor, constant: -8),
+            nameLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -12),
             nameLabel.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 18),
 
             categoryLabel.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
             categoryLabel.trailingAnchor.constraint(equalTo: nameLabel.trailingAnchor),
             categoryLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 6),
-
-            ratingContainerView.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -12),
-            ratingContainerView.centerYAnchor.constraint(equalTo: cardView.centerYAnchor),
-            ratingContainerView.widthAnchor.constraint(equalToConstant: 48),
-            ratingContainerView.heightAnchor.constraint(equalToConstant: 28),
-
-            ratingLabel.centerXAnchor.constraint(equalTo: ratingContainerView.centerXAnchor),
-            ratingLabel.centerYAnchor.constraint(equalTo: ratingContainerView.centerYAnchor)
         ])
-    }
-
-    func setRating(_ r: Double) {
-        ratingLabel.text = String(format: "%.1f", r)
     }
 
     override func prepareForReuse() {

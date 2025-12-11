@@ -283,9 +283,9 @@ final class VendorDetailViewController: UIViewController {
     private func fetchAll() {
         showLoading(true)
         Task {
-            async let vTask = loadVendor()
-            async let pTask = loadPortfolio()
-            async let sTask = loadServices()
+            async let vTask: () = loadVendor()
+            async let pTask: () = loadPortfolio()
+            async let sTask: () = loadServices()
 
             _ = await (vTask, pTask, sTask)
             await MainActor.run { self.showLoading(false) }

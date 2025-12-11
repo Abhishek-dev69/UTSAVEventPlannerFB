@@ -335,7 +335,7 @@ final class BusinessViewController: UIViewController {
 
     private func makeMainTabBar() -> UITabBarController {
         let tabBar = UITabBarController()
-        let symbols: [(String, String)] = [
+        let _: [(String, String)] = [
             ("house", "house.fill"),
             ("creditcard", "creditcard.fill"),
             ("storefront", "storefront.fill"),
