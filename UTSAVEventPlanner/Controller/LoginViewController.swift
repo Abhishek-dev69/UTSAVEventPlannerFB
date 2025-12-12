@@ -345,7 +345,7 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         confirmPasswordTextField.returnKeyType = .go
         confirmPasswordTextField.isHidden = true
 
-        // --- Use SF Symbols for the eye toggles with system-style sizing ---
+        // --- Compact SF Symbol eye toggles (small, iOS-like) ---
         addPasswordVisibilityToggle(to: passwordTextField, selector: #selector(togglePasswordVisibility(_:)))
         addPasswordVisibilityToggle(to: confirmPasswordTextField, selector: #selector(toggleConfirmPasswordVisibility(_:)))
         // ----------------------------------------------------------------
@@ -798,26 +798,31 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         return re?.firstMatch(in: email, options: [], range: range) != nil
     }
 
-    // MARK: - Password visibility
-    // Using SF Symbols with system-style sizing for the eye toggle
+    // MARK: - Password visibility (compact SF Symbol eye)
     private func addPasswordVisibilityToggle(to field: UITextField, selector: Selector) {
-        // Use .system button type for correct touch & tint behavior
         let button = UIButton(type: .system)
-        // Use standard SF symbol (unfilled) for normal state; will update when toggled
+        button.translatesAutoresizingMaskIntoConstraints = false
+
         if #available(iOS 13.0, *) {
-            let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .regular)
+            // compact pointSize for an iOS-like small icon
+            let config = UIImage.SymbolConfiguration(pointSize: 14, weight: .regular)
             let image = UIImage(systemName: "eye", withConfiguration: config)
             button.setImage(image, for: .normal)
+            button.tintColor = .secondaryLabel
         } else {
             button.setTitle("Show", for: .normal)
-            button.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+            button.titleLabel?.font = .systemFont(ofSize: 12, weight: .regular)
         }
-        button.tintColor = .secondaryLabel
-        // Provide a comfortable touch area
-        button.frame = CGRect(x: 0, y: 0, width: 40, height: 30)
-        button.contentMode = .center
-        button.addTarget(self, action: selector, for: .touchUpInside)
 
+        // Tight visual size but still tappable
+        button.contentMode = .center
+        button.widthAnchor.constraint(equalToConstant: 30).isActive = true
+        button.heightAnchor.constraint(equalToConstant: 24).isActive = true
+
+        button.addTarget(self, action: selector, for: .touchUpInside)
+        button.accessibilityLabel = "Toggle password visibility"
+
+        // Put directly into rightView; UITextField will respect the button's intrinsic size via constraints
         field.rightView = button
         field.rightViewMode = .always
         field.isUserInteractionEnabled = true
@@ -839,11 +844,10 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         // Toggle secure text entry
         field.isSecureTextEntry.toggle()
 
-        // Update button SF Symbol
+        // Update SF Symbol with same compact config
         if #available(iOS 13.0, *) {
-            // For secure -> unsecure we show "eye.slash" (unlocked)
             let symbolName = field.isSecureTextEntry ? "eye" : "eye.slash"
-            let config = UIImage.SymbolConfiguration(pointSize: 16, weight: .regular)
+            let config = UIImage.SymbolConfiguration(pointSize: 14, weight: .regular)
             let image = UIImage(systemName: symbolName, withConfiguration: config)
             button.setImage(image, for: .normal)
             button.tintColor = .secondaryLabel
