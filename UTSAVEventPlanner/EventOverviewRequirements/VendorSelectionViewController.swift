@@ -1,41 +1,58 @@
 //
 // VendorSelectionViewController.swift
-// EventPlanner - select vendor from marketplace and send proposal
+// EventPlanner
 //
 
 import UIKit
 
 final class VendorSelectionViewController: UIViewController {
 
+    // MARK: - Input
     private let requirement: CartItemRecord
 
-    private let segmented = UISegmentedControl(items: ["My Vendor", "Marketplace"])
-    private let tableView = UITableView()
+    // MARK: - UI
+    private let segmented = UISegmentedControl(items: ["My Vendors", "Marketplace"])
+    private let searchBar = UISearchBar()
+    private let tableView = UITableView(frame: .zero, style: .plain)
 
-    // myVendors (hardcoded sample as VendorRecord — replace with your own fetch if needed)
+    // MARK: - Data (original)
     private var myVendors: [VendorRecord] = []
-
-    // marketplace vendors fetched from Supabase
     private var marketplaceVendors: [VendorRecord] = []
 
-    // Loading indicator
+    // MARK: - Data (filtered)
+    private var filteredMyVendors: [VendorRecord] = []
+    private var filteredMarketplaceVendors: [VendorRecord] = []
+
+    // MARK: - Loading
     private var loadingHud: UIActivityIndicatorView?
 
+    // MARK: - Init
     init(requirement: CartItemRecord) {
         self.requirement = requirement
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError() }
 
+    // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Assign Vendor"
         view.backgroundColor = .systemBackground
 
         setupSegment()
+        setupSearchBar()
         setupTable()
-        loadInitialData()
+        loadMyVendors()
+        fetchMarketplaceVendors()
     }
+
+    // Reload My Vendors every time screen appears
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        loadMyVendors()
+    }
+
+    // MARK: - Setup UI
 
     private func setupSegment() {
         segmented.selectedSegmentIndex = 0
@@ -44,10 +61,33 @@ final class VendorSelectionViewController: UIViewController {
         view.addSubview(segmented)
 
         NSLayoutConstraint.activate([
-            segmented.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            segmented.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
             segmented.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             segmented.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             segmented.heightAnchor.constraint(equalToConstant: 34)
+        ])
+    }
+
+    private func setupSearchBar() {
+        searchBar.placeholder = "Search vendors"
+        searchBar.searchBarStyle = .minimal
+        searchBar.delegate = self
+
+        // Apple-style SF symbol search icon
+        searchBar.setImage(
+            UIImage(systemName: "magnifyingglass"),
+            for: .search,
+            state: .normal
+        )
+
+        searchBar.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(searchBar)
+
+        NSLayoutConstraint.activate([
+            searchBar.topAnchor.constraint(equalTo: segmented.bottomAnchor, constant: 8),
+            searchBar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            searchBar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
+            searchBar.heightAnchor.constraint(equalToConstant: 44)
         ])
     }
 
@@ -57,53 +97,85 @@ final class VendorSelectionViewController: UIViewController {
         tableView.delegate = self
         tableView.register(VendorCell.self, forCellReuseIdentifier: "VendorCell")
         tableView.tableFooterView = UIView()
+        tableView.rowHeight = 90
         view.addSubview(tableView)
 
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: segmented.bottomAnchor, constant: 12),
+            tableView.topAnchor.constraint(equalTo: searchBar.bottomAnchor, constant: 6),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
     }
 
-    private func loadInitialData() {
-        // Example hardcoded myVendors using VendorRecord (so code compiles).
-        // Replace this with an actual Supabase query if you maintain a planner->vendor link table.
-        myVendors = [
-            VendorRecord(
-                id: "11111111-1111-1111-1111-111111111111",
-                userId: nil, fullName: "GreenLeaf Floral", role: "Florist",
-                bio: nil, email: nil, phone: nil, businessName: "GreenLeaf",
-                businessAddress: nil, avatarUrl: nil, avatarPath: nil,
-                createdAt: nil, updatedAt: nil
-            ),
-            VendorRecord(
-                id: "22222222-2222-2222-2222-222222222222",
-                userId: nil, fullName: "The Gourmet Kitchen", role: "Caterer",
-                bio: nil, email: nil, phone: nil, businessName: "Gourmet Kitchen",
-                businessAddress: nil, avatarUrl: nil, avatarPath: nil,
-                createdAt: nil, updatedAt: nil
-            )
-        ]
+    // MARK: - Data Loading
 
-        // fetch marketplace vendors from Supabase
-        fetchMarketplaceVendors()
+    /// Loads vendors added in MyVendorsViewController
+    private func loadMyVendors() {
+        let ids = MyVendorsStore.shared.allVendorIds()
+        myVendors = []
+        filteredMyVendors = []
+
+        guard !ids.isEmpty else {
+            tableView.reloadData()
+            return
+        }
+
+        Task {
+            await withTaskGroup(of: VendorRecord?.self) { group in
+                for id in ids {
+                    group.addTask {
+                        try? await VendorManager.shared.fetchVendorById(id)
+                    }
+                }
+
+                var result: [VendorRecord] = []
+                for await v in group {
+                    if let v = v { result.append(v) }
+                }
+
+                // keep order same as stored
+                let map = Dictionary(uniqueKeysWithValues: result.map { ($0.id, $0) })
+                let ordered = ids.compactMap { map[$0] }
+
+                await MainActor.run {
+                    self.myVendors = ordered
+                    self.filteredMyVendors = ordered
+                    self.tableView.reloadData()
+                }
+            }
+        }
     }
 
-    @objc private func segChanged() {
-        tableView.reloadData()
+    /// Marketplace vendors
+    private func fetchMarketplaceVendors() {
+        showLoading(true)
+        Task {
+            do {
+                let list = try await VendorManager.shared.fetchAllVendors()
+                await MainActor.run {
+                    self.marketplaceVendors = list
+                    self.filteredMarketplaceVendors = list
+                    self.showLoading(false)
+                    self.tableView.reloadData()
+                }
+            } catch {
+                await MainActor.run {
+                    self.showLoading(false)
+                }
+            }
+        }
     }
 
-    // MARK: - Loading indicator
+    // MARK: - Loading HUD
+
     private func showLoading(_ show: Bool) {
         if show {
             if loadingHud == nil {
                 let hud = UIActivityIndicatorView(style: .large)
-                hud.center = CGPoint(x: view.bounds.midX, y: view.bounds.midY)
-                hud.autoresizingMask = [.flexibleLeftMargin, .flexibleRightMargin, .flexibleTopMargin, .flexibleBottomMargin]
-                view.addSubview(hud)
+                hud.center = view.center
                 hud.startAnimating()
+                view.addSubview(hud)
                 loadingHud = hud
             }
         } else {
@@ -112,62 +184,96 @@ final class VendorSelectionViewController: UIViewController {
         }
     }
 
-    // MARK: - Fetch marketplace vendors
-    private func fetchMarketplaceVendors() {
-        showLoading(true)
-        Task {
-            do {
-                let records = try await VendorManager.shared.fetchAllVendors()
-                await MainActor.run {
-                    self.marketplaceVendors = records
-                    self.tableView.reloadData()
-                    self.showLoading(false)
-                }
-            } catch {
-                await MainActor.run {
-                    self.showLoading(false)
-                    let a = UIAlertController(title: "Error", message: error.localizedDescription, preferredStyle: .alert)
-                    a.addAction(UIAlertAction(title: "OK", style: .default))
-                    self.present(a, animated: true)
-                }
-            }
-        }
+    // MARK: - Actions
+
+    @objc private func segChanged() {
+        searchBar.text = ""
+        tableView.reloadData()
     }
 }
 
-// MARK: - Table datasource / delegate
+// MARK: - TableView
 
 extension VendorSelectionViewController: UITableViewDataSource, UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        segmented.selectedSegmentIndex == 0 ? myVendors.count : marketplaceVendors.count
+        segmented.selectedSegmentIndex == 0
+        ? filteredMyVendors.count
+        : filteredMarketplaceVendors.count
     }
 
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    func tableView(_ tableView: UITableView,
+                   cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 
-        guard let cell = tableView.dequeueReusableCell(withIdentifier: "VendorCell", for: indexPath) as? VendorCell else {
-            return UITableViewCell()
-        }
+        let cell = tableView.dequeueReusableCell(
+            withIdentifier: "VendorCell",
+            for: indexPath
+        ) as! VendorCell
 
-        let record = segmented.selectedSegmentIndex == 0 ? myVendors[indexPath.row] : marketplaceVendors[indexPath.row]
-        cell.configure(with: record)
+        let vendor = segmented.selectedSegmentIndex == 0
+        ? filteredMyVendors[indexPath.row]
+        : filteredMarketplaceVendors[indexPath.row]
 
-        // When user taps "Select" on the VendorCell, open the proposal screen
+        cell.configure(with: vendor)
+
         cell.onSelect = { [weak self] in
             guard let self = self else { return }
-            let vc = VendorProposalViewController(vendor: record, requirement: self.requirement)
+            let vc = VendorProposalViewController(
+                vendor: vendor,
+                requirement: self.requirement
+            )
             self.navigationController?.pushViewController(vc, animated: true)
         }
 
         return cell
     }
 
-    // row tap opens proposal as well
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        let record = segmented.selectedSegmentIndex == 0 ? myVendors[indexPath.row] : marketplaceVendors[indexPath.row]
-        let vc = VendorProposalViewController(vendor: record, requirement: requirement)
+
+        let vendor = segmented.selectedSegmentIndex == 0
+        ? filteredMyVendors[indexPath.row]
+        : filteredMarketplaceVendors[indexPath.row]
+
+        let vc = VendorProposalViewController(
+            vendor: vendor,
+            requirement: requirement
+        )
         navigationController?.pushViewController(vc, animated: true)
+    }
+}
+
+// MARK: - Search
+
+extension VendorSelectionViewController: UISearchBarDelegate {
+
+    func searchBar(_ searchBar: UISearchBar, textDidChange text: String) {
+        let q = text.lowercased().trimmingCharacters(in: .whitespaces)
+
+        if segmented.selectedSegmentIndex == 0 {
+            filteredMyVendors = q.isEmpty
+            ? myVendors
+            : myVendors.filter {
+                ($0.fullName ?? $0.businessName ?? "")
+                    .lowercased()
+                    .contains(q)
+            }
+        } else {
+            filteredMarketplaceVendors = q.isEmpty
+            ? marketplaceVendors
+            : marketplaceVendors.filter {
+                let name = $0.fullName ?? ""
+                let role = $0.role ?? ""
+                return name.lowercased().contains(q)
+                    || role.lowercased().contains(q)
+            }
+        }
+
+        tableView.reloadData()
+    }
+
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        searchBar.resignFirstResponder()
     }
 }
 

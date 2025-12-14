@@ -26,6 +26,7 @@ final class VendorDetailViewController: UIViewController {
     private let contactStack = UIStackView()
     private let emailButton = UIButton(type: .system)
     private let phoneButton = UIButton(type: .system)
+    private let addToMyVendorsButton = UIButton(type: .system)
 
     // segmented content
     private let segmented = UISegmentedControl(items: ["Portfolio", "Services"])
@@ -70,6 +71,13 @@ final class VendorDetailViewController: UIViewController {
         fetchAll()
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        // refresh add button state in case vendor removed from MyVendors
+        let isAdded = MyVendorsStore.shared.allVendorIds().contains(vendorId)
+        updateAddButtonAppearance(isAdded: isAdded)
+    }
+
     // MARK: - Setup UI
 
     private func setupScrollAndHeader() {
@@ -93,7 +101,7 @@ final class VendorDetailViewController: UIViewController {
             contentView.widthAnchor.constraint(equalTo: view.widthAnchor)
         ])
 
-        // Header stack
+        // Header views
         avatarImageView.translatesAutoresizingMaskIntoConstraints = false
         avatarImageView.contentMode = .scaleAspectFill
         avatarImageView.layer.cornerRadius = 44
@@ -115,33 +123,89 @@ final class VendorDetailViewController: UIViewController {
         bioLabel.textColor = .secondaryLabel
         bioLabel.numberOfLines = 0
 
+        // Contact stack (horizontal: email then phone)
         contactStack.axis = .horizontal
         contactStack.spacing = 12
-        contactStack.distribution = .fillEqually
+        contactStack.alignment = .center
+        contactStack.distribution = .fill
         contactStack.translatesAutoresizingMaskIntoConstraints = false
 
-        emailButton.setTitle("Email", for: .normal)
-        phoneButton.setTitle("Call", for: .normal)
-        emailButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)
-        phoneButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)
+        // Requested purple color (#7C3AED)
+        let purpleColor = UIColor(red: 124.0/255.0, green: 58.0/255.0, blue: 237.0/255.0, alpha: 1.0)
 
-        emailButton.addTarget(self, action: #selector(emailTapped), for: .touchUpInside)
-        phoneButton.addTarget(self, action: #selector(phoneTapped), for: .touchUpInside)
+        // Styling helper for compact bordered pill (no big grey background)
+        func styleCompactPill(_ b: UIButton,
+                              imageName: String,
+                              titleText: String,
+                              borderColor: UIColor = UIColor.systemGray5,
+                              titleColor: UIColor = .label,
+                              fontSize: CGFloat = 14) {
+            b.translatesAutoresizingMaskIntoConstraints = false
+            b.setImage(UIImage(systemName: imageName), for: .normal)
+            b.setTitle(" " + titleText, for: .normal)
+            b.tintColor = titleColor
+            b.setTitleColor(titleColor, for: .normal)
+            b.titleLabel?.font = .systemFont(ofSize: fontSize, weight: .regular)
+            b.contentHorizontalAlignment = .leading
+            b.imageView?.contentMode = .scaleAspectFit
+            b.layer.cornerRadius = 12
+            b.layer.borderWidth = 1
+            b.layer.borderColor = borderColor.cgColor
+            b.backgroundColor = .clear // remove grey fill
+            b.contentEdgeInsets = UIEdgeInsets(top: 8, left: 10, bottom: 8, right: 10)
 
-        [emailButton, phoneButton].forEach {
-            $0.layer.cornerRadius = 10
-            $0.backgroundColor = UIColor.systemGray6
-            $0.setTitleColor(.label, for: .normal)
-            contactStack.addArrangedSubview($0)
+            // allow small dynamic font shrink so items fit better
+            b.titleLabel?.adjustsFontSizeToFitWidth = true
+            b.titleLabel?.minimumScaleFactor = 0.85
+            b.titleLabel?.lineBreakMode = .byTruncatingMiddle
+            b.titleLabel?.numberOfLines = 1
         }
 
-        // assemble header
-        contentView.addSubview(avatarImageView)
-        contentView.addSubview(nameLabel)
-        contentView.addSubview(roleLabel)
-        contentView.addSubview(bioLabel)
-        contentView.addSubview(contactStack)
+        // Email (compact, first) - will truncate in the middle if necessary but can also shrink slightly
+        styleCompactPill(emailButton, imageName: "envelope", titleText: "Email")
+        emailButton.addTarget(self, action: #selector(emailTapped), for: .touchUpInside)
 
+        // Phone (compact, next) - prefer to show full phone (higher hugging/resistance) and allow slight shrinking
+        styleCompactPill(phoneButton, imageName: "phone", titleText: "Call")
+        phoneButton.titleLabel?.lineBreakMode = .byTruncatingTail
+        phoneButton.addTarget(self, action: #selector(phoneTapped), for: .touchUpInside)
+
+        // Add button (purple pill) — below contact row, compact intrinsic width
+        func stylePurplePill(_ b: UIButton, imageName: String, titleText: String) {
+            b.translatesAutoresizingMaskIntoConstraints = false
+            b.setImage(UIImage(systemName: imageName), for: .normal)
+            b.setTitle(" " + titleText, for: .normal)
+            b.tintColor = .white
+            b.setTitleColor(.white, for: .normal)
+            b.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
+            b.contentHorizontalAlignment = .leading
+            b.imageView?.contentMode = .scaleAspectFit
+            b.layer.cornerRadius = 12
+            b.backgroundColor = purpleColor
+            b.contentEdgeInsets = UIEdgeInsets(top: 10, left: 12, bottom: 10, right: 12)
+        }
+        stylePurplePill(addToMyVendorsButton, imageName: "plus", titleText: "Add to My Vendors")
+        addToMyVendorsButton.addTarget(self, action: #selector(addToMyVendorsTapped), for: .touchUpInside)
+
+        // assemble contactStack and header
+        contactStack.addArrangedSubview(emailButton)
+        contactStack.addArrangedSubview(phoneButton)
+
+        [avatarImageView, nameLabel, roleLabel, bioLabel, contactStack, addToMyVendorsButton].forEach {
+            contentView.addSubview($0)
+        }
+
+        // Layout priority tweaks so phone keeps visible text and email can shrink a bit
+        emailButton.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        emailButton.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        phoneButton.setContentHuggingPriority(.required, for: .horizontal)
+        phoneButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        addToMyVendorsButton.setContentHuggingPriority(.required, for: .horizontal)
+        addToMyVendorsButton.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        // Layout constraints
         NSLayoutConstraint.activate([
             avatarImageView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
             avatarImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
@@ -160,10 +224,17 @@ final class VendorDetailViewController: UIViewController {
             bioLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             bioLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
 
+            // contact row on same line (email + phone)
             contactStack.topAnchor.constraint(equalTo: bioLabel.bottomAnchor, constant: 12),
             contactStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             contactStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            contactStack.heightAnchor.constraint(equalToConstant: 44)
+            contactStack.heightAnchor.constraint(greaterThanOrEqualToConstant: 40),
+
+            // Add button below contactStack (intrinsic width)
+            addToMyVendorsButton.topAnchor.constraint(equalTo: contactStack.bottomAnchor, constant: 12),
+            addToMyVendorsButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            addToMyVendorsButton.heightAnchor.constraint(equalToConstant: 44),
+            addToMyVendorsButton.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, multiplier: 0.75)
         ])
     }
 
@@ -172,9 +243,10 @@ final class VendorDetailViewController: UIViewController {
         segmented.selectedSegmentIndex = 0
         segmented.addTarget(self, action: #selector(segmentChanged(_:)), for: .valueChanged)
 
+        // segmented anchored below the add button
         contentView.addSubview(segmented)
         NSLayoutConstraint.activate([
-            segmented.topAnchor.constraint(equalTo: contactStack.bottomAnchor, constant: 20),
+            segmented.topAnchor.constraint(equalTo: addToMyVendorsButton.bottomAnchor, constant: 16),
             segmented.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             segmented.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             segmented.heightAnchor.constraint(equalToConstant: 36)
@@ -194,11 +266,17 @@ final class VendorDetailViewController: UIViewController {
 
     private func setupPortfolioCollection() {
         let layout = UICollectionViewFlowLayout()
-        layout.minimumInteritemSpacing = 12
-        layout.minimumLineSpacing = 12
-        let side = (view.bounds.width - 20 - 20 - 12) / 2 // 2 columns with margins
-        layout.itemSize = CGSize(width: side, height: side * 0.75)
-        layout.sectionInset = UIEdgeInsets(top: 12, left: 12, bottom: 20, right: 12)
+        layout.minimumInteritemSpacing = 8
+        layout.minimumLineSpacing = 10
+
+        let totalSideMargins: CGFloat = 20 + 20
+        let sectionInsetsLR: CGFloat = 12 + 12
+        let interItem: CGFloat = layout.minimumInteritemSpacing
+        let available = view.bounds.width - totalSideMargins - sectionInsetsLR - interItem
+        let itemWidth = floor(available / 2.0)
+
+        layout.itemSize = CGSize(width: itemWidth, height: itemWidth * 0.90)
+        layout.sectionInset = UIEdgeInsets(top: 8, left: 12, bottom: 12, right: 12)
 
         portfolioCollection = UICollectionView(frame: .zero, collectionViewLayout: layout)
         portfolioCollection.translatesAutoresizingMaskIntoConstraints = false
@@ -206,6 +284,8 @@ final class VendorDetailViewController: UIViewController {
         portfolioCollection.register(PortfolioCell.self, forCellWithReuseIdentifier: PortfolioCell.reuseIdentifier)
         portfolioCollection.dataSource = self
         portfolioCollection.delegate = self
+        portfolioCollection.alwaysBounceVertical = true
+        portfolioCollection.contentInsetAdjustmentBehavior = .never
 
         containerView.addSubview(portfolioCollection)
         NSLayoutConstraint.activate([
@@ -246,21 +326,55 @@ final class VendorDetailViewController: UIViewController {
     }
 
     @objc private func emailTapped() {
-        guard let email = emailButton.title(for: .normal), !email.isEmpty else { return }
-        if let url = URL(string: "mailto:\(email)"), UIApplication.shared.canOpenURL(url) {
+        guard let t = emailButton.title(for: .normal)?.trimmingCharacters(in: .whitespaces), !t.isEmpty else { return }
+        if t == "Email" { return }
+        if let url = URL(string: "mailto:\(t)"), UIApplication.shared.canOpenURL(url) {
             UIApplication.shared.open(url)
         }
     }
 
     @objc private func phoneTapped() {
-        guard let phone = phoneButton.title(for: .normal), !phone.isEmpty else { return }
-        let digits = phone.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "-", with: "")
+        guard let t = phoneButton.title(for: .normal)?.trimmingCharacters(in: .whitespaces), !t.isEmpty else { return }
+        if t == "Call" { return }
+        let digits = t.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "-", with: "")
         if let url = URL(string: "tel:\(digits)"), UIApplication.shared.canOpenURL(url) {
             UIApplication.shared.open(url)
         }
     }
 
-    // MARK: - Loading
+    @objc private func addToMyVendorsTapped() {
+        // Add (idempotent) to store
+        MyVendorsStore.shared.add(vendorId: vendorId)
+
+        // update appearance
+        updateAddButtonAppearance(isAdded: true)
+
+        // push MyVendors list
+        let myVC = MyVendorsViewController()
+        navigationController?.pushViewController(myVC, animated: true)
+    }
+
+    // helper to update button UI
+    private func updateAddButtonAppearance(isAdded: Bool) {
+        let purpleColor = UIColor(red: 124/255, green: 58/255, blue: 237/255, alpha: 1.0)
+        if isAdded {
+            addToMyVendorsButton.setImage(UIImage(systemName: "checkmark"), for: .normal)
+            addToMyVendorsButton.setTitle(" Added", for: .normal)
+            addToMyVendorsButton.tintColor = .white
+            addToMyVendorsButton.setTitleColor(.white, for: .normal)
+            addToMyVendorsButton.backgroundColor = purpleColor
+            addToMyVendorsButton.isEnabled = true
+        } else {
+            addToMyVendorsButton.setImage(UIImage(systemName: "plus"), for: .normal)
+            addToMyVendorsButton.setTitle(" Add to My Vendors", for: .normal)
+            addToMyVendorsButton.tintColor = .white
+            addToMyVendorsButton.setTitleColor(.white, for: .normal)
+            addToMyVendorsButton.backgroundColor = purpleColor
+            addToMyVendorsButton.isEnabled = true
+        }
+    }
+
+    // MARK: - Loading Helpers
 
     private func showLoading(_ show: Bool) {
         if show {
@@ -340,8 +454,23 @@ final class VendorDetailViewController: UIViewController {
         nameLabel.text = vendor.fullName ?? vendor.businessName ?? "Vendor"
         roleLabel.text = vendor.role ?? vendor.businessName ?? ""
         bioLabel.text = vendor.bio ?? ""
-        emailButton.setTitle(vendor.email ?? "Email", for: .normal)
-        phoneButton.setTitle(vendor.phone ?? "Call", for: .normal)
+
+        // set email / phone text
+        if let mail = vendor.email, !mail.isEmpty {
+            emailButton.setTitle(" \(mail)", for: .normal)
+        } else {
+            emailButton.setTitle(" Email", for: .normal)
+        }
+        if let phone = vendor.phone, !phone.isEmpty {
+            phoneButton.setTitle(" \(phone)", for: .normal)
+        } else {
+            phoneButton.setTitle(" Call", for: .normal)
+        }
+
+        // update add button state if already added
+        let alreadyAdded = MyVendorsStore.shared.allVendorIds().contains(vendorId)
+        updateAddButtonAppearance(isAdded: alreadyAdded)
+
         title = vendor.fullName ?? "Vendor"
 
         if let urlStr = VendorManager.shared.resolvedAvatarURLString(for: vendor),
@@ -470,12 +599,16 @@ private final class PortfolioCell: UICollectionViewCell {
 
     override init(frame: CGRect) {
         super.init(frame: frame)
+        backgroundColor = .clear
+        contentView.backgroundColor = .clear
         contentView.layer.cornerRadius = 12
-        contentView.backgroundColor = .secondarySystemBackground
+        contentView.clipsToBounds = true
+
         iv.translatesAutoresizingMaskIntoConstraints = false
         iv.contentMode = .scaleAspectFill
         iv.clipsToBounds = true
         iv.layer.cornerRadius = 8
+        iv.backgroundColor = .clear
 
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
@@ -486,15 +619,15 @@ private final class PortfolioCell: UICollectionViewCell {
         contentView.addSubview(titleLabel)
 
         NSLayoutConstraint.activate([
-            iv.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
-            iv.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 8),
-            iv.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -8),
-            iv.heightAnchor.constraint(equalTo: contentView.heightAnchor, multiplier: 0.68),
+            iv.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 4),
+            iv.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 6),
+            iv.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -6),
+            iv.heightAnchor.constraint(equalTo: contentView.heightAnchor, multiplier: 0.78),
 
             titleLabel.topAnchor.constraint(equalTo: iv.bottomAnchor, constant: 6),
-            titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 10),
-            titleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -10),
-            titleLabel.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -8)
+            titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 8),
+            titleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -8),
+            titleLabel.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -4)
         ])
     }
 

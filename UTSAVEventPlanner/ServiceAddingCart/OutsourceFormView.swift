@@ -6,26 +6,19 @@ import UIKit
 
 // Simple model returned on submit
 struct OutsourceItem {
-    // Original fields (kept for backwards compatibility)
     var name: String
     var details: String
-    var vendor: String?
     var estimatedBudget: Double?
 
-    // Computed properties that map to DB/cart naming expected elsewhere
-    var serviceName: String { return name }          // maps to service_name
-    var subserviceName: String { return details }    // maps to subservice_name
+    var serviceName: String { name }
+    var subserviceName: String { details }
 
-    // Helper to build a payload dictionary matching backend field names
     func payload() -> [String: Any] {
         var p: [String: Any] = [
             "service_name": serviceName,
             "subservice_name": subserviceName
         ]
-
-        if let v = vendor, !v.isEmpty { p["vendor"] = v }
         if let b = estimatedBudget { p["estimated_budget"] = b }
-
         return p
     }
 }
@@ -44,9 +37,6 @@ final class OutsourceFormView: UIView {
     private let descLabel = UILabel()
     private let descText = UITextView()
 
-    private let vendorLabel = UILabel()
-    private let vendorField = UITextField()
-
     private let budgetLabel = UILabel()
     private let budgetField = UITextField()
 
@@ -59,6 +49,12 @@ final class OutsourceFormView: UIView {
         setupKeyboardDismissal()
     }
     required init?(coder: NSCoder) { fatalError() }
+
+    // 🔥 THIS IS THE ONLY ADDITION — removes system "Done" button
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        findViewController()?.modalPresentationStyle = .fullScreen
+    }
 
     // MARK: - UI Setup
     private func setupUI() {
@@ -73,7 +69,6 @@ final class OutsourceFormView: UIView {
         card.layer.shadowOffset = CGSize(width: 0, height: 4)
         addSubview(card)
 
-        // Name
         nameLabel.text = "Service/Material Name"
         nameLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -86,7 +81,6 @@ final class OutsourceFormView: UIView {
         nameField.setLeftPaddingPoints(12)
         nameField.translatesAutoresizingMaskIntoConstraints = false
 
-        // Description
         descLabel.text = "Detailed Description of Requirement"
         descLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         descLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -99,20 +93,6 @@ final class OutsourceFormView: UIView {
         descText.translatesAutoresizingMaskIntoConstraints = false
         descText.isScrollEnabled = false
 
-        // Vendor
-        vendorLabel.text = "Vendor Preferences (Optional)"
-        vendorLabel.font = .systemFont(ofSize: 13, weight: .semibold)
-        vendorLabel.translatesAutoresizingMaskIntoConstraints = false
-
-        vendorField.placeholder = "e.g. ABC Tech Services"
-        vendorField.font = .systemFont(ofSize: 15)
-        vendorField.layer.cornerRadius = 10
-        vendorField.layer.borderWidth = 0.5
-        vendorField.layer.borderColor = UIColor(white: 0.85, alpha: 1).cgColor
-        vendorField.setLeftPaddingPoints(12)
-        vendorField.translatesAutoresizingMaskIntoConstraints = false
-
-        // Budget
         budgetLabel.text = "Estimated Budget (₹)"
         budgetLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         budgetLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -126,7 +106,6 @@ final class OutsourceFormView: UIView {
         budgetField.setLeftPaddingPoints(12)
         budgetField.translatesAutoresizingMaskIntoConstraints = false
 
-        // Add Button
         addButton.setTitle("Add", for: .normal)
         addButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
         addButton.backgroundColor = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
@@ -135,14 +114,11 @@ final class OutsourceFormView: UIView {
         addButton.translatesAutoresizingMaskIntoConstraints = false
         addButton.addTarget(self, action: #selector(addTapped), for: .touchUpInside)
 
-        // Add subviews
         [nameLabel, nameField,
          descLabel, descText,
-         vendorLabel, vendorField,
          budgetLabel, budgetField,
          addButton].forEach { card.addSubview($0) }
 
-        // Layout
         NSLayoutConstraint.activate([
             card.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
             card.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
@@ -167,18 +143,9 @@ final class OutsourceFormView: UIView {
             descText.topAnchor.constraint(equalTo: descLabel.bottomAnchor, constant: 8),
             descText.heightAnchor.constraint(equalToConstant: 88),
 
-            vendorLabel.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
-            vendorLabel.trailingAnchor.constraint(equalTo: nameLabel.trailingAnchor),
-            vendorLabel.topAnchor.constraint(equalTo: descText.bottomAnchor, constant: 12),
-
-            vendorField.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
-            vendorField.trailingAnchor.constraint(equalTo: nameLabel.trailingAnchor),
-            vendorField.topAnchor.constraint(equalTo: vendorLabel.bottomAnchor, constant: 8),
-            vendorField.heightAnchor.constraint(equalToConstant: 44),
-
             budgetLabel.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
             budgetLabel.trailingAnchor.constraint(equalTo: nameLabel.trailingAnchor),
-            budgetLabel.topAnchor.constraint(equalTo: vendorField.bottomAnchor, constant: 12),
+            budgetLabel.topAnchor.constraint(equalTo: descText.bottomAnchor, constant: 12),
 
             budgetField.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
             budgetField.trailingAnchor.constraint(equalTo: nameLabel.trailingAnchor),
@@ -192,14 +159,12 @@ final class OutsourceFormView: UIView {
             addButton.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -18)
         ])
 
-        // Add toolbars
         addDoneToolbar(to: nameField)
-        addDoneToolbar(to: vendorField)
         addDoneToolbar(to: budgetField)
         descText.inputAccessoryView = createDoneToolbar()
     }
 
-    // MARK: - Keyboard Dismiss System
+    // MARK: - Keyboard
     private func setupKeyboardDismissal() {
         let tap = UITapGestureRecognizer(target: self, action: #selector(endEditingForce))
         tap.cancelsTouchesInView = false
@@ -213,9 +178,10 @@ final class OutsourceFormView: UIView {
     private func addDoneToolbar(to textField: UITextField) {
         let toolbar = UIToolbar()
         toolbar.sizeToFit()
-        let flex = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
-        let done = UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(endEditingForce))
-        toolbar.items = [flex, done]
+        toolbar.items = [
+            UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil),
+            UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(endEditingForce))
+        ]
         textField.inputAccessoryView = toolbar
     }
 
@@ -229,31 +195,15 @@ final class OutsourceFormView: UIView {
         return tb
     }
 
-    // MARK: - Reset Form After Submit
     private func resetForm() {
         nameField.text = ""
         descText.text = ""
-        vendorField.text = ""
         budgetField.text = ""
     }
 
-    // MARK: - Success Popup
-    private func showSuccessPopup(_ message: String) {
-        guard let vc = findViewController() else { return }
-
-        let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
-        vc.present(alert, animated: true)
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            alert.dismiss(animated: true)
-        }
-    }
-
-    // MARK: - Submit
     @objc private func addTapped() {
         let name = nameField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let details = descText.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let vendor = vendorField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
 
         let budgetRaw = budgetField.text?
             .replacingOccurrences(of: "₹", with: "")
@@ -270,12 +220,10 @@ final class OutsourceFormView: UIView {
         let item = OutsourceItem(
             name: name,
             details: details,
-            vendor: vendor.isEmpty ? nil : vendor,
             estimatedBudget: budget > 0 ? budget : nil
         )
 
         onSubmit?(item)
-
         resetForm()
         showSuccessPopup("Item added to cart")
     }
@@ -288,11 +236,20 @@ final class OutsourceFormView: UIView {
         }
     }
 
+    private func showSuccessPopup(_ message: String) {
+        guard let vc = findViewController() else { return }
+        let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+        vc.present(alert, animated: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            alert.dismiss(animated: true)
+        }
+    }
+
     private func findViewController() -> UIViewController? {
         var responder: UIResponder? = self
-        while responder != nil {
-            if let vc = responder as? UIViewController { return vc }
-            responder = responder?.next
+        while let r = responder {
+            if let vc = r as? UIViewController { return vc }
+            responder = r.next
         }
         return nil
     }
@@ -304,4 +261,3 @@ private extension UITextField {
         leftViewMode = .always
     }
 }
-
