@@ -5,7 +5,7 @@ final class InventoryEventsListViewController: UIViewController {
     private let tableView = UITableView(frame: .zero, style: .plain)
     private var events: [EventRecord] = []
 
-    // Empty state label shown as table background when no events
+    // Empty state label
     private let emptyLabel: UILabel = {
         let l = UILabel()
         l.text = "No events found.\nCreate an event to start adding inventory."
@@ -24,8 +24,12 @@ final class InventoryEventsListViewController: UIViewController {
 
         setupTable()
 
-        // observe inventory count updates
-        NotificationCenter.default.addObserver(self, selector: #selector(inventoryCountsUpdated(_:)), name: .inventoryCountsUpdated, object: nil)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(inventoryCountsUpdated(_:)),
+            name: .inventoryCountsUpdated,
+            object: nil
+        )
 
         Task { await refreshEvents() }
     }
@@ -34,7 +38,8 @@ final class InventoryEventsListViewController: UIViewController {
         NotificationCenter.default.removeObserver(self)
     }
 
-    // Public async refresh entry point (called by parent or pull-to-refresh)
+    // MARK: - Data
+
     func refreshEvents() async {
         do {
             events = try await EventSupabaseManager.shared.fetchAllEventsForUser()
@@ -45,13 +50,13 @@ final class InventoryEventsListViewController: UIViewController {
                 tableView.refreshControl?.endRefreshing()
             }
 
-            // kick off background loads for events with missing counts
+            // Load inventory counts for all events
             for event in events {
-                if InventoryManager.shared.cachedSentQuantity(forEventId: event.id) == nil ||
-                    InventoryManager.shared.cachedReceivedQuantity(forEventId: event.id) == nil {
-                    Task { await InventoryManager.shared.loadCounts(forEventId: event.id) }
+                Task {
+                    await InventoryManager.shared.loadCounts(forEventId: event.id)
                 }
             }
+
         } catch {
             print("❌ Inventory refresh error:", error)
             await MainActor.run {
@@ -61,21 +66,18 @@ final class InventoryEventsListViewController: UIViewController {
         }
     }
 
+    // MARK: - UI
+
     private func setupTable() {
         tableView.translatesAutoresizingMaskIntoConstraints = false
-
-        // register the new simplified inventory card
         tableView.register(InventoryCardCell.self, forCellReuseIdentifier: "InventoryCardCell")
-
         tableView.separatorStyle = .none
         tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 120
-
         tableView.dataSource = self
         tableView.delegate = self
         tableView.backgroundColor = .clear
 
-        // Pull to refresh
         let rc = UIRefreshControl()
         rc.addTarget(self, action: #selector(pullToRefresh(_:)), for: .valueChanged)
         tableView.refreshControl = rc
@@ -92,62 +94,69 @@ final class InventoryEventsListViewController: UIViewController {
         updateEmptyState()
     }
 
-    @objc private func pullToRefresh(_ sender: UIRefreshControl) {
-        Task { await refreshEvents() }
-    }
-
     private func updateEmptyState() {
         tableView.backgroundView = events.isEmpty ? emptyLabel : nil
     }
 
-    @objc private func inventoryCountsUpdated(_ note: Notification) {
-        guard let userInfo = note.userInfo,
-              let eventId = userInfo["eventId"] as? String else { return }
+    @objc private func pullToRefresh(_ sender: UIRefreshControl) {
+        Task { await refreshEvents() }
+    }
 
-        if let idx = events.firstIndex(where: { $0.id == eventId }) {
+    // MARK: - Notification
+
+    @objc private func inventoryCountsUpdated(_ note: Notification) {
+        guard let eventId = note.userInfo?["eventId"] as? String else { return }
+
+        if let index = events.firstIndex(where: { $0.id == eventId }) {
             Task { @MainActor in
-                tableView.reloadRows(at: [IndexPath(row: idx, section: 0)], with: .none)
+                tableView.reloadRows(
+                    at: [IndexPath(row: index, section: 0)],
+                    with: .none
+                )
             }
         }
     }
 }
 
+// MARK: - TableView
 extension InventoryEventsListViewController: UITableViewDataSource, UITableViewDelegate {
 
-    func tableView(_ t: UITableView, numberOfRowsInSection section: Int) -> Int {
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         events.count
     }
 
-    func tableView(_ t: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    func tableView(
+        _ tableView: UITableView,
+        cellForRowAt indexPath: IndexPath
+    ) -> UITableViewCell {
 
-        guard indexPath.row < events.count else { return UITableViewCell() }
+        let cell = tableView.dequeueReusableCell(
+            withIdentifier: "InventoryCardCell",
+            for: indexPath
+        ) as! InventoryCardCell
 
-        let cell = t.dequeueReusableCell(withIdentifier: "InventoryCardCell", for: indexPath) as! InventoryCardCell
-        let record = events[indexPath.row]
+        let event = events[indexPath.row]
 
-        // try to read cached sent/received quantities
-        let cachedSent = InventoryManager.shared.cachedSentQuantity(forEventId: record.id)
-        let cachedReceived = InventoryManager.shared.cachedReceivedQuantity(forEventId: record.id)
+        let allocated = InventoryManager.shared.allocated(for: event.id)
+        let received = InventoryManager.shared.received(for: event.id)
+        let lost = InventoryManager.shared.lost(for: event.id)
 
-        cell.configure(with: record, sentQuantity: cachedSent, receivedQuantity: cachedReceived)
-
-        // kick off background load if either value is missing
-        if cachedSent == nil || cachedReceived == nil {
-            Task { await InventoryManager.shared.loadCounts(forEventId: record.id) }
-        }
+        cell.configure(
+            event: event,
+            allocated: allocated,
+            received: received,
+            lost: lost
+        )
 
         return cell
     }
 
-    func tableView(_ t: UITableView, didSelectRowAt indexPath: IndexPath) {
-        t.deselectRow(at: indexPath, animated: true)
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        tableView.deselectRow(at: indexPath, animated: true)
 
-        guard indexPath.row < events.count else { return }
         let event = events[indexPath.row]
-
         let vc = InventoryOverviewViewController(event: event)
         vc.hidesBottomBarWhenPushed = true
-
         navigationController?.pushViewController(vc, animated: true)
     }
 }
