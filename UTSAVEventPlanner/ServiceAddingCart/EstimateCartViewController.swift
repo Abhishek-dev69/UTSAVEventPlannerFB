@@ -389,7 +389,7 @@ final class EstimateCartViewController: UIViewController {
         sendQuotationBtn.setTitleColor(.white, for: .normal)
         sendQuotationBtn.backgroundColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
 
-        confirmOrderBtn.setTitle("Confirm Order", for: .normal)
+        confirmOrderBtn.setTitle("Confirm", for: .normal)
         confirmOrderBtn.layer.cornerRadius = 24
         confirmOrderBtn.setTitleColor(.white, for: .normal)
         confirmOrderBtn.backgroundColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
@@ -652,6 +652,7 @@ final class EstimateCartViewController: UIViewController {
                 }
 
                 try await EventSupabaseManager.shared.linkCartItemsToEvent(eventId: eventId)
+                try await EventSupabaseManager.shared.markServicesAdded(eventId: eventId)
 
                 await MainActor.run {
                     let scenes = UIApplication.shared.connectedScenes

@@ -696,4 +696,3 @@ private final class VendorServiceCell: UITableViewCell {
         }
     }
 }
-

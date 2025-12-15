@@ -254,5 +254,30 @@ final class EventSupabaseManager {
         print("Linked \(idsToUpdate.count) recent cart items to event:", trimmed)
     }
     
+    // --------------------------------------------------------------------
+    // 🔥 NEW — MARK EVENT AS SERVICES ADDED (REQUIRED FOR DASHBOARD LOGIC)
+    // --------------------------------------------------------------------
+    func markServicesAdded(eventId: String) async throws {
+
+        // Fetch existing event to avoid overwriting metadata
+        let event = try await fetchEvent(id: eventId)
+
+        var updatedMetadata = event.metadata ?? [:]
+        updatedMetadata["servicesAdded"] = "true"
+
+        struct MetadataUpdate: Encodable {
+            let metadata: [String: String]
+        }
+
+        try await client
+            .from("events")
+            .update(MetadataUpdate(metadata: updatedMetadata))
+            .eq("id", value: eventId)
+            .execute()
+
+        print("✅ Event \(eventId) marked as servicesAdded = true")
+    }
+
+    
 }
 
