@@ -2,11 +2,13 @@ import UIKit
 
 final class ConfirmationViewController: UIViewController {
 
+    // MARK: - Data
     private let details: EventDetails
     private let currencyFormatter: NumberFormatter
     private let dateFormatter: DateFormatter
+    private let navTitle: String?
 
-    // UI
+    // MARK: - UI
     private let scrollView = UIScrollView()
     private let contentView = UIView()
     private let stack = UIStackView()
@@ -25,29 +27,46 @@ final class ConfirmationViewController: UIViewController {
         return b
     }()
 
-    // Init
-    init(details: EventDetails,
-         currencyFormatter: NumberFormatter,
-         dateFormatter: DateFormatter) {
+    private let doLaterButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.setTitle("I’ll do it later", for: .normal)
+        b.titleLabel?.font = .systemFont(ofSize: 15, weight: .medium)
+        b.setTitleColor(.secondaryLabel, for: .normal)
+        b.translatesAutoresizingMaskIntoConstraints = false
+        return b
+    }()
+
+    // MARK: - Init
+    init(
+        details: EventDetails,
+        currencyFormatter: NumberFormatter,
+        dateFormatter: DateFormatter,
+        title: String? = nil
+    ) {
         self.details = details
         self.currencyFormatter = currencyFormatter
         self.dateFormatter = dateFormatter
+        self.navTitle = title
         super.init(nibName: nil, bundle: nil)
     }
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-    // Lifecycle
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Confirmation"
-        view.backgroundColor = .systemGroupedBackground
 
-        // Ensure navigation item layout
+        self.title = navTitle ?? "Confirmation"
+        view.backgroundColor = .systemGroupedBackground
         navigationItem.largeTitleDisplayMode = .never
 
         setupLayout()
         populate()
+
         addServiceButton.addTarget(self, action: #selector(didTapAddService), for: .touchUpInside)
+        doLaterButton.addTarget(self, action: #selector(didTapDoLater), for: .touchUpInside)
 
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             image: UIImage(systemName: "chevron.left"),
@@ -57,14 +76,13 @@ final class ConfirmationViewController: UIViewController {
         )
     }
 
-    // Make sure nav-bar is visible when appearing (fixes cases where navBar was hidden)
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(false, animated: false)
         navigationController?.navigationBar.prefersLargeTitles = false
     }
 
-    // Layout
+    // MARK: - Layout
     private func setupLayout() {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         contentView.translatesAutoresizingMaskIntoConstraints = false
@@ -75,6 +93,8 @@ final class ConfirmationViewController: UIViewController {
 
         view.addSubview(scrollView)
         view.addSubview(addServiceButton)
+        view.addSubview(doLaterButton)
+
         scrollView.addSubview(contentView)
         contentView.addSubview(stack)
 
@@ -97,22 +117,26 @@ final class ConfirmationViewController: UIViewController {
 
             addServiceButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             addServiceButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            addServiceButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
-            addServiceButton.heightAnchor.constraint(equalToConstant: 56)
+            addServiceButton.bottomAnchor.constraint(equalTo: doLaterButton.topAnchor, constant: -8),
+            addServiceButton.heightAnchor.constraint(equalToConstant: 56),
+
+            doLaterButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            doLaterButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8)
         ])
     }
 
-    // Populate UI
+    // MARK: - Populate UI
     private func populate() {
-        stack.addArrangedSubview(card(title: "Event's Name", value: details.eventName))
+        stack.addArrangedSubview(card(title: "Event Name", value: details.eventName))
         stack.addArrangedSubview(card(title: "Client Name", value: details.clientName))
         stack.addArrangedSubview(card(title: "Location", value: details.location))
         stack.addArrangedSubview(card(title: "Guest Count", value: "\(details.guestCount) People"))
 
-        let budgetString = currencyFormatter.string(from: NSNumber(value: details.budgetInPaise / 100)) ?? "—"
-        stack.addArrangedSubview(card(title: "Budget", value: budgetString))
+        let budget = currencyFormatter.string(
+            from: NSNumber(value: details.budgetInPaise / 100)
+        ) ?? "—"
+        stack.addArrangedSubview(card(title: "Budget", value: budget))
 
-        // ⬇️ Two separate mini-cards side-by-side, same position as before
         let start = dateFormatter.string(from: details.startDate)
         let end = dateFormatter.string(from: details.endDate)
 
@@ -122,30 +146,29 @@ final class ConfirmationViewController: UIViewController {
         datesRow.distribution = .fillEqually
         datesRow.addArrangedSubview(card(title: "Start Date", value: start))
         datesRow.addArrangedSubview(card(title: "End Date", value: end))
+
         stack.addArrangedSubview(datesRow)
     }
 
-    // MARK: Components
+    // MARK: - Card Component
     private func card(title: String, value: String) -> UIView {
         let container = UIView()
         container.backgroundColor = .secondarySystemGroupedBackground
         container.layer.cornerRadius = 14
-        container.layer.shadowColor = UIColor.black.withAlphaComponent(0.2).cgColor
-        container.layer.shadowOpacity = 0.12
-        container.layer.shadowRadius = 8
+        container.layer.shadowColor = UIColor.black.withAlphaComponent(0.15).cgColor
+        container.layer.shadowOpacity = 0.1
+        container.layer.shadowRadius = 6
         container.layer.shadowOffset = CGSize(width: 0, height: 3)
-        container.translatesAutoresizingMaskIntoConstraints = false
 
         let titleLabel = UILabel()
         titleLabel.text = title
-        titleLabel.font = .systemFont(ofSize: 13, weight: .regular)
+        titleLabel.font = .systemFont(ofSize: 13)
         titleLabel.textColor = .secondaryLabel
 
         let valueLabel = UILabel()
         valueLabel.text = value
-        valueLabel.numberOfLines = 0
         valueLabel.font = .systemFont(ofSize: 16, weight: .semibold)
-        valueLabel.textColor = .label
+        valueLabel.numberOfLines = 0
 
         let vStack = UIStackView(arrangedSubviews: [titleLabel, valueLabel])
         vStack.axis = .vertical
@@ -158,36 +181,22 @@ final class ConfirmationViewController: UIViewController {
             vStack.topAnchor.constraint(equalTo: container.topAnchor, constant: 14),
             vStack.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 14),
             vStack.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -14),
-            vStack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -14),
-            container.heightAnchor.constraint(greaterThanOrEqualToConstant: 64)
+            vStack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -14)
         ])
+
         return container
     }
 
-    private func sectionLabel(_ text: String) -> UILabel {
-        let l = UILabel()
-        l.text = text
-        l.font = .systemFont(ofSize: 16, weight: .semibold)
-        l.textColor = UIColor(white: 0.15, alpha: 1)
-        return l
-    }
-
-    // MARK: Actions
+    // MARK: - Actions
     @objc private func didTapAddService() {
-        // Present service picker inside a navigation controller so it has its own nav bar & title
-        let svcPicker = ServicePickerViewController()
-        svcPicker.title = "Add Services"
+        let svc = ServicePickerViewController()
+        svc.title = "Add Services"
 
-        let nav = UINavigationController(rootViewController: svcPicker)
+        let nav = UINavigationController(rootViewController: svc)
         nav.modalPresentationStyle = .fullScreen
-
-        // Ensure its navigation bar is visible and not hidden
         nav.navigationBar.prefersLargeTitles = false
-        nav.setNavigationBarHidden(false, animated: false)
 
-        // Add a dismiss/back button to the presented controller's nav bar that dismisses the modal.
-        // The target is this instance (self) and the action calls dismiss(animated:).
-        svcPicker.navigationItem.leftBarButtonItem = UIBarButtonItem(
+        svc.navigationItem.leftBarButtonItem = UIBarButtonItem(
             image: UIImage(systemName: "xmark"),
             style: .plain,
             target: self,
@@ -201,5 +210,18 @@ final class ConfirmationViewController: UIViewController {
         presentedViewController?.dismiss(animated: true)
     }
 
-    @objc private func didTapBack() { navigationController?.popViewController(animated: true) }
+    // ✅ FIXED
+    @objc private func didTapDoLater() {
+        presentingViewController?.dismiss(animated: true)
+
+        NotificationCenter.default.post(
+            name: NSNotification.Name("ReloadEventsDashboard"),
+            object: nil
+        )
+    }
+
+    @objc private func didTapBack() {
+        navigationController?.popViewController(animated: true)
+    }
 }
+
