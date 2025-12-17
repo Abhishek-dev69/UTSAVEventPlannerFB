@@ -341,7 +341,7 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         // CONFIRM PASSWORD FIELD
         confirmPasswordTextField.placeholder = "Confirm password"
         confirmPasswordTextField.isSecureTextEntry = true
-        confirmPasswordTextField.textContentType = .password
+        confirmPasswordTextField.textContentType = .newPassword
         confirmPasswordTextField.delegate = self
         confirmPasswordTextField.backgroundColor = .secondarySystemBackground
         confirmPasswordTextField.layer.cornerRadius = 12
@@ -520,7 +520,8 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
                     // Back to main to update UI / navigate
                     DispatchQueue.main.async {
                         self.setContinueInProgress(false)
-                        self.navigateToBusiness()
+                        self.navigateToOnboarding()
+
                     }
                 } else {
                     // LOGIN flow - call Supabase signIn (async)
@@ -529,7 +530,7 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
 
                     DispatchQueue.main.async {
                         self.setContinueInProgress(false)
-                        self.navigateToBusiness()
+                        self.navigateToOnboarding()
                     }
                 }
             } catch {
@@ -558,18 +559,22 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
     }
 
     // centralized nav helper
-    private func navigateToBusiness() {
-        let businessVC = BusinessViewController()
+    private func navigateToOnboarding() {
+        let vc = OnboardingWelcomeViewController()
+        let nav = UINavigationController(rootViewController: vc)
+        nav.modalPresentationStyle = .fullScreen
 
-        if let nav = navigationController {
-            // Make sure nav bar is visible when we push (so Back will appear)
-            nav.setNavigationBarHidden(false, animated: true)
-            nav.pushViewController(businessVC, animated: true)
-        } else {
-            // fallback: present inside a nav controller so the presented VC still has a nav bar
-            let nav = UINavigationController(rootViewController: businessVC)
-            nav.modalPresentationStyle = .fullScreen
-            present(nav, animated: true)
+        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = scene.windows.first {
+            window.rootViewController = nav
+            window.makeKeyAndVisible()
+
+            UIView.transition(
+                with: window,
+                duration: 0.25,
+                options: .transitionCrossDissolve,
+                animations: nil
+            )
         }
     }
 
@@ -804,30 +809,45 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
     }
 
     private func updateForSignUpState() {
-        // Change the top title to reflect sign-in vs sign-up
         DispatchQueue.main.async {
             if self.isSigningUp {
                 self.titleLabel.text = "Sign up"
                 self.signupToggleButton.setTitle("Already have an account? Log in", for: .normal)
+
                 self.confirmPasswordTextField.isHidden = false
                 self.forgotPasswordButton.isHidden = true
+
+                // 🔥 CRITICAL FIX
+                self.passwordTextField.textContentType = .newPassword
+                self.confirmPasswordTextField.textContentType = .newPassword
+                self.passwordTextField.passwordRules =
+                    UITextInputPasswordRules(descriptor: "minlength: 6;")
+
             } else {
                 self.titleLabel.text = "Log in"
                 self.signupToggleButton.setTitle("Don't have an account? Sign up", for: .normal)
+
                 self.confirmPasswordTextField.isHidden = true
                 self.forgotPasswordButton.isHidden = false
+
+                // 🔥 CRITICAL FIX
+                self.passwordTextField.textContentType = .password
+                self.confirmPasswordTextField.textContentType = nil
+                self.passwordTextField.passwordRules = nil
             }
-            // update Continue button title
+
+            self.passwordTextField.reloadInputViews()
+            self.confirmPasswordTextField.reloadInputViews()
+
             if var cfg = self.continueButton.configuration {
                 cfg.title = self.isSigningUp ? "Sign up" : "Continue"
                 self.continueButton.configuration = cfg
-            } else {
-                self.continueButton.setTitle(self.isSigningUp ? "Sign up" : "Continue", for: .normal)
             }
-            // re-evaluate enable state
+
             self.credentialsChanged()
         }
     }
+
 
     // MARK: - email validation
     private func validateEmail(_ email: String) -> Bool {

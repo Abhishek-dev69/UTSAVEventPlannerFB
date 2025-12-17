@@ -78,28 +78,22 @@ final class OnboardingWelcomeViewController: UIViewController {
 
     // MARK: - Show Dashboard
     private func showDashboard() {
-        mainStack.isHidden = true
+        let tabBar = MainTabBarController.make()
 
-        // Dashboard already shown → do nothing
-        if dashboardVC != nil { return }
+        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = scene.windows.first {
 
-        let dash = DashboardListViewController()
-        dashboardVC = dash
+            window.rootViewController = tabBar
+            window.makeKeyAndVisible()
 
-        addChild(dash)
-        dash.view.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(dash.view)
-
-        NSLayoutConstraint.activate([
-            dash.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            dash.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            dash.view.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            dash.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
-        ])
-
-        dash.didMove(toParent: self)
+            UIView.transition(
+                with: window,
+                duration: 0.25,
+                options: .transitionCrossDissolve,
+                animations: nil
+            )
+        }
     }
-
     // MARK: - CTA (Add Services)
     @IBAction func createEventTapped(_ sender: Any) {
         let vc = ServiceAddingViewController()
