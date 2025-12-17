@@ -301,7 +301,6 @@ final class ProfileViewController: UIViewController {
             do {
                 let userId = try await SupabaseManager.shared.ensureUserId()
 
-                // Upload image if user set a custom one
                 var uploadedImageURL: String? = nil
                 if profileImageView.tintColor == nil,
                    let img = profileImageView.image {
@@ -325,7 +324,12 @@ final class ProfileViewController: UIViewController {
                 _ = try await ProfileSupabaseManager.shared.saveProfile(payload)
 
                 await MainActor.run {
-                    self.navigationController?.popViewController(animated: true)
+                    let tabBar = MainTabBarController.make()
+
+                    if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                       let window = scene.windows.first {
+                        window.rootViewController = tabBar
+                    }
                 }
 
             } catch {
@@ -333,6 +337,7 @@ final class ProfileViewController: UIViewController {
             }
         }
     }
+
 
     // MARK: - Load Profile
 
