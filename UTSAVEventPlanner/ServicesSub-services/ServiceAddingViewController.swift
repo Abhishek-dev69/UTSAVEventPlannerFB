@@ -364,22 +364,37 @@ final class ServiceAddingViewController: UIViewController {
     }
 
     @objc private func saveTapped() {
-        let name = serviceTextField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let name = serviceTextField.text?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
         guard !name.isEmpty else { return }
-        let payload = ServiceCreatePayload(name: name, subservices: subServices)
+
+        let payload = ServiceCreatePayload(
+            name: name,
+            subservices: subServices
+        )
+
         Task {
             do {
                 let created = try await SupabaseManager.shared.createService(payload)
                 print("✅ Created service id:", created.id)
+
                 DispatchQueue.main.async {
-                    self.onServiceSave?(Service(name: name, subservices: self.subServices))
-                    let listVC = ServicesListViewController()
-                    let nav = UINavigationController(rootViewController: listVC)
-                    nav.modalPresentationStyle = .fullScreen
-                    self.present(nav, animated: true) { Task { await listVC.fetchAllServices() } }
+                    // 🔥 Notify parent
+                    self.onServiceSave?(
+                        Service(name: name, subservices: self.subServices)
+                    )
+
+                    // 🔥 Just dismiss — DO NOT present anything
+                    self.dismiss(animated: true)
                 }
+
             } catch {
-                let alert = UIAlertController(title: "Error Saving Service", message: error.localizedDescription, preferredStyle: .alert)
+                let alert = UIAlertController(
+                    title: "Error Saving Service",
+                    message: error.localizedDescription,
+                    preferredStyle: .alert
+                )
                 alert.addAction(.init(title: "OK", style: .default))
                 present(alert, animated: true)
             }

@@ -18,7 +18,7 @@ final class VendorMarketplaceViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Vendor Marketplace"
+        title = "Vendors"
         view.backgroundColor = .systemBackground
 
         setupSearchBar()
