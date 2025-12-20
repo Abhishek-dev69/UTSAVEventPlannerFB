@@ -1,10 +1,3 @@
-//
-//  MainTabBarController.swift
-//  UTSAV
-//
-//  Created by Abhishek on 16/12/25.
-//
-
 import UIKit
 
 final class MainTabBarController {
@@ -12,6 +5,7 @@ final class MainTabBarController {
     static func make() -> UITabBarController {
         let tabBar = UITabBarController()
 
+        // Dashboard
         let dashboard = DashboardListViewController()
         let dashNav = UINavigationController(rootViewController: dashboard)
         dashNav.tabBarItem = UITabBarItem(
@@ -20,6 +14,7 @@ final class MainTabBarController {
             selectedImage: UIImage(systemName: "house.fill")
         )
 
+        // Payments
         let payments = PaymentsRootController()
         let payNav = UINavigationController(rootViewController: payments)
         payNav.tabBarItem = UITabBarItem(
@@ -28,7 +23,8 @@ final class MainTabBarController {
             selectedImage: UIImage(systemName: "creditcard.fill")
         )
 
-        let services = ServicesViewController()
+        // Services
+        let services = ServicesListViewController()
         let svcNav = UINavigationController(rootViewController: services)
         svcNav.tabBarItem = UITabBarItem(
             title: "Services",
@@ -36,6 +32,7 @@ final class MainTabBarController {
             selectedImage: UIImage(systemName: "storefront.fill")
         )
 
+        // Inventory
         let inventory = InventoryRootController()
         let invNav = UINavigationController(rootViewController: inventory)
         invNav.tabBarItem = UITabBarItem(
@@ -44,9 +41,31 @@ final class MainTabBarController {
             selectedImage: UIImage(systemName: "cart.fill")
         )
 
-        tabBar.viewControllers = [dashNav, payNav, svcNav, invNav]
-        tabBar.tabBar.tintColor = UIColor(red: 139/255, green: 59/255, blue: 240/255, alpha: 1)
+        // Vendors
+        let vendors = VendorMarketplaceViewController()
+        let vendorNav = UINavigationController(rootViewController: vendors)
+        vendorNav.tabBarItem = UITabBarItem(
+            title: "Vendors",
+            image: UIImage(systemName: "person.2"),
+            selectedImage: UIImage(systemName: "person.2.fill")
+        )
+
+        tabBar.viewControllers = [
+            dashNav,
+            payNav,
+            svcNav,
+            invNav,
+            vendorNav
+        ]
+
+        tabBar.tabBar.tintColor = UIColor(
+            red: 139/255,
+            green: 59/255,
+            blue: 240/255,
+            alpha: 1
+        )
 
         return tabBar
     }
 }
+
