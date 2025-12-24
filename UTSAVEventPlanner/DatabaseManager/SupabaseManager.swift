@@ -145,6 +145,11 @@ final class SupabaseManager {
         NSLog("ensureUserId -> no signed-in user found")
         throw AuthError.notSignedIn
     }
+    
+    // MARK: - Session check (IMPORTANT)
+    func isLoggedIn() -> Bool {
+        return client.auth.currentUser != nil
+    }
 
     func getCurrentUserId() async -> String? {
         return client.auth.currentUser?.id.uuidString
