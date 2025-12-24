@@ -520,7 +520,7 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
                     // Back to main to update UI / navigate
                     DispatchQueue.main.async {
                         self.setContinueInProgress(false)
-                        self.navigateToOnboarding()
+                        self.navigateToMainTabBar()
 
                     }
                 } else {
@@ -530,7 +530,8 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
 
                     DispatchQueue.main.async {
                         self.setContinueInProgress(false)
-                        self.navigateToOnboarding()
+                        self.navigateToMainTabBar()
+
                     }
                 }
             } catch {
@@ -542,6 +543,25 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
             }
         }
     }
+    // MARK: - Navigate to Main Dashboard (FINAL DESTINATION)
+    private func navigateToMainTabBar() {
+        let tabBar = MainTabBarController.make()
+
+        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = scene.windows.first {
+
+            window.rootViewController = tabBar
+            window.makeKeyAndVisible()
+
+            UIView.transition(
+                with: window,
+                duration: 0.3,
+                options: .transitionCrossDissolve,
+                animations: nil
+            )
+        }
+    }
+
 
     // helper to toggle continue spinner & disable UI
     // Replace your async setContinueInProgress(_:) with this synchronous helper:
@@ -557,27 +577,6 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
             }
         }
     }
-
-    // centralized nav helper
-    private func navigateToOnboarding() {
-        let vc = OnboardingWelcomeViewController()
-        let nav = UINavigationController(rootViewController: vc)
-        nav.modalPresentationStyle = .fullScreen
-
-        if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-           let window = scene.windows.first {
-            window.rootViewController = nav
-            window.makeKeyAndVisible()
-
-            UIView.transition(
-                with: window,
-                duration: 0.25,
-                options: .transitionCrossDissolve,
-                animations: nil
-            )
-        }
-    }
-
     // MARK: - Forgot password
     @objc private func forgotPasswordTapped() {
         let vc = ForgotPasswordViewController()
@@ -658,7 +657,7 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
                         NSLog("Signed in user id: %@", uid)
                         DispatchQueue.main.async {
                             self.setAuthInProgress(false)
-                            self.onAuthSuccess(userId: uid)
+                            self.navigateToMainTabBar()
                         }
                     } else {
                         DispatchQueue.main.async {

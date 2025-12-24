@@ -164,68 +164,55 @@ final class SubserviceCell: UITableViewCell {
     // MARK: - Actions
 
     @objc private func didTapAdd() {
-        guard let sub = subservice else { return }
-        guard let subId = sub.id else { return }
+        guard let sub = subservice, let subId = sub.id else { return }
 
-        // If subservice has fixed price, add immediately
-        if sub.isFixed {
-            quantity = 1
-            qtyLabel.text = "1"
+        let alert = UIAlertController(
+            title: "Add \(sub.name)",
+            message: "Enter quantity",
+            preferredStyle: .alert
+        )
 
-            CartManager.shared.addItem(
-                serviceId: parentServiceId,
-                serviceName: parentServiceName,
-                subserviceId: subId,
-                subserviceName: sub.name,
-                rate: sub.rate,
-                unit: sub.unit,
-                quantity: 1,
-                sourceType: "in_house"
-            )
-            return
+        // Quantity field
+        alert.addTextField {
+            $0.placeholder = "Quantity"
+            $0.keyboardType = .numberPad
+            $0.text = "1"
         }
 
-        // Negotiable -> show popup to enter price and notes
-        let alert = UIAlertController(title: "Enter price & notes", message: sub.name, preferredStyle: .alert)
-        alert.addTextField { tf in
-            tf.placeholder = "Price (₹)"
-            tf.keyboardType = .decimalPad
-            tf.text = "\(Int(sub.rate))"
+        // If negotiable, ask price also
+        if !sub.isFixed {
+            alert.addTextField {
+                $0.placeholder = "Price (₹)"
+                $0.keyboardType = .decimalPad
+                $0.text = "\(Int(sub.rate))"
+            }
         }
-        alert.addTextField { tf in
-            tf.placeholder = "Notes (optional)"
-            tf.autocapitalizationType = .sentences
-        }
+
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
 
-        alert.addAction(UIAlertAction(title: "Add", style: .default, handler: { [weak self] _ in
-            guard let self = self else { return }
-            let priceText = alert.textFields?[0].text ?? ""
-            let notes = alert.textFields?[1].text ?? ""
-            let customRate = Double(priceText) ?? sub.rate
+        alert.addAction(UIAlertAction(title: "Add", style: .default) { _ in
+            let qty = Int(alert.textFields?[0].text ?? "1") ?? 1
+            let rate = sub.isFixed
+                ? sub.rate
+                : Double(alert.textFields?[1].text ?? "") ?? sub.rate
 
-            self.quantity = 1
-            self.qtyLabel.text = "1"
+            self.quantity = qty
+            self.qtyLabel.text = "\(qty)"
 
             CartManager.shared.addItem(
                 serviceId: self.parentServiceId,
                 serviceName: self.parentServiceName,
                 subserviceId: subId,
                 subserviceName: sub.name,
-                rate: customRate,
+                rate: rate,
                 unit: sub.unit,
-                quantity: 1,
-                metadata: notes.isEmpty ? nil : ["notes": notes],
+                quantity: qty,
                 sourceType: "in_house"
             )
-        }))
+        })
 
-        // Present alert from view controller
-        if let vc = self.parentViewController {
-            vc.present(alert, animated: true)
-        } else if let root = UIApplication.shared.windows.first(where: { $0.isKeyWindow })?.rootViewController {
-            root.present(alert, animated: true)
-        }
+        self.parentViewController?.present(alert, animated: true)
+
     }
 
     @objc private func didTapMinus() {
@@ -265,4 +252,5 @@ fileprivate extension UIView {
         return nil
     }
 }
+
 
