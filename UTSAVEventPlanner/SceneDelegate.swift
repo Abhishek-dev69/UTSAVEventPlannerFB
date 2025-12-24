@@ -115,7 +115,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let splashVC = InlineSplashViewController()
 
         splashVC.onAnimationCompleted = { [weak self] in
-            guard let self = self else { return }
+            guard self != nil else { return }
 
             let rootVC: UIViewController
 

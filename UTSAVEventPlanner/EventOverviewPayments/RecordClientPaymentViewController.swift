@@ -138,7 +138,7 @@ final class RecordClientPaymentViewController: UIViewController {
 
         Task {
             do {
-                let saved = try await PaymentSupabaseManager.shared.insertPayment(
+                _ = try await PaymentSupabaseManager.shared.insertPayment(
                     eventId: event.id,
                     amount: amount,
                     method: method,

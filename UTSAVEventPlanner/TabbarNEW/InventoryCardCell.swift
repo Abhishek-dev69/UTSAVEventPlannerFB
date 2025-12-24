@@ -74,7 +74,7 @@ final class InventoryCardCell: UITableViewCell {
     }
 
     func configure(event: EventRecord, allocated: Int, received: Int, lost: Int) {
-        titleLabel.text = event.eventName ?? "Untitled Event"
+        titleLabel.text = event.eventName
         allocatedLabel.text = "Allocated: \(allocated)"
         receivedLabel.text = "Received: \(received)"
         lostLabel.text = "Lost/Damaged: \(lost)"
