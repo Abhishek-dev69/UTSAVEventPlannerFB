@@ -1002,4 +1002,3 @@ extension LoginViewController: ASWebAuthenticationPresentationContextProviding {
         return window
     }
 }
-
