@@ -133,7 +133,7 @@ final class RecordVendorPaymentViewController: UIViewController {
             do {
                 // NOTE: The DB schema initially shared doesn't have payer_type — if you added payer_type earlier,
                 // extend PaymentSupabaseManager.insertPayment to accept payerType and persist vendor payments correctly.
-                let saved = try await PaymentSupabaseManager.shared.insertPayment(
+                _ = try await PaymentSupabaseManager.shared.insertPayment(
                     eventId: event.id,
                     amount: amount,
                     method: method,

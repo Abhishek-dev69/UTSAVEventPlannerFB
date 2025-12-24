@@ -317,13 +317,13 @@ final class EventOverviewViewController: UIViewController {
     // -----------------------------
     private func updateHeaderContent() {
         // Show client name in the header (bold). If missing, fallback to eventName.
-        let client = (event.clientName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let client = (event.clientName).trimmingCharacters(in: .whitespacesAndNewlines)
         headerClientLabel.text = !client.isEmpty ? client : (event.eventName)
 
-        headerDateLabel.text = composedDateString(startISO: event.startDate ?? "", endISO: event.endDate ?? "")
+        headerDateLabel.text = composedDateString(startISO: event.startDate, endISO: event.endDate)
 
         // Location label prefixed with "Location:"
-        let locRaw = (event.location ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let locRaw = (event.location).trimmingCharacters(in: .whitespacesAndNewlines)
         headerLocationLabel.text = !locRaw.isEmpty ? "Location: \(locRaw)" : "Location: not available"
 
         // Guests label prefixed with "Guests:"
