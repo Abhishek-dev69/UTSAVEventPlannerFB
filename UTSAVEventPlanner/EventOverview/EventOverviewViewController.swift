@@ -255,13 +255,16 @@ final class EventOverviewViewController: UIViewController {
             progress: progress
         ) { [weak self] in
             guard let self else { return }
+
+            // ✅ THIS IS THE MISSING LINE
+            EventDataManager.shared.currentEventId = self.event.id
+
             let budgetVC = BudgetDetailViewController()
             self.navigationController?.pushViewController(budgetVC, animated: true)
         }
 
         contentStack.addArrangedSubview(card)
     }
-
     private func addPaymentStatus() {
         let percent = totalAmount > 0 ? (receivedAmount / totalAmount) : 0.0
         let subtitle = "Received ₹\(formatMoney(receivedAmount)) of ₹\(formatMoney(totalAmount)) (\(Int(percent * 100))%)"
