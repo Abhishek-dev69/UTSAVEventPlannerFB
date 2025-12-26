@@ -72,22 +72,45 @@ final class ProfileViewController: UIViewController {
     }
 
     @objc private func logoutTapped() {
+        let alert = UIAlertController(
+            title: "Logout",
+            message: "Are you sure you want to logout?",
+            preferredStyle: .alert
+        )
+
+        // Cancel action
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        // Logout action
+        alert.addAction(UIAlertAction(title: "Logout", style: .destructive) { [weak self] _ in
+            self?.performLogout()
+        })
+
+        present(alert, animated: true)
+    }
+    
+    private func performLogout() {
+        // Clear app state
         EventSession.shared.currentEventId = nil
         CartManager.shared.clear()
 
-        let welcomeVC = OnboardingWelcomeViewController()
-        let nav = UINavigationController(rootViewController: welcomeVC)
+        // Go to LoginViewController
+        let loginVC = LoginViewController()
+        let nav = UINavigationController(rootViewController: loginVC)
         nav.modalPresentationStyle = .fullScreen
 
         if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
            let window = scene.windows.first {
+
             window.rootViewController = nav
             window.makeKeyAndVisible()
-            UIView.transition(with: window,
-                              duration: 0.25,
-                              options: .transitionCrossDissolve,
-                              animations: {},
-                              completion: nil)
+
+            UIView.transition(
+                with: window,
+                duration: 0.3,
+                options: .transitionCrossDissolve,
+                animations: nil
+            )
         }
     }
 
