@@ -10,10 +10,8 @@ final class ServicePickerViewController: UIViewController, CartObserver {
     private let segmented = UISegmentedControl(items: ["In-House Services", "Outsource Services"])
     private let tableView = UITableView(frame: .zero, style: .plain)
 
-    // A container view for segmented control
     private let segmentContainer = UIView()
 
-    // Outsource form container
     private let outsourceContainer = UIView()
     private var outsourceForm: OutsourceFormView?
 
@@ -25,7 +23,7 @@ final class ServicePickerViewController: UIViewController, CartObserver {
 
     // MARK: - Data
     private var services: [Service] = []
-    private var expanded: [Bool] = []   // accordion expand states
+    private var expanded: [Bool] = []
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -45,11 +43,7 @@ final class ServicePickerViewController: UIViewController, CartObserver {
 
         Task {
             _ = try? await SupabaseManager.shared.ensureUserId()
-
-            // Load cart with current event's ID
-            let eventId = EventSession.shared.currentEventId
-            CartManager.shared.loadFromServer(eventId: eventId)
-
+            CartManager.shared.loadFromServer(eventId: EventSession.shared.currentEventId)
             await fetchServices()
         }
     }
@@ -67,23 +61,77 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         back.tintColor = .black
         back.addTarget(self, action: #selector(closeScreen), for: .touchUpInside)
         navigationItem.leftBarButtonItem = UIBarButtonItem(customView: back)
+
+        // ✅ PLUS BUTTON
+        navigationItem.rightBarButtonItem = UIBarButtonItem(
+            image: UIImage(systemName: "plus"),
+            style: .plain,
+            target: self,
+            action: #selector(addCustomServiceTapped)
+        )
     }
 
     @objc private func closeScreen() {
         dismiss(animated: true)
     }
 
-    // MARK: - Segmented Control (below nav bar)
-    private func setupSegmentContainer() {
+    // MARK: - ➕ Custom Service Form
+    @objc private func addCustomServiceTapped() {
+        let alert = UIAlertController(
+            title: "Add Custom Service",
+            message: "Enter service / material details",
+            preferredStyle: .alert
+        )
 
+        alert.addTextField { $0.placeholder = "Service / Material Name" }
+        alert.addTextField {
+            $0.placeholder = "Quantity"
+            $0.keyboardType = .numberPad
+            $0.text = "1"
+        }
+        alert.addTextField {
+            $0.placeholder = "Rate (₹)"
+            $0.keyboardType = .decimalPad
+        }
+        alert.addTextField { $0.placeholder = "Notes (optional)" }
+
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        alert.addAction(UIAlertAction(title: "Add", style: .default) { _ in
+            self.handleCustomServiceSubmit(alert)
+        })
+
+        present(alert, animated: true)
+    }
+
+    private func handleCustomServiceSubmit(_ alert: UIAlertController) {
+        let name = alert.textFields?[0].text?.trimmed ?? ""
+        let qty = Int(alert.textFields?[1].text ?? "1") ?? 1
+        let rate = Double(alert.textFields?[2].text ?? "") ?? 0
+        let notes = alert.textFields?[3].text?.trimmed ?? ""
+
+        guard !name.isEmpty, qty > 0 else { return }
+
+        CartManager.shared.addItem(
+            serviceId: nil,
+            serviceName: name,
+            subserviceId: UUID().uuidString,
+            subserviceName: notes.isEmpty ? name : notes,
+            rate: rate,
+            unit: "unit",
+            quantity: qty,
+            sourceType: "in_house"
+        )
+    }
+
+    // MARK: - Segmented Control
+    private func setupSegmentContainer() {
         segmentContainer.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(segmentContainer)
 
-        // Segmented style
         segmented.translatesAutoresizingMaskIntoConstraints = false
         segmented.backgroundColor = UIColor(white: 0.95, alpha: 1)
         segmented.layer.cornerRadius = 16
-        segmented.clipsToBounds = true
 
         segmentContainer.addSubview(segmented)
 
@@ -100,15 +148,11 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         ])
     }
 
-    // MARK: - Table Setup
+    // MARK: - Table
     private func setupTable() {
         tableView.translatesAutoresizingMaskIntoConstraints = false
-        tableView.backgroundColor = .white
         tableView.separatorStyle = .none
-        tableView.showsVerticalScrollIndicator = false
-
         tableView.register(SubserviceInnerCell.self, forCellReuseIdentifier: SubserviceInnerCell.reuseID)
-
         tableView.dataSource = self
         tableView.delegate = self
         view.addSubview(tableView)
@@ -121,9 +165,8 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         ])
     }
 
-    // MARK: - Outsource Form Setup
+    // MARK: - Outsource
     private func setupOutsourceForm() {
-
         outsourceContainer.translatesAutoresizingMaskIntoConstraints = false
         outsourceContainer.isHidden = true
         outsourceContainer.alpha = 0
@@ -137,19 +180,8 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         ])
 
         let form = OutsourceFormView()
-
-        // FIXED: use the CartManager convenience method to avoid swapped/hardcoded fields.
-        form.onSubmit = { [weak self] item in
-            // Use helper to ensure correct mapping:
-            // service_name  <- item.serviceName (Service/Material Name field)
-            // subservice_name <- item.subserviceName (Detailed Description field)
+        form.onSubmit = { item in
             CartManager.shared.addOutsource(item: item, quantity: 1)
-
-            // No need to call cartDidChange() manually; CartManager will notify observers.
-            // But update UI immediately to reflect local change
-            DispatchQueue.main.async {
-                self?.cartDidChange()
-            }
         }
 
         form.translatesAutoresizingMaskIntoConstraints = false
@@ -164,7 +196,7 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         outsourceForm = form
     }
 
-    // MARK: - Bottom Cart (Figma Style)
+    // MARK: - Bottom Cart
     private func setupBottomCart() {
         bottomCartView.translatesAutoresizingMaskIntoConstraints = false
         bottomCartView.backgroundColor = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
@@ -172,9 +204,9 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         view.addSubview(bottomCartView)
 
         let iconBg = UIView()
-        iconBg.translatesAutoresizingMaskIntoConstraints = false
         iconBg.backgroundColor = .white
         iconBg.layer.cornerRadius = 20
+        iconBg.translatesAutoresizingMaskIntoConstraints = false
         bottomCartView.addSubview(iconBg)
 
         cartIcon.tintColor = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
@@ -184,15 +216,17 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         cartLabel.font = .systemFont(ofSize: 16, weight: .semibold)
         cartLabel.textColor = .white
         cartLabel.translatesAutoresizingMaskIntoConstraints = false
-        bottomCartView.addSubview(cartLabel)
 
-        cartTotalLabel.textColor = .white
         cartTotalLabel.font = .systemFont(ofSize: 14)
+        cartTotalLabel.textColor = .white
         cartTotalLabel.translatesAutoresizingMaskIntoConstraints = false
+
+        bottomCartView.addSubview(cartLabel)
         bottomCartView.addSubview(cartTotalLabel)
 
-        let tap = UITapGestureRecognizer(target: self, action: #selector(openCart))
-        bottomCartView.addGestureRecognizer(tap)
+        bottomCartView.addGestureRecognizer(
+            UITapGestureRecognizer(target: self, action: #selector(openCart))
+        )
 
         NSLayoutConstraint.activate([
             bottomCartView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
@@ -219,37 +253,21 @@ final class ServicePickerViewController: UIViewController, CartObserver {
     }
 
     @objc private func openCart() {
-        let vc = EstimateCartViewController()
-        let nav = UINavigationController(rootViewController: vc)
+        let nav = UINavigationController(rootViewController: EstimateCartViewController())
         nav.modalPresentationStyle = .fullScreen
         present(nav, animated: true)
     }
 
-    // MARK: - Segmented Control Logic
+    // MARK: - Segment switch
     @objc private func segmentChanged() {
         let isOutsource = segmented.selectedSegmentIndex == 1
 
-        if isOutsource {
-            outsourceContainer.isHidden = false
-            tableView.isHidden = false
+        outsourceContainer.isHidden = !isOutsource
+        tableView.isHidden = isOutsource
 
-            UIView.animate(withDuration: 0.25) {
-                self.tableView.alpha = 0
-                self.outsourceContainer.alpha = 1
-            } completion: { _ in
-                self.tableView.isHidden = true
-            }
-
-        } else {
-            outsourceContainer.isHidden = false
-            tableView.isHidden = false
-
-            UIView.animate(withDuration: 0.25) {
-                self.tableView.alpha = 1
-                self.outsourceContainer.alpha = 0
-            } completion: { _ in
-                self.outsourceContainer.isHidden = true
-            }
+        UIView.animate(withDuration: 0.25) {
+            self.outsourceContainer.alpha = isOutsource ? 1 : 0
+            self.tableView.alpha = isOutsource ? 0 : 1
         }
     }
 
@@ -260,34 +278,23 @@ final class ServicePickerViewController: UIViewController, CartObserver {
     }
 
     private func updateCartUI() {
-        let count = CartManager.shared.totalItems()
-        let total = Int(CartManager.shared.totalAmount())
-        cartLabel.text = "\(count) Items Selected"
-        cartTotalLabel.text = "Est. Total: ₹\(total)"
+        cartLabel.text = "\(CartManager.shared.totalItems()) Items Selected"
+        cartTotalLabel.text = "Est. Total: ₹\(Int(CartManager.shared.totalAmount()))"
     }
 
     // MARK: - Fetch Services
     private func fetchServices() async {
-        do {
-            let records = try await SupabaseManager.shared.fetchServices()
-            services = records.map { $0.toServiceModel() }
-            expanded = Array(repeating: false, count: services.count)
-
-            DispatchQueue.main.async {
-                self.tableView.reloadData()
-            }
-        } catch {
-            print("fetch services error:", error.localizedDescription)
-        }
+        let records = try? await SupabaseManager.shared.fetchServices()
+        services = records?.map { $0.toServiceModel() } ?? []
+        expanded = Array(repeating: false, count: services.count)
+        tableView.reloadData()
     }
 }
 
-// MARK: - TableView Data
+// MARK: - Table Data
 extension ServicePickerViewController: UITableViewDataSource, UITableViewDelegate {
 
-    func numberOfSections(in tableView: UITableView) -> Int {
-        services.count
-    }
+    func numberOfSections(in tableView: UITableView) -> Int { services.count }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         expanded[section] ? min(2, services[section].subservices.count) + 1 : 0
@@ -296,75 +303,52 @@ extension ServicePickerViewController: UITableViewDataSource, UITableViewDelegat
     func tableView(_ tableView: UITableView,
                    viewForHeaderInSection section: Int) -> UIView? {
 
-        let svc = services[section]
         let header = ServiceCardHeaderCell()
-        header.configure(with: svc.name, expanded: expanded[section])
-        header.onToggle = { [weak self] in
-            guard let self else { return }
-            expanded[section].toggle()
+        header.configure(with: services[section].name, expanded: expanded[section])
+        header.onToggle = {
+            self.expanded[section].toggle()
             tableView.reloadSections([section], with: .automatic)
         }
         return header
     }
 
-    func tableView(_ tableView: UITableView,
-                   heightForHeaderInSection section: Int) -> CGFloat {
-        64
-    }
+    func tableView(_ tableView: UITableView, heightForHeaderInSection section: Int) -> CGFloat { 64 }
 
     func tableView(_ tableView: UITableView,
                    cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 
         let svc = services[indexPath.section]
 
-        // last row = "View All →"
         if indexPath.row == min(2, svc.subservices.count) {
             let cell = UITableViewCell()
-            cell.selectionStyle = .none
-
-            let label = UILabel()
-            label.text = "View All →"
-            label.font = .systemFont(ofSize: 14, weight: .semibold)
-            label.textColor = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
-            label.translatesAutoresizingMaskIntoConstraints = false
-            cell.contentView.addSubview(label)
-
-            NSLayoutConstraint.activate([
-                label.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 32),
-                label.topAnchor.constraint(equalTo: cell.topAnchor, constant: 10),
-                label.bottomAnchor.constraint(equalTo: cell.bottomAnchor, constant: -10)
-            ])
+            cell.textLabel?.text = "View All →"
+            cell.textLabel?.textColor = .systemPurple
             return cell
         }
 
         let sub = svc.subservices[indexPath.row]
-        let qty = CartManager.shared.items.first(where: {
+        let qty = CartManager.shared.items.first {
             $0.serviceName == svc.name && $0.subserviceName == sub.name
-        })?.quantity ?? 0
+        }?.quantity ?? 0
 
         let cell = tableView.dequeueReusableCell(
             withIdentifier: SubserviceInnerCell.reuseID,
             for: indexPath
         ) as! SubserviceInnerCell
 
-        guard let serviceId = svc.id else { return cell }
-
-        cell.configure(
-            parentServiceId: serviceId,
-            parentService: svc.name,
-            sub: sub,
-            quantity: qty
-        )
+        if let id = svc.id {
+            cell.configure(parentServiceId: id, parentService: svc.name, sub: sub, quantity: qty)
+        }
         return cell
     }
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let svc = services[indexPath.section]
-
         if indexPath.row == min(2, svc.subservices.count) {
-            let vc = ServiceDetailListViewController(service: svc)
-            navigationController?.pushViewController(vc, animated: true)
+            navigationController?.pushViewController(
+                ServiceDetailListViewController(service: svc),
+                animated: true
+            )
         }
     }
 }
-
