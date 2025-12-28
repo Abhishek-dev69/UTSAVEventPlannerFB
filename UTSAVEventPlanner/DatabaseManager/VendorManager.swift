@@ -69,6 +69,10 @@ public struct VendorServiceRecord: Codable {
     public let name: String
     public let description: String?
     public let price: Double?
+
+    // ⚠️ currency actually stores pricing unit (per day / per event)
+    public let currency: String?
+
     public let createdAt: String?
 
     enum CodingKeys: String, CodingKey {
@@ -77,6 +81,7 @@ public struct VendorServiceRecord: Codable {
         case name
         case description
         case price
+        case currency
         case createdAt = "created_at"
     }
 }
@@ -186,3 +191,26 @@ final class VendorManager {
     }
 }
 
+extension VendorServiceRecord {
+
+    /// Vendor app stores pricing unit in `currency`
+    var pricingUnit: String? {
+        guard let raw = currency?
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+            !raw.isEmpty else {
+            return nil
+        }
+
+        // normalize common variants
+        if raw.contains("event") { return "per event" }
+        if raw.contains("day") { return "per day" }
+        if raw.contains("hour") { return "per hour" }
+        if raw.contains("plate") { return "per plate" }
+        if raw.contains("piece") { return "per piece" }
+        if raw.contains("qty") { return "per qty" }
+        if raw.contains("bowl") { return "per bowl" }
+
+        return raw
+    }
+}

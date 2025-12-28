@@ -57,7 +57,10 @@ final class InventoryOverviewViewController: UIViewController {
     }
 
     private func setupNav() {
-        navigationItem.title = "Inventory Overview"
+        // ✅ Show event name as title
+        navigationItem.title = event.eventName
+        navigationItem.largeTitleDisplayMode = .never
+
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             title: "Add",
             style: .plain,
@@ -65,7 +68,6 @@ final class InventoryOverviewViewController: UIViewController {
             action: #selector(addItem)
         )
     }
-
     private func setupSegment() {
         segmented.selectedSegmentIndex = 0
         segmented.translatesAutoresizingMaskIntoConstraints = false
