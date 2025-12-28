@@ -258,6 +258,7 @@ extension ClientRequirementsViewController: UITableViewDataSource, UITableViewDe
 
         } else {
             // OUTSOURCE CELL
+            // OUTSOURCE CELL
             let cell = tableView.dequeueReusableCell(
                 withIdentifier: "OutsourceRequirementCell",
                 for: indexPath
@@ -265,11 +266,12 @@ extension ClientRequirementsViewController: UITableViewDataSource, UITableViewDe
 
             cell.configure(item: outsource[indexPath.row])
 
-            // ✅ setAssignAction only here because 'cell' exists here
+            // ✅ FIXED FLOW: Directly open Assign Vendor screen
             cell.setAssignAction { [weak self] in
                 guard let self else { return }
                 let item = self.outsource[indexPath.row]
-                let vc = OutsourceRequirementDetailViewController(item: item)
+
+                let vc = VendorSelectionViewController(requirement: item)
                 self.navigationController?.pushViewController(vc, animated: true)
             }
 
