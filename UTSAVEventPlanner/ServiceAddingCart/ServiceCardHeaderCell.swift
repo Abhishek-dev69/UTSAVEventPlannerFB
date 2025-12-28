@@ -75,5 +75,14 @@ final class ServiceCardHeaderCell: UIView {
             ? CGAffineTransform(rotationAngle: .pi / 2)
             : .identity
     }
+    // ServiceCardHeaderCell.swift
+
+    func setExpanded(_ expanded: Bool) {
+        isExpanded = expanded
+        arrow.transform = expanded
+            ? CGAffineTransform(rotationAngle: .pi / 2)
+            : .identity
+    }
+
 }
 

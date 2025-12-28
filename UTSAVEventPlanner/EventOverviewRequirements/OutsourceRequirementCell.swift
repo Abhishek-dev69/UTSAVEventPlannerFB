@@ -2,6 +2,9 @@ import UIKit
 
 final class OutsourceRequirementCell: UITableViewCell {
 
+    // MARK: - Stored Action (🔥 VERY IMPORTANT)
+    private var assignUIAction: UIAction?
+
     // MARK: - UI Elements
     private let container: UIView = {
         let v = UIView()
@@ -62,6 +65,16 @@ final class OutsourceRequirementCell: UITableViewCell {
         setup()
     }
 
+    // MARK: - Reuse Cleanup (🔥 CRITICAL)
+    override func prepareForReuse() {
+        super.prepareForReuse()
+
+        if let action = assignUIAction {
+            assignButton.removeAction(action, for: .touchUpInside)
+            assignUIAction = nil
+        }
+    }
+
     private func setup() {
         contentView.addSubview(container)
         container.addSubview(titleLabel)
@@ -93,32 +106,38 @@ final class OutsourceRequirementCell: UITableViewCell {
             assignButton.widthAnchor.constraint(equalToConstant: 80)
         ])
     }
+
+    // MARK: - Assign Action (✅ SAFE)
     func setAssignAction(_ action: @escaping () -> Void) {
-        assignButton.addAction(UIAction { _ in action() }, for: .touchUpInside)
+
+        // Remove previous action if exists
+        if let oldAction = assignUIAction {
+            assignButton.removeAction(oldAction, for: .touchUpInside)
+        }
+
+        let newAction = UIAction { _ in
+            action()
+        }
+
+        assignUIAction = newAction
+        assignButton.addAction(newAction, for: .touchUpInside)
     }
 
     // MARK: - Configure
-    /// Safely configure cell from a server CartItemRecord (fields may be optional)
     func configure(item: CartItemRecord) {
-        // Safely unwrap strings with default friendly placeholders
+
         let serviceName = item.serviceName?.trimmingCharacters(in: .whitespacesAndNewlines)
         let subserviceName = item.subserviceName?.trimmingCharacters(in: .whitespacesAndNewlines)
 
         titleLabel.text = serviceName?.isEmpty == false ? serviceName : "Service"
-        descLabel.text = "Client Requirement: " + (subserviceName?.isEmpty == false ? subserviceName! : "—")
+        descLabel.text = "Client Requirement: " +
+            (subserviceName?.isEmpty == false ? subserviceName! : "—")
 
-        // Safely unwrap numeric values; default to 0
-        let rateValue: Double = item.rate ?? 0.0
-        let qtyValue: Int = item.quantity ?? 0
+        let rate = item.rate ?? 0
+        let qty = item.quantity ?? 0
+        let total = Int(rate * Double(qty))
 
-        // Compute total (as integer rupees)
-        let total = Int(rateValue * Double(qtyValue))
-        // Format with rupee symbol; you can localize as needed
         budgetLabel.text = "Clients Budget: ₹\(total)"
     }
-
-    // Optional: expose assign button action
-    func setAssignAction(_ target: Any?, action: Selector) {
-        assignButton.addTarget(target, action: action, for: .touchUpInside)
-    }
 }
+
