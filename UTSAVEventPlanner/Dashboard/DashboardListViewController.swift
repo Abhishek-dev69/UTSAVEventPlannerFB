@@ -121,6 +121,12 @@ final class DashboardListViewController: UIViewController {
         tableView.delegate = self
 
         view.addSubview(tableView)
+        let longPress = UILongPressGestureRecognizer(
+            target: self,
+            action: #selector(handleLongPress(_:))
+        )
+        tableView.addGestureRecognizer(longPress)
+
 
         NSLayoutConstraint.activate([
             tableView.topAnchor.constraint(equalTo: segments.bottomAnchor, constant: 18),
@@ -129,6 +135,73 @@ final class DashboardListViewController: UIViewController {
             tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
         ])
     }
+    private func deleteEvent(_ event: EventRecord, at indexPath: IndexPath) async {
+
+        do {
+            try await EventSupabaseManager.shared.deleteEvent(eventId: event.id)
+
+            await MainActor.run {
+
+                // Remove locally
+                self.allEvents.removeAll { $0.id == event.id }
+                self.events.removeAll { $0.id == event.id }
+
+                // Animate row deletion
+                self.tableView.deleteRows(at: [indexPath], with: .automatic)
+
+                self.updateEmptyState()
+
+                // Notify others if needed
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("ReloadEventsDashboard"),
+                    object: nil
+                )
+            }
+
+        } catch {
+            print("❌ Delete failed:", error)
+
+            await MainActor.run {
+                let errAlert = UIAlertController(
+                    title: "Error",
+                    message: "Failed to delete event. Please try again.",
+                    preferredStyle: .alert
+                )
+                errAlert.addAction(UIAlertAction(title: "OK", style: .default))
+                self.present(errAlert, animated: true)
+            }
+        }
+    }
+
+    @objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
+
+        guard gesture.state == .began else { return }
+
+        let point = gesture.location(in: tableView)
+        guard let indexPath = tableView.indexPathForRow(at: point) else { return }
+
+        let event = events[indexPath.row]
+
+        let alert = UIAlertController(
+            title: event.eventName,
+            message: "Are you sure you want to delete this event?",
+            preferredStyle: .alert
+        )
+
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        alert.addAction(
+            UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+                guard let self = self else { return }
+                Task {
+                    await self.deleteEvent(event, at: indexPath)
+                }
+            }
+        )
+
+        present(alert, animated: true)
+    }
+
 
     // MARK: - Empty State
     private func setupEmptyState() {

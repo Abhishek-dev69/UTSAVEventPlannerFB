@@ -277,6 +277,28 @@ final class EventSupabaseManager {
 
         print("✅ Event \(eventId) marked as servicesAdded = true")
     }
+    
+    // MARK: - DELETE EVENT
+    func deleteEvent(eventId: String) async throws {
+
+        let trimmed = eventId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard UUID(uuidString: trimmed) != nil else {
+            throw NSError(
+                domain: "EventSupabaseManager",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Invalid event id"]
+            )
+        }
+
+        try await client
+            .from("events")
+            .delete()
+            .eq("id", value: trimmed)
+            .execute()
+
+        print("🗑️ Deleted event:", trimmed)
+    }
+
 
     
 }
