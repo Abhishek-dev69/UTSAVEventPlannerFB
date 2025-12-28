@@ -689,10 +689,16 @@ private final class VendorServiceCell: UITableViewCell {
     func configure(with svc: VendorServiceRecord) {
         titleLabel.text = svc.name
         detailLabel.text = svc.description ?? ""
-        if let p = svc.price {
-            priceLabel.text = String(format: "₹%.0f", p)
-        } else {
+
+        guard let price = svc.price else {
             priceLabel.text = ""
+            return
+        }
+
+        if let unit = svc.pricingUnit {
+            priceLabel.text = "₹\(Int(price)) / \(unit)"
+        } else {
+            priceLabel.text = "₹\(Int(price))"
         }
     }
 }
