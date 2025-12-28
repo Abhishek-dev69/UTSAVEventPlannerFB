@@ -39,6 +39,7 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         setupTable()
         setupOutsourceForm()
         setupBottomCart()
+        setupKeyboardDismissGesture()
 
         CartManager.shared.addObserver(self)
 
@@ -197,6 +198,19 @@ final class ServicePickerViewController: UIViewController, CartObserver {
     @objc private func closeScreen() {
         dismiss(animated: true)
     }
+    private func setupKeyboardDismissGesture() {
+        let tap = UITapGestureRecognizer(
+            target: self,
+            action: #selector(dismissKeyboard)
+        )
+        tap.cancelsTouchesInView = false   // 🔥 VERY IMPORTANT
+        view.addGestureRecognizer(tap)
+    }
+
+    @objc private func dismissKeyboard() {
+        view.endEditing(true)
+    }
+
 
     // MARK: - Segmented Control
     private func setupSegmentContainer() {
@@ -243,6 +257,8 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         tableView.backgroundColor = .white
         tableView.separatorStyle = .none
         tableView.showsVerticalScrollIndicator = false
+        
+        tableView.keyboardDismissMode = .onDrag
 
         tableView.register(SubserviceInnerCell.self,
                            forCellReuseIdentifier: SubserviceInnerCell.reuseID)
