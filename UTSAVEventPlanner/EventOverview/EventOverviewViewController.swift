@@ -289,7 +289,7 @@ final class EventOverviewViewController: UIViewController {
         let card = EventSectionCard(
             iconName: "shippingbox",
             title: "Inventory Overview",
-            subtitle: "Manage items & usage",
+            subtitle: "Track items & usage",
             progress: 0.0
         ) { [weak self] in
             guard let self else { return }
