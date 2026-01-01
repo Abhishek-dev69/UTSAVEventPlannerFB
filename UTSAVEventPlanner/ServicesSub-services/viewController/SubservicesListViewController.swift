@@ -175,7 +175,6 @@ extension SubservicesListViewController: UITableViewDataSource, UITableViewDeleg
         let sub = subservices[index]
         let editVC = EditSubserviceViewController()
         editVC.subserviceToEdit = sub
-        editVC.parentServiceName = service.name
 
         editVC.onSave = { [weak self] updated in
             guard let self = self else { return }

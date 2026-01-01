@@ -90,9 +90,13 @@ final class ProfileViewController: UIViewController {
     }
     
     private func performLogout() {
-        // Clear app state
+        // Clear ONLY local app state
         EventSession.shared.currentEventId = nil
-        CartManager.shared.clear()
+        CartManager.shared.resetLocalCart()   // ✅ FIXED
+
+        Task {
+            try? await SupabaseManager.shared.signOutAuth()
+        }
 
         // Go to LoginViewController
         let loginVC = LoginViewController()

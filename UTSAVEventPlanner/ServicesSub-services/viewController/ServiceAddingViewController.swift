@@ -456,7 +456,6 @@ extension ServiceAddingViewController: UITableViewDelegate, UITableViewDataSourc
         let idx = sender.tag
         let editVC = EditSubserviceViewController()
         editVC.subserviceToEdit = subServices[idx]
-        editVC.parentServiceName = serviceTextField.text
         editVC.onSave = { [weak self] updated in
             self?.subServices[idx] = updated
             self?.tableView.reloadData()

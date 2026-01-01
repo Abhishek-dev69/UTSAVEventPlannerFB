@@ -331,6 +331,10 @@ final class CartManager {
         let subId = items[idx].subserviceId
         removeItem(subserviceId: subId)
     }
+    // ✅ UI-only reset (use ONLY on logout)
+    func resetLocalCart() {
+        items.removeAll()
+    }
 
     // MARK: - CLEAR CART
     func clear() {
