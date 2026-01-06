@@ -20,6 +20,15 @@ struct CartItem: Equatable {
         return lhs.subserviceId == rhs.subserviceId
     }
 }
+struct QuotationPDFData {
+    let eventName: String
+    let items: [CartItem]
+    let subtotal: Double
+    let tax: Double
+    let discount: Double
+    let grandTotal: Double
+}
+
 
 protocol CartObserver: AnyObject {
     func cartDidChange()
@@ -44,6 +53,9 @@ final class CartManager {
 
     func addObserver(_ o: CartObserver) { observers.add(o) }
     func removeObserver(_ o: CartObserver) { observers.remove(o) }
+    private func currentSessionId() -> String? {
+        return CartSession.shared.currentSessionId
+    }
 
     private func notify() {
         DispatchQueue.main.async {
@@ -67,7 +79,8 @@ final class CartManager {
 
                 let records = try await SupabaseManager.shared.fetchCartItems(
                     userId: uid,
-                    eventId: eId
+                    eventId: eId,
+                    cartSessionId: currentSessionId()
                 )
 
                 let mapped = records.map { r in
@@ -156,8 +169,11 @@ final class CartManager {
                 let uid = try await SupabaseManager.shared.ensureUserId()
                 let eId = currentEventId()
 
-                let serverItems = try await SupabaseManager.shared.fetchCartItems(userId: uid, eventId: eId)
-
+                let serverItems = try await SupabaseManager.shared.fetchCartItems(
+                    userId: uid,
+                    eventId: eId,
+                    cartSessionId: currentSessionId()
+                )
                 // CASE 1 — update existing server row with same subserviceId
                 if let existing = serverItems.first(where: { ($0.subserviceId ?? "") == subserviceId }) {
 
@@ -182,6 +198,7 @@ final class CartManager {
                 let inserted = try await SupabaseManager.shared.insertCartItem(
                     userId: uid,
                     eventId: eId,
+                    cartSessionId: currentSessionId(),   // ✅ ADD THIS
                     serviceId: serviceId,
                     serviceName: serviceName,
                     subserviceId: subserviceId,
@@ -255,6 +272,7 @@ final class CartManager {
                     let inserted = try await SupabaseManager.shared.insertCartItem(
                         userId: uid,
                         eventId: eId,
+                        cartSessionId: currentSessionId(),   // ✅ ADD
                         serviceId: local.serviceId,
                         serviceName: local.serviceName,
                         subserviceId: local.subserviceId,
@@ -264,7 +282,6 @@ final class CartManager {
                         quantity: quantity,
                         sourceType: local.sourceType
                     )
-
                     DispatchQueue.main.async {
                         if let i = self.items.firstIndex(where: { $0.subserviceId == subserviceId }) {
                             self.items[i].id = inserted.id
@@ -306,7 +323,8 @@ final class CartManager {
 
                 let serverItems = try await SupabaseManager.shared.fetchCartItems(
                     userId: uid,
-                    eventId: eId
+                    eventId: eId,
+                    cartSessionId: currentSessionId()
                 )
 
                 if let server = serverItems.first(where: { ($0.subserviceId ?? "") == subserviceId }) {

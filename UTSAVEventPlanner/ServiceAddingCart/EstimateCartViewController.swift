@@ -43,6 +43,9 @@ extension UILabel {
 final class EstimateCartViewController: UIViewController {
 
     // MARK: UI
+    private var eventName: String {
+        EventSession.shared.currentEventName ?? "Event"
+    }
     private let scroll = UIScrollView()
     private let content = UIStackView()
 
@@ -94,6 +97,10 @@ final class EstimateCartViewController: UIViewController {
     // MARK: VIEW DID LOAD
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        if CartSession.shared.currentSessionId == nil {
+                CartSession.shared.startNewSession()
+            }
 
         navigationController?.navigationBar.isHidden = false
         navigationItem.leftBarButtonItem = UIBarButtonItem(
@@ -383,7 +390,12 @@ final class EstimateCartViewController: UIViewController {
         saveDraftBtn.setTitle("Save Draft", for: .normal)
         saveDraftBtn.layer.cornerRadius = 20
         saveDraftBtn.backgroundColor = UIColor(white: 0.9, alpha: 1)
-
+        
+        sendQuotationBtn.addTarget(
+            self,
+            action: #selector(sendQuotationTapped),
+            for: .touchUpInside
+        )
         sendQuotationBtn.setTitle("Send Quotation", for: .normal)
         sendQuotationBtn.layer.cornerRadius = 20
         sendQuotationBtn.setTitleColor(.white, for: .normal)
@@ -548,6 +560,55 @@ final class EstimateCartViewController: UIViewController {
     // MARK: Summary Calculation
     // -------------------------------------------------------------
     @objc private func updateSummaryAction() { updateSummary() }
+    @objc private func sendQuotationTapped() {
+
+        let items = CartManager.shared.items
+        guard !items.isEmpty else {
+            print("❌ Cart empty")
+            return
+        }
+
+        let subtotal = CartManager.shared.totalAmount()
+        let tax = subtotal * (taxPercent / 100)
+        let discount = Double(discountField.text ?? "") ?? 0
+        let grandTotal = subtotal + tax - discount
+        
+        let pdfData = QuotationPDFData(
+            eventName: eventName,
+            items: items,
+            subtotal: subtotal,
+            tax: tax,
+            discount: discount,
+            grandTotal: grandTotal
+        )
+
+        let pdfView = QuotationPDFView(data: pdfData)
+
+        do {
+            let pdfURL = try PDFGenerator.generate(
+                view: pdfView,
+                fileName: "Quotation.pdf"
+            )
+
+            let vc = UIActivityViewController(
+                activityItems: [pdfURL],
+                applicationActivities: nil
+            )
+            present(vc, animated: true)
+
+        } catch {
+            print("❌ PDF generation failed:", error)
+
+            let alert = UIAlertController(
+                title: "Error",
+                message: "Failed to generate quotation PDF.",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
+        }
+    }
+
 
     private func updateSummary() {
         let subtotal = CartManager.shared.totalAmount()
@@ -651,7 +712,13 @@ final class EstimateCartViewController: UIViewController {
                     return
                 }
 
-                try await EventSupabaseManager.shared.linkCartItemsToEvent(eventId: eventId)
+                guard let sessionId = CartSession.shared.currentSessionId else { return }
+
+                try await EventSupabaseManager.shared.linkCartItemsToEvent(
+                    eventId: eventId,
+                    cartSessionId: sessionId
+                )
+
                 try await EventSupabaseManager.shared.markServicesAdded(eventId: eventId)
 
                 await MainActor.run {

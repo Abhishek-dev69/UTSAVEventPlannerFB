@@ -110,6 +110,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
 
         let window = UIWindow(windowScene: windowScene)
+
+        // ✅ FORCE LIGHT MODE (THIS IS THE FIX)
+        window.overrideUserInterfaceStyle = .light
+
         self.window = window
 
         let splashVC = InlineSplashViewController()
@@ -121,10 +125,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
             // ✅ REAL LOGIN CHECK (Supabase session)
             if SupabaseManager.shared.currentUserIdSync() != nil {
-                // User already logged in
                 rootVC = MainTabBarController.make()
             } else {
-                // User not logged in
                 rootVC = UINavigationController(
                     rootViewController: LoginViewController()
                 )
@@ -151,7 +153,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
     }
 
-    // MARK: - OAuth URL handling
     func scene(
         _ scene: UIScene,
         openURLContexts URLContexts: Set<UIOpenURLContext>
