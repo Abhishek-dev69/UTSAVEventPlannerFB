@@ -38,6 +38,7 @@ final class ClientRequirementsViewController: UIViewController {
 
         setupSegment()
         setupTable()
+        setupAddButton()
 
         // Observe persisted cart changes and refetch only if it belongs to this event
         cartPersistObserver = NotificationCenter.default.addObserver(forName: .CartItemPersisted, object: nil, queue: .main) { [weak self] note in
@@ -72,7 +73,27 @@ final class ClientRequirementsViewController: UIViewController {
             await fetchAndSplitCartIfNeeded()
         }
     }
+    private func setupAddButton() {
+        navigationItem.rightBarButtonItem = UIBarButtonItem(
+            image: UIImage(systemName: "plus"),
+            style: .plain,
+            target: self,
+            action: #selector(addMoreServicesTapped)
+        )
+    }
+    
+    @objc private func addMoreServicesTapped() {
 
+        // ✅ START A NEW SESSION (THIS FIXES YOUR BUG)
+        CartSession.shared.startNewSession()
+
+        EventSession.shared.currentEventId = event.id
+
+        let picker = ServicePickerViewController()
+        let nav = UINavigationController(rootViewController: picker)
+        nav.modalPresentationStyle = .fullScreen
+        present(nav, animated: true)
+    }
     // MARK: - UI Setup
 
     private func setupSegment() {

@@ -70,6 +70,7 @@ struct CartItemRecord: Codable {
 struct CartInsert: Encodable {
     let userId: String
     let eventId: String?
+    let cartSessionId: String?
     let serviceId: String?
     let serviceName: String
     let subserviceId: String
@@ -370,19 +371,41 @@ final class SupabaseManager {
     }
 
     // MARK: - Cart Operations
-    func fetchCartItems(userId: String? = nil, eventId: String? = nil) async throws -> [CartItemRecord] {
-        let uid = try await (userId == nil || userId!.isEmpty) ? ensureUserId() : userId!
-        var query = client.from("cart_items").select("*").eq("user_id", value: uid)
-        if let eId = eventId, !eId.isEmpty { query = query.eq("event_id", value: eId) }
+    func fetchCartItems(
+        userId: String? = nil,
+        eventId: String? = nil,
+        cartSessionId: String? = nil
+    ) async throws -> [CartItemRecord] {
+
+        let uid = try await (userId == nil || userId!.isEmpty)
+            ? ensureUserId()
+            : userId!
+
+        var query = client
+            .from("cart_items")
+            .select("*")
+            .eq("user_id", value: uid)
+
+        if let eId = eventId, !eId.isEmpty {
+            query = query.eq("event_id", value: eId)
+        }
+
+        if let sId = cartSessionId {
+            query = query.eq("cart_session_id", value: sId)
+        }
+
         let response = try await query.execute()
+
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         return try decoder.decode([CartItemRecord].self, from: response.data)
     }
 
+
     func insertCartItem(
         userId: String?,
         eventId: String?,
+        cartSessionId: String?,   // ✅ ADD
         serviceId: String?,
         serviceName: String,
         subserviceId: String,
@@ -394,9 +417,31 @@ final class SupabaseManager {
         sourceType: String
     ) async throws -> CartItemRecord {
 
-        let uid = try await (userId == nil || userId!.isEmpty) ? ensureUserId() : userId!
-        let payload = CartInsert(userId: uid, eventId: eventId, serviceId: serviceId, serviceName: serviceName, subserviceId: subserviceId, subserviceName: subserviceName, rate: rate, unit: unit, quantity: quantity, metadata: metadata, sourceType: sourceType)
-        let response = try await client.from("cart_items").insert(payload).select().execute()
+        let uid = try await (userId == nil || userId!.isEmpty)
+            ? ensureUserId()
+            : userId!
+
+        let payload = CartInsert(
+            userId: uid,
+            eventId: eventId,
+            cartSessionId: cartSessionId,   // ✅
+            serviceId: serviceId,
+            serviceName: serviceName,
+            subserviceId: subserviceId,
+            subserviceName: subserviceName,
+            rate: rate,
+            unit: unit,
+            quantity: quantity,
+            metadata: metadata,
+            sourceType: sourceType
+        )
+
+        let response = try await client
+            .from("cart_items")
+            .insert(payload)
+            .select()
+            .execute()
+
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         return try decoder.decode([CartItemRecord].self, from: response.data).first!

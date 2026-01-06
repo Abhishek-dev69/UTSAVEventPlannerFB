@@ -178,7 +178,7 @@ final class EventSupabaseManager {
     // 🔥 NEW — LINK CART ITEMS → EVENT (Confirm Order)
     // --------------------------------------------------------------------
     // MARK: - Link cart items created recently (to avoid touching old rows)
-    func linkCartItemsToEvent(eventId: String) async throws {
+    func linkCartItemsToEvent(eventId: String,cartSessionId: String) async throws {
         
         // Defensive: validate eventId
         let trimmed = eventId.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -57,6 +57,8 @@ final class ConfirmationViewController: UIViewController {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        EventSession.shared.currentEventName = details.eventName
 
         self.title = navTitle ?? "Confirmation"
         view.backgroundColor = .systemGroupedBackground
