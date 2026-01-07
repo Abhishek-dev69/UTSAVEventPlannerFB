@@ -572,9 +572,31 @@ final class EstimateCartViewController: UIViewController {
         let tax = subtotal * (taxPercent / 100)
         let discount = Double(discountField.text ?? "") ?? 0
         let grandTotal = subtotal + tax - discount
-        
+
+        // ✅ Get event details from EventSession
+        let session = EventSession.shared
+
+        let eventName = session.currentEventName ?? "Event"
+        let clientName = session.currentClientName
+        let location = session.currentLocation
+
+        // ✅ Date formatting (safe & clean)
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .medium
+
+        let eventDate: String
+        if let startDate = session.currentStartDate {
+            eventDate = dateFormatter.string(from: startDate)
+        } else {
+            eventDate = "—"
+        }
+
+        // ✅ Build PDF data
         let pdfData = QuotationPDFData(
             eventName: eventName,
+            clientName: clientName,
+            location: location,
+            eventDate: eventDate,
             items: items,
             subtotal: subtotal,
             tax: tax,
@@ -608,7 +630,6 @@ final class EstimateCartViewController: UIViewController {
             present(alert, animated: true)
         }
     }
-
 
     private func updateSummary() {
         let subtotal = CartManager.shared.totalAmount()

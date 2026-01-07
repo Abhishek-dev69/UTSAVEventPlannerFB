@@ -22,6 +22,10 @@ struct CartItem: Equatable {
 }
 struct QuotationPDFData {
     let eventName: String
+    let clientName: String
+    let location: String
+    let eventDate: String
+
     let items: [CartItem]
     let subtotal: Double
     let tax: Double
