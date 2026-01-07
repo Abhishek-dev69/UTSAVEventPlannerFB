@@ -12,7 +12,7 @@ struct QuotationPDFView: View {
         VStack(spacing: 22) {
 
             headerSection
-            eventInfoSection
+            eventInfoSection   // 👈 enhanced
             itemsTable
             summaryBox
 
@@ -23,7 +23,7 @@ struct QuotationPDFView: View {
     }
 
     // --------------------------------------------------
-    // MARK: Header
+    // MARK: Header (UNCHANGED)
     // --------------------------------------------------
     private var headerSection: some View {
         VStack(spacing: 6) {
@@ -42,28 +42,38 @@ struct QuotationPDFView: View {
     }
 
     // --------------------------------------------------
-    // MARK: Event Info
+    // MARK: Event Info (UPDATED – layout preserved)
     // --------------------------------------------------
     private var eventInfoSection: some View {
-        HStack {
-            Text("Event:")
-                .font(.system(size: 14, weight: .semibold))
+        VStack(alignment: .leading, spacing: 6) {
 
-            Text(data.eventName.isEmpty ? "—" : data.eventName)
-                .font(.system(size: 14))
+            infoRow(title: "Event", value: data.eventName)
+            infoRow(title: "Client", value: data.clientName)
+            infoRow(title: "Location", value: data.location)
+            infoRow(title: "Date", value: data.eventDate)
 
-            Spacer()
         }
         .padding(.horizontal, 4)
     }
 
+    private func infoRow(title: String, value: String) -> some View {
+        HStack {
+            Text("\(title):")
+                .font(.system(size: 14, weight: .semibold))
+
+            Text(value.isEmpty ? "—" : value)
+                .font(.system(size: 14))
+
+            Spacer()
+        }
+    }
+
     // --------------------------------------------------
-    // MARK: Items Table
+    // MARK: Items Table (UNCHANGED)
     // --------------------------------------------------
     private var itemsTable: some View {
         VStack(spacing: 0) {
 
-            // Header Row
             HStack {
                 Text("Service")
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -83,7 +93,6 @@ struct QuotationPDFView: View {
 
             Divider()
 
-            // Data Rows
             ForEach(data.items, id: \.subserviceId) { item in
                 HStack {
                     Text(item.subserviceName)
@@ -114,7 +123,7 @@ struct QuotationPDFView: View {
     }
 
     // --------------------------------------------------
-    // MARK: Summary Box
+    // MARK: Summary Box (UNCHANGED)
     // --------------------------------------------------
     private var summaryBox: some View {
         VStack(spacing: 12) {

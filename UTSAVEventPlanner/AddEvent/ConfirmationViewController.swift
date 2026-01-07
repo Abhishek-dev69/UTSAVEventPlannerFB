@@ -59,6 +59,10 @@ final class ConfirmationViewController: UIViewController {
         super.viewDidLoad()
         
         EventSession.shared.currentEventName = details.eventName
+        EventSession.shared.currentClientName = details.clientName
+        EventSession.shared.currentLocation = details.location
+        EventSession.shared.currentStartDate = details.startDate
+        EventSession.shared.currentEndDate = details.endDate
 
         self.title = navTitle ?? "Confirmation"
         view.backgroundColor = .systemGroupedBackground
