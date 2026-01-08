@@ -214,13 +214,29 @@ final class PaymentListViewController: UIViewController {
     }
 
     @objc private func addPaymentTapped() {
+
+        let contentVC: UIViewController
+
         if segmented.selectedSegmentIndex == 0 {
-            let vc = RecordClientPaymentViewController(event: event)
-            navigationController?.pushViewController(vc, animated: true)
+            contentVC = RecordClientPaymentViewController(event: event)
         } else {
-            let vc = RecordVendorPaymentViewController(event: event)
-            navigationController?.pushViewController(vc, animated: true)
+            contentVC = RecordVendorPaymentViewController(event: event)
         }
+
+        let nav = UINavigationController(rootViewController: contentVC)
+        nav.modalPresentationStyle = .pageSheet
+
+        if let sheet = nav.sheetPresentationController {
+            sheet.detents = [
+                .medium(),   // 👈 dropdown height
+                .large()     // 👈 expandable if needed
+            ]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 20
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+        }
+
+        present(nav, animated: true)
     }
 }
 

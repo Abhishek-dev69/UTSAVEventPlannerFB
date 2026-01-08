@@ -37,11 +37,18 @@ final class RecordClientPaymentViewController: UIViewController {
 
     private func setupNav() {
         navigationItem.title = "Record Client Payment"
-        let close = UIBarButtonItem(image: UIImage(systemName: "xmark"), style: .plain, target: self, action: #selector(closePressed))
+        let close = UIBarButtonItem(
+            image: UIImage(systemName: "xmark"),
+            style: .plain,
+            target: self,
+            action: #selector(closeTapped)
+        )
         close.tintColor = .black
         navigationItem.leftBarButtonItem = close
     }
-    @objc private func closePressed() { navigationController?.popViewController(animated: true) }
+    @objc private func closeTapped() {
+        dismiss(animated: true)
+    }
 
     private func setupViews() {
         scroll.translatesAutoresizingMaskIntoConstraints = false
@@ -151,7 +158,7 @@ final class RecordClientPaymentViewController: UIViewController {
 
                 await MainActor.run {
                     saveButton.isEnabled = true
-                    navigationController?.popViewController(animated: true)
+                    self.dismiss(animated: true)
                 }
             } catch {
                 await MainActor.run {
