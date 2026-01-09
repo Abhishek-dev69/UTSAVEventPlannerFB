@@ -12,6 +12,7 @@ final class AddInventoryItemViewController: UIViewController {
 
     private let nameField = UITextField()
     private let qtyField = UITextField()
+    var preselectedSource: String?
 
     // Radio-style buttons (only one can be selected)
     private let plannerRadio = UIButton(type: .system)
@@ -35,8 +36,15 @@ final class AddInventoryItemViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
         navigationItem.title = "Add Item"
+
         setupUI()
-        selectedSource = "planner" // default
+
+        // 👇 auto-select from dropdown
+        if let src = preselectedSource {
+            selectedSource = src
+        } else {
+            selectedSource = "planner"
+        }
     }
 
     private func setupUI() {

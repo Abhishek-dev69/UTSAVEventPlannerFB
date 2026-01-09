@@ -62,12 +62,63 @@ final class InventoryOverviewViewController: UIViewController {
         navigationItem.largeTitleDisplayMode = .never
 
         navigationItem.rightBarButtonItem = UIBarButtonItem(
-            title: "Add",
+            image: UIImage(systemName: "plus"),
             style: .plain,
             target: self,
-            action: #selector(addItem)
+            action: #selector(addItemTapped)
         )
     }
+    @objc private func addItemTapped() {
+        let sheet = UIAlertController(
+            title: "Add Inventory",
+            message: nil,
+            preferredStyle: .actionSheet
+        )
+
+        sheet.addAction(
+            UIAlertAction(title: "My Inventory", style: .default) { [weak self] _ in
+                self?.openAddInventory(source: "planner")
+            }
+        )
+
+        sheet.addAction(
+            UIAlertAction(title: "Vendor Inventory", style: .default) { [weak self] _ in
+                self?.openAddInventory(source: "vendor")
+            }
+        )
+
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        // ✅ iPad / dropdown anchor support
+        if let pop = sheet.popoverPresentationController {
+            pop.barButtonItem = navigationItem.rightBarButtonItem
+        }
+
+        present(sheet, animated: true)
+    }
+    private func openAddInventory(source: String) {
+        let vc = AddInventoryItemViewController(eventId: event.id)
+        vc.modalPresentationStyle = .pageSheet   // 👈 NOT full screen
+
+        // preselect source
+        vc.preselectedSource = source   // small addition (explained below)
+
+        vc.onItemAdded = { [weak self] newItem in
+            self?.appendAndReload(newItem)
+            Task {
+                await self?.loadPostEventPending()
+                await self?.loadLostRows()
+            }
+        }
+
+        if let sheet = vc.sheetPresentationController {
+            sheet.detents = [.medium()]     // 👈 dropdown-style height
+            sheet.prefersGrabberVisible = true
+        }
+
+        present(vc, animated: true)
+    }
+
     private func setupSegment() {
         segmented.selectedSegmentIndex = 0
         segmented.translatesAutoresizingMaskIntoConstraints = false
