@@ -47,10 +47,113 @@ final class PaymentListViewController: UIViewController {
 
     private func setupNav() {
         navigationItem.title = event.eventName
-        let back = UIBarButtonItem(image: UIImage(systemName: "chevron.left"), style: .plain, target: self, action: #selector(backPressed))
+
+        let back = UIBarButtonItem(
+            image: UIImage(systemName: "chevron.left"),
+            style: .plain,
+            target: self,
+            action: #selector(backPressed)
+        )
         back.tintColor = .black
         navigationItem.leftBarButtonItem = back
+
+        // ✅ SHARE ICON
+        let share = UIBarButtonItem(
+            image: UIImage(systemName: "square.and.arrow.up"),
+            style: .plain,
+            target: self,
+            action: #selector(shareTapped)
+        )
+        share.tintColor = .black
+        navigationItem.rightBarButtonItem = share
     }
+    @objc private func shareTapped() {
+        let pdfURL = generatePaymentPDF()
+        let vc = UIActivityViewController(activityItems: [pdfURL], applicationActivities: nil)
+
+        if let pop = vc.popoverPresentationController {
+            pop.barButtonItem = navigationItem.rightBarButtonItem
+        }
+
+        present(vc, animated: true)
+    }
+    private func generatePaymentPDF() -> URL {
+
+        let fileName = "Payment_Summary_\(event.eventName).pdf"
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
+
+        let pageRect = CGRect(x: 0, y: 0, width: 595, height: 842) // A4
+        let renderer = UIGraphicsPDFRenderer(bounds: pageRect)
+
+        let paid = receivedAmount
+        let remaining = max(0, totalAmount - paid)
+
+        try? renderer.writePDF(to: url, withActions: { context in
+            context.beginPage()
+
+            var y: CGFloat = 32
+
+            func drawText(_ text: String, font: UIFont, yPos: CGFloat) -> CGFloat {
+                let attrs: [NSAttributedString.Key: Any] = [.font: font]
+                let size = text.size(withAttributes: attrs)
+                text.draw(at: CGPoint(x: 32, y: yPos), withAttributes: attrs)
+                return yPos + size.height + 8
+            }
+
+            // HEADER
+            y = drawText("Payment Summary", font: .boldSystemFont(ofSize: 22), yPos: y)
+
+            y += 10
+            y = drawText("Event: \(event.eventName)", font: .systemFont(ofSize: 16), yPos: y)
+            y = drawText("Client: \(event.clientName)", font: .systemFont(ofSize: 16), yPos: y)
+
+            y += 12
+            y = drawText("Total Amount: ₹\(formatMoney(totalAmount))", font: .boldSystemFont(ofSize: 15), yPos: y)
+            y = drawText("Paid Amount: ₹\(formatMoney(paid))", font: .systemFont(ofSize: 15), yPos: y)
+            y = drawText("Remaining Amount: ₹\(formatMoney(remaining))", font: .systemFont(ofSize: 15), yPos: y)
+
+            y += 20
+            y = drawText("Payment History", font: .boldSystemFont(ofSize: 18), yPos: y)
+
+            y += 10
+
+            // TABLE HEADER
+            let headerFont = UIFont.boldSystemFont(ofSize: 14)
+            "Amount".draw(at: CGPoint(x: 32, y: y), withAttributes: [.font: headerFont])
+            "Method".draw(at: CGPoint(x: 160, y: y), withAttributes: [.font: headerFont])
+            "Date".draw(at: CGPoint(x: 360, y: y), withAttributes: [.font: headerFont])
+
+            y += 16
+
+            // ROWS
+            for p in payments {
+                if y > pageRect.height - 80 {
+                    context.beginPage()
+                    y = 32
+                }
+
+                "₹\(formatMoney(p.amount))".draw(
+                    at: CGPoint(x: 32, y: y),
+                    withAttributes: [.font: UIFont.systemFont(ofSize: 13)]
+                )
+
+                (p.method.isEmpty ? "Payment" : p.method).draw(
+                    at: CGPoint(x: 160, y: y),
+                    withAttributes: [.font: UIFont.systemFont(ofSize: 13)]
+                )
+
+                formattedDateDisplay(p.received_on).draw(
+                    at: CGPoint(x: 360, y: y),
+                    withAttributes: [.font: UIFont.systemFont(ofSize: 13)]
+                )
+
+                y += 18
+            }
+        })
+
+        return url
+    }
+
     @objc private func backPressed() { navigationController?.popViewController(animated: true) }
 
     private func setupUI() {
