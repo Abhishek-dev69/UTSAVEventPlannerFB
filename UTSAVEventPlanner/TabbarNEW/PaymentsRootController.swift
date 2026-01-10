@@ -27,19 +27,6 @@ final class PaymentsRootController: UIViewController {
     deinit {
         NotificationCenter.default.removeObserver(self)
     }
-    
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        
-        // Always show nav bar
-        navigationController?.navigationBar.isHidden = false
-        
-        // Refresh when tab becomes visible again
-        if let listVC = listVC {
-            Task { await listVC.refreshEvents() }
-        }
-    }
-    
     // MARK: - Instant refresh when event is added
     @objc private func reloadEventsNow() {
         Task { await loadEvents() }

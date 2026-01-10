@@ -8,7 +8,12 @@ final class PaymentsEventsListViewController: UIViewController {
     // store per-event totals (eventId -> (total, remaining))
     private var eventPayments: [String: (total: Double, remaining: Double)] = [:]
 
-    // Empty state label...
+    // MARK: - 🔥 CACHE CONTROL
+    private var hasLoadedOnce = false
+    private var lastFetchTime: Date?
+    private let refreshCooldown: TimeInterval = 60 // seconds
+
+    // Empty state label
     private let emptyLabel: UILabel = {
         let l = UILabel()
         l.text = "No events found.\nCreate an event to start adding payments."
@@ -19,6 +24,7 @@ final class PaymentsEventsListViewController: UIViewController {
         return l
     }()
 
+    // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -26,16 +32,49 @@ final class PaymentsEventsListViewController: UIViewController {
         navigationItem.title = "All Events Payments Track"
 
         setupTable()
-        Task { await refreshEvents() } // initial load
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(paymentDidChange),
+            name: Notification.Name("ReloadPaymentsList"),
+            object: nil
+        )
+
+        // ✅ First load must hit DB
+        Task { await refreshEvents(force: true) }
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+    @objc private func paymentDidChange() {
+        Task {
+            // 🔥 Force recompute even if cached
+            await refreshEvents(force: true)
+        }
     }
 
+    // MARK: - Public refresh API
     // Called by PaymentsRootController or pull-to-refresh
-    func refreshEvents() async {
+    func refreshEvents(force: Bool = false) async {
+
+        // ✅ Prevent unnecessary DB calls
+        if !force,
+           hasLoadedOnce,
+           let last = lastFetchTime,
+           Date().timeIntervalSince(last) < refreshCooldown {
+            return
+        }
+
         do {
-            events = try await EventSupabaseManager.shared.fetchAllEventsForUser()
+            let fetched = try await EventSupabaseManager.shared.fetchAllEventsForUser()
+
+            events = fetched
 
             // compute per-event totals concurrently
             await computeEventSummaries()
+
+            hasLoadedOnce = true
+            lastFetchTime = Date()
 
             await MainActor.run {
                 tableView.reloadData()
@@ -51,7 +90,7 @@ final class PaymentsEventsListViewController: UIViewController {
         }
     }
 
-    // compute totals + remaining for each event concurrently
+    // MARK: - Compute totals
     @MainActor
     private func computeEventSummaries() async {
         var map: [String: (Double, Double)] = [:]
@@ -64,7 +103,8 @@ final class PaymentsEventsListViewController: UIViewController {
                         let cart = try await EventDataManager.shared.fetchCartItems(eventId: event.id)
                         totalAmount = cart.reduce(0.0) { acc, c in
                             if let lt = c.lineTotal { return acc + lt }
-                            let r = c.rate ?? 0; let q = Double(c.quantity ?? 0)
+                            let r = c.rate ?? 0
+                            let q = Double(c.quantity ?? 0)
                             return acc + (r * q)
                         }
                     } catch {
@@ -92,12 +132,12 @@ final class PaymentsEventsListViewController: UIViewController {
         eventPayments = map
     }
 
+    // MARK: - Table setup
     private func setupTable() {
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.register(EventPaymentCardCell.self, forCellReuseIdentifier: "EventPaymentCardCell")
         tableView.separatorStyle = .none
 
-        // <-- Use automatic sizing so cell can expand for long titles
         tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 140
 
@@ -105,7 +145,6 @@ final class PaymentsEventsListViewController: UIViewController {
         tableView.delegate = self
         tableView.backgroundColor = .clear
 
-        // Pull to refresh
         let rc = UIRefreshControl()
         rc.addTarget(self, action: #selector(pullToRefresh(_:)), for: .valueChanged)
         tableView.refreshControl = rc
@@ -119,25 +158,22 @@ final class PaymentsEventsListViewController: UIViewController {
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
 
-        // initial empty background
         updateEmptyState()
     }
 
+    // MARK: - Pull to refresh (FORCED)
     @objc private func pullToRefresh(_ sender: UIRefreshControl) {
         Task {
-            await refreshEvents()
+            await refreshEvents(force: true)
         }
     }
 
     private func updateEmptyState() {
-        if events.isEmpty {
-            tableView.backgroundView = emptyLabel
-        } else {
-            tableView.backgroundView = nil
-        }
+        tableView.backgroundView = events.isEmpty ? emptyLabel : nil
     }
 }
 
+// MARK: - Table Delegate & DataSource
 extension PaymentsEventsListViewController: UITableViewDataSource, UITableViewDelegate {
 
     func tableView(_ t: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -161,20 +197,19 @@ extension PaymentsEventsListViewController: UITableViewDataSource, UITableViewDe
             return UITableViewCell()
         }
 
-        let cell = t.dequeueReusableCell(withIdentifier: "EventPaymentCardCell", for: indexPath) as! EventPaymentCardCell
+        let cell = t.dequeueReusableCell(
+            withIdentifier: "EventPaymentCardCell",
+            for: indexPath
+        ) as! EventPaymentCardCell
+
         let record = events[indexPath.row]
-        let summary = eventPayments[record.id]
-        if let s = summary {
+        if let s = eventPayments[record.id] {
             cell.configure(with: record, total: s.total, remaining: s.remaining)
         } else {
-            // not computed yet
             cell.configure(with: record, total: nil, remaining: nil)
         }
+
         return cell
     }
-
-    // IMPORTANT: remove fixed-height delegate method. If you previously had:
-    // func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat { return 100 }
-    // delete it. The automaticDimension above will size the cell correctly.
 }
 
