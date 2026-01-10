@@ -15,6 +15,12 @@ final class PaymentListViewController: UIViewController {
     private let progressView = UIProgressView(progressViewStyle: .default)
     private let transactionsTable = UITableView(frame: .zero, style: .plain)
     private let addPaymentButton = UIButton(type: .system)
+    private let utsavPurple = UIColor(
+        red: 139/255,
+        green: 59/255,
+        blue: 240/255,
+        alpha: 1
+    )
 
     private var event: EventRecord
 
@@ -78,8 +84,8 @@ final class PaymentListViewController: UIViewController {
         present(vc, animated: true)
     }
     private func generatePaymentPDF() -> URL {
-
-        let fileName = "Payment_Summary_\(event.eventName).pdf"
+        let brandLogo = UIImage(named: "utsav_logo")
+        let fileName = "Payment Summary of \(event.eventName).pdf"
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
 
         let pageRect = CGRect(x: 0, y: 0, width: 595, height: 842) // A4
@@ -91,69 +97,200 @@ final class PaymentListViewController: UIViewController {
         try? renderer.writePDF(to: url, withActions: { context in
             context.beginPage()
 
-            var y: CGFloat = 32
+            let ctx = context.cgContext
+            var y: CGFloat = 0
 
-            func drawText(_ text: String, font: UIFont, yPos: CGFloat) -> CGFloat {
-                let attrs: [NSAttributedString.Key: Any] = [.font: font]
-                let size = text.size(withAttributes: attrs)
-                text.draw(at: CGPoint(x: 32, y: yPos), withAttributes: attrs)
-                return yPos + size.height + 8
+            // =========================
+            // HEADER BAR
+            // =========================
+            let headerHeight: CGFloat = 90
+            ctx.setFillColor(UIColor.systemPurple.cgColor)
+            ctx.fill(CGRect(x: 0, y: 0, width: pageRect.width, height: headerHeight))
+
+            // --- BRAND LOGO ---
+            if let logo = brandLogo {
+                let logoSize: CGFloat = 44
+                let logoRect = CGRect(x: 24, y: 22, width: logoSize, height: logoSize)
+                logo.draw(in: logoRect)
+
+                let brandTitleAttrs: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.boldSystemFont(ofSize: 16),
+                    .foregroundColor: UIColor.white
+                ]
+
+                let brandTaglineAttrs: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 10),
+                    .foregroundColor: UIColor.white.withAlphaComponent(0.85)
+                ]
+
+                "UTSAV".draw(
+                    at: CGPoint(x: logoRect.maxX + 10, y: 26),
+                    withAttributes: brandTitleAttrs
+                )
+
+                "Where Events Flow, Not Fail".draw(
+                    at: CGPoint(x: logoRect.maxX + 10, y: 46),
+                    withAttributes: brandTaglineAttrs
+                )
             }
 
-            // HEADER
-            y = drawText("Payment Summary", font: .boldSystemFont(ofSize: 22), yPos: y)
+            // --- RIGHT SIDE TITLE ---
+            let headerAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.boldSystemFont(ofSize: 26),
+                .foregroundColor: UIColor.white
+            ]
 
-            y += 10
-            y = drawText("Event: \(event.eventName)", font: .systemFont(ofSize: 16), yPos: y)
-            y = drawText("Client: \(event.clientName)", font: .systemFont(ofSize: 16), yPos: y)
+            let subHeaderAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 14),
+                .foregroundColor: UIColor.white.withAlphaComponent(0.9)
+            ]
 
-            y += 12
-            y = drawText("Total Amount: ₹\(formatMoney(totalAmount))", font: .boldSystemFont(ofSize: 15), yPos: y)
-            y = drawText("Paid Amount: ₹\(formatMoney(paid))", font: .systemFont(ofSize: 15), yPos: y)
-            y = drawText("Remaining Amount: ₹\(formatMoney(remaining))", font: .systemFont(ofSize: 15), yPos: y)
+            "Payment Summary".draw(
+                at: CGPoint(x: pageRect.width - 240, y: 28),
+                withAttributes: headerAttrs
+            )
+
+            "\(event.eventName) • \(event.clientName)".draw(
+                at: CGPoint(x: pageRect.width - 240, y: 60),
+                withAttributes: subHeaderAttrs
+            )
+
+            y = headerHeight + 24
+            // =========================
+            // SUMMARY CARD
+            // =========================
+            let cardRect = CGRect(x: 24, y: y, width: pageRect.width - 48, height: 120)
+            ctx.setFillColor(UIColor.white.cgColor)
+            ctx.setShadow(offset: CGSize(width: 0, height: 2), blur: 6, color: UIColor.black.withAlphaComponent(0.1).cgColor)
+            ctx.fill(cardRect)
+            ctx.setShadow(offset: .zero, blur: 0, color: nil)
+
+            let titleFont = UIFont.systemFont(ofSize: 14, weight: .medium)
+            let valueFont = UIFont.boldSystemFont(ofSize: 18)
+
+            func drawSummary(title: String, value: String, x: CGFloat) {
+                title.draw(at: CGPoint(x: x, y: y + 24), withAttributes: [.font: titleFont, .foregroundColor: UIColor.gray])
+                value.draw(at: CGPoint(x: x, y: y + 48), withAttributes: [.font: valueFont])
+            }
+
+            drawSummary(title: "Total Amount", value: "₹\(formatMoney(totalAmount))", x: 40)
+            drawSummary(title: "Paid", value: "₹\(formatMoney(paid))", x: 220)
+            drawSummary(title: "Remaining", value: "₹\(formatMoney(remaining))", x: 380)
+
+            y += cardRect.height + 32
+
+            // =========================
+            // PAYMENT HISTORY TITLE
+            // =========================
+            "Payment History".draw(
+                at: CGPoint(x: 32, y: y),
+                withAttributes: [.font: UIFont.boldSystemFont(ofSize: 18)]
+            )
 
             y += 20
-            y = drawText("Payment History", font: .boldSystemFont(ofSize: 18), yPos: y)
 
-            y += 10
-
+            // =========================
             // TABLE HEADER
-            let headerFont = UIFont.boldSystemFont(ofSize: 14)
-            "Amount".draw(at: CGPoint(x: 32, y: y), withAttributes: [.font: headerFont])
-            "Method".draw(at: CGPoint(x: 160, y: y), withAttributes: [.font: headerFont])
-            "Date".draw(at: CGPoint(x: 360, y: y), withAttributes: [.font: headerFont])
+            // =========================
+            let headerY = y
+            ctx.setFillColor(UIColor.systemGray6.cgColor)
+            ctx.fill(CGRect(x: 24, y: headerY, width: pageRect.width - 48, height: 32))
 
-            y += 16
+            let tableHeaderFont = UIFont.systemFont(ofSize: 13, weight: .semibold)
+            let headerColor = UIColor.darkGray
 
-            // ROWS
+            func drawHeader(_ text: String, x: CGFloat) {
+                text.draw(
+                    at: CGPoint(x: x, y: headerY + 8),
+                    withAttributes: [.font: tableHeaderFont, .foregroundColor: headerColor]
+                )
+            }
+
+            drawHeader("Amount", x: 40)
+            drawHeader("Method", x: 200)
+            drawHeader("Date", x: 400)
+
+            y += 32
+
+            // =========================
+            // TABLE ROWS
+            // =========================
+            let rowFont = UIFont.systemFont(ofSize: 13)
+
             for p in payments {
+
                 if y > pageRect.height - 80 {
                     context.beginPage()
-                    y = 32
+                    y = 40
                 }
 
+                // Row separator
+                ctx.setStrokeColor(UIColor.systemGray4.cgColor)
+                ctx.setLineWidth(0.5)
+                ctx.move(to: CGPoint(x: 24, y: y))
+                ctx.addLine(to: CGPoint(x: pageRect.width - 24, y: y))
+                ctx.strokePath()
+
                 "₹\(formatMoney(p.amount))".draw(
-                    at: CGPoint(x: 32, y: y),
-                    withAttributes: [.font: UIFont.systemFont(ofSize: 13)]
+                    at: CGPoint(x: 40, y: y + 10),
+                    withAttributes: [.font: rowFont]
                 )
 
                 (p.method.isEmpty ? "Payment" : p.method).draw(
-                    at: CGPoint(x: 160, y: y),
-                    withAttributes: [.font: UIFont.systemFont(ofSize: 13)]
+                    at: CGPoint(x: 200, y: y + 10),
+                    withAttributes: [.font: rowFont]
                 )
 
                 formattedDateDisplay(p.received_on).draw(
-                    at: CGPoint(x: 360, y: y),
-                    withAttributes: [.font: UIFont.systemFont(ofSize: 13)]
+                    at: CGPoint(x: 400, y: y + 10),
+                    withAttributes: [.font: rowFont]
                 )
 
-                y += 18
+                y += 32
             }
+            // =========================
+            // PAYMENT REMINDER MESSAGE
+            // =========================
+            let reminderText = """
+            This is a gentle reminder that an amount of ₹\(formatMoney(remaining)) is currently pending for the event.
+
+            We sincerely appreciate the payment received so far and kindly request you to settle the remaining balance at your convenience.
+
+            Thank you for your cooperation and Trust.
+            """
+
+            let reminderRect = CGRect(
+                x: 32,
+                y: pageRect.height - 120,
+                width: pageRect.width - 64,
+                height: 70
+            )
+
+            let reminderAttrs: [NSAttributedString.Key: Any] = [
+                .font: UIFont.systemFont(ofSize: 12),
+                .foregroundColor: UIColor.darkGray
+            ]
+
+            (reminderText as NSString).draw(
+                in: reminderRect,
+                withAttributes: reminderAttrs
+            )
+
+            // =========================
+            // FOOTER
+            // =========================
+            let footerText = "Generated by UTSAV • \(DateFormatter.localizedString(from: Date(), dateStyle: .medium, timeStyle: .none))"
+            footerText.draw(
+                at: CGPoint(x: 32, y: pageRect.height - 40),
+                withAttributes: [
+                    .font: UIFont.systemFont(ofSize: 10),
+                    .foregroundColor: UIColor.gray
+                ]
+            )
         })
 
         return url
     }
-
     @objc private func backPressed() { navigationController?.popViewController(animated: true) }
 
     private func setupUI() {
@@ -171,7 +308,6 @@ final class PaymentListViewController: UIViewController {
         titleLabel.font = .systemFont(ofSize: 18, weight: .semibold)
         titleLabel.text = "Client: \(event.clientName)"
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-
         totalLabel.font = .systemFont(ofSize: 16, weight: .semibold)
         totalLabel.translatesAutoresizingMaskIntoConstraints = false
 
@@ -181,6 +317,16 @@ final class PaymentListViewController: UIViewController {
 
         progressView.layer.cornerRadius = 3
         progressView.clipsToBounds = true
+
+        // ✅ UTSAV BRAND COLORS
+        progressView.progressTintColor = utsavPurple
+        progressView.trackTintColor = UIColor(
+            red: 139/255,
+            green: 59/255,
+            blue: 240/255,
+            alpha: 0.15
+        )
+
         progressView.translatesAutoresizingMaskIntoConstraints = false
 
         headerCard.addSubview(titleLabel)

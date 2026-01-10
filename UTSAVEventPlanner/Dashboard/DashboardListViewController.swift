@@ -265,8 +265,26 @@ final class DashboardListViewController: UIViewController {
 
     // MARK: - Actions
     @objc private func segmentedChanged() {
-        events = allEvents
+        switch segments.selectedSegmentIndex {
+        case 0: // All
+            events = allEvents
+
+        case 1: // Upcoming
+            events = allEvents.filter {
+                eventStatus(for: $0) == .upcoming
+            }
+
+        case 2: // Completed
+            events = allEvents.filter {
+                eventStatus(for: $0) == .completed
+            }
+
+        default:
+            events = allEvents
+        }
+
         tableView.reloadData()
+        updateEmptyState()
     }
 
     @objc private func addEventTapped() {
@@ -303,7 +321,25 @@ private let dashboardCurrencyFormatter: NumberFormatter = {
 private func parseDate(_ string: String) -> Date {
     dashboardDateFormatter.date(from: string) ?? Date()
 }
+enum EventStatus {
+    case upcoming
+    case ongoing
+    case completed
+}
 
+private func eventStatus(for record: EventRecord) -> EventStatus {
+    let eventDate = parseDate(record.startDate)
+    let today = Calendar.current.startOfDay(for: Date())
+    let eventDay = Calendar.current.startOfDay(for: eventDate)
+
+    if eventDay < today {
+        return .completed
+    } else if eventDay == today {
+        return .ongoing
+    } else {
+        return .upcoming
+    }
+}
 
 // MARK: - Table Delegates
 extension DashboardListViewController: UITableViewDataSource, UITableViewDelegate {
