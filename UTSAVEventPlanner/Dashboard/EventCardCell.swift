@@ -108,12 +108,25 @@ final class EventCardCell: UITableViewCell {
         dateLabel.text = formatDate(record.startDate)
         locationLabel.text = record.location
 
-        // Status
-        statusLabel.text = "Upcoming"
-        statusDot.backgroundColor = UIColor.systemBlue
+        // ✅ FIXED STATUS LOGIC
+        let eventDate = parseDate(record.startDate)
+        let today = Calendar.current.startOfDay(for: Date())
+        let eventDay = Calendar.current.startOfDay(for: eventDate)
 
-        // 🔥 Load event type image from metadata
-        // Load event type image
+        if eventDay < today {
+            statusLabel.text = "Completed"
+            statusDot.backgroundColor = .systemGreen
+
+        } else if eventDay == today {
+            statusLabel.text = "Ongoing"
+            statusDot.backgroundColor = .systemOrange
+
+        } else {
+            statusLabel.text = "Upcoming"
+            statusDot.backgroundColor = .systemBlue
+        }
+
+        // Event type image
         if let metadata = record.metadata,
            let imgName = metadata["eventTypeImage"],
            let img = UIImage(named: imgName) {
@@ -123,7 +136,14 @@ final class EventCardCell: UITableViewCell {
         }
     }
 
-    // MARK: - Date Formatter
+    // MARK: - Date Helpers
+    private func parseDate(_ input: String) -> Date {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.timeZone = .current
+        return f.date(from: input) ?? Date()
+    }
+
     private func formatDate(_ input: String) -> String {
         let inputFormatter = DateFormatter()
         inputFormatter.dateFormat = "yyyy-MM-dd"
