@@ -7,9 +7,7 @@ final class ServicesListViewController: UIViewController {
     private let tableView = UITableView(frame: .zero, style: .plain)
 
     // MARK: - Data
-    private var services: [Service] = [] {
-        didSet { tableView.reloadData() }
-    }
+    private var services: [Service] = []
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -83,12 +81,63 @@ final class ServicesListViewController: UIViewController {
 
             await MainActor.run {
                 self.services = mapped
+                self.tableView.reloadData()   // ✅ THIS WAS MISSING
             }
 
         } catch {
             print("❌ Fetch services failed:", error)
         }
     }
+    private func confirmDeleteService(at indexPath: IndexPath) {
+        let service = services[indexPath.row]
+
+        let alert = UIAlertController(
+            title: "Delete Service?",
+            message: "This will permanently delete '\(service.name)' and all its sub-services.",
+            preferredStyle: .alert
+        )
+
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        alert.addAction(UIAlertAction(
+            title: "Delete",
+            style: .destructive,
+            handler: { [weak self] _ in
+                self?.deleteService(service, at: indexPath)
+            }
+        ))
+
+        present(alert, animated: true)
+    }
+    private func deleteService(_ service: Service, at indexPath: IndexPath) {
+        guard let serviceId = service.id else { return }
+
+        Task {
+            do {
+                // 🔥 Delete from Supabase
+                try await SupabaseManager.shared.deleteService(serviceId: serviceId)
+
+                // 🔥 Update UI on main thread
+                await MainActor.run {
+                    self.services.remove(at: indexPath.row)
+                    self.tableView.deleteRows(at: [indexPath], with: .automatic)
+                }
+
+            } catch {
+                await MainActor.run {
+                    let err = UIAlertController(
+                        title: "Delete Failed",
+                        message: error.localizedDescription,
+                        preferredStyle: .alert
+                    )
+                    err.addAction(UIAlertAction(title: "OK", style: .default))
+                    self.present(err, animated: true)
+                }
+            }
+        }
+    }
+
+
 
     // MARK: - Add Service
     @objc private func addServiceTapped() {
@@ -113,6 +162,22 @@ extension ServicesListViewController: UITableViewDelegate, UITableViewDataSource
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         services.count
+    }
+    func tableView(
+        _ tableView: UITableView,
+        trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath
+    ) -> UISwipeActionsConfiguration? {
+
+        let deleteAction = UIContextualAction(
+            style: .destructive,
+            title: "Delete"
+        ) { [weak self] _, _, completion in
+            self?.confirmDeleteService(at: indexPath)
+            completion(true)
+        }
+
+        deleteAction.backgroundColor = .systemRed
+        return UISwipeActionsConfiguration(actions: [deleteAction])
     }
 
     func tableView(

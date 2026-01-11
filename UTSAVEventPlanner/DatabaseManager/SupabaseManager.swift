@@ -446,6 +446,23 @@ final class SupabaseManager {
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         return try decoder.decode([CartItemRecord].self, from: response.data).first!
     }
+    
+    // MARK: - Delete Service (with cascading subservices)
+    func deleteService(serviceId: String) async throws {
+        // 1. Delete subservices first (FK safe)
+        _ = try await client
+            .from("subservices")
+            .delete()
+            .eq("service_id", value: serviceId)
+            .execute()
+
+        // 2. Delete service
+        _ = try await client
+            .from("services")
+            .delete()
+            .eq("id", value: serviceId)
+            .execute()
+    }
 
     func updateCartItemQuantity(cartItemId: String, quantity: Int) async throws -> CartItemRecord {
         let payload = QuantityUpdate(quantity: quantity)
