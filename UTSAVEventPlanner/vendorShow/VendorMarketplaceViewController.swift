@@ -145,6 +145,7 @@ extension VendorMarketplaceViewController: UITableViewDataSource, UITableViewDel
         tableView.deselectRow(at: indexPath, animated: true)
         let vendor = filteredVendors[indexPath.row]
         let vc = VendorDetailViewController(vendorId: vendor.id)
+        vc.hidesBottomBarWhenPushed = true
         navigationController?.pushViewController(vc, animated: true)
     }
 }
