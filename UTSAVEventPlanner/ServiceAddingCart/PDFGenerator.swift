@@ -7,7 +7,7 @@ final class PDFGenerator {
         view: QuotationPDFView,
         fileName: String
     ) throws -> URL {
-
+        _ = view.environment(\.colorScheme, .light)
         let controller = UIHostingController(rootView: view)
         controller.view.frame = CGRect(x: 0, y: 0, width: 595, height: 842) // A4
         controller.view.layoutIfNeeded()

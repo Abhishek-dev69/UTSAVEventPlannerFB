@@ -84,6 +84,12 @@ final class PaymentListViewController: UIViewController {
         present(vc, animated: true)
     }
     private func generatePaymentPDF() -> URL {
+
+        // ✅ Force Light Mode ONLY while generating PDF
+        let previousStyle = view.overrideUserInterfaceStyle
+        view.overrideUserInterfaceStyle = .light
+        defer { view.overrideUserInterfaceStyle = previousStyle }
+
         let brandLogo = UIImage(named: "utsav_logo")
         let fileName = "Payment Summary of \(event.eventName).pdf"
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
@@ -94,7 +100,7 @@ final class PaymentListViewController: UIViewController {
         let paid = receivedAmount
         let remaining = max(0, totalAmount - paid)
 
-        try? renderer.writePDF(to: url, withActions: { context in
+        try? renderer.writePDF(to: url) { context in
             context.beginPage()
 
             let ctx = context.cgContext
@@ -104,7 +110,14 @@ final class PaymentListViewController: UIViewController {
             // HEADER BAR
             // =========================
             let headerHeight: CGFloat = 90
-            ctx.setFillColor(UIColor.systemPurple.cgColor)
+            let utsavPurple = UIColor(
+                red: 138/255,
+                green: 73/255,
+                blue: 246/255,
+                alpha: 1
+            )
+
+            ctx.setFillColor(utsavPurple.cgColor)
             ctx.fill(CGRect(x: 0, y: 0, width: pageRect.width, height: headerHeight))
 
             // --- BRAND LOGO ---
@@ -113,64 +126,71 @@ final class PaymentListViewController: UIViewController {
                 let logoRect = CGRect(x: 24, y: 22, width: logoSize, height: logoSize)
                 logo.draw(in: logoRect)
 
-                let brandTitleAttrs: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.boldSystemFont(ofSize: 16),
-                    .foregroundColor: UIColor.white
-                ]
-
-                let brandTaglineAttrs: [NSAttributedString.Key: Any] = [
-                    .font: UIFont.systemFont(ofSize: 10),
-                    .foregroundColor: UIColor.white.withAlphaComponent(0.85)
-                ]
-
                 "UTSAV".draw(
                     at: CGPoint(x: logoRect.maxX + 10, y: 26),
-                    withAttributes: brandTitleAttrs
+                    withAttributes: [
+                        .font: UIFont.boldSystemFont(ofSize: 16),
+                        .foregroundColor: UIColor.white
+                    ]
                 )
 
                 "Where Events Flow, Not Fail".draw(
                     at: CGPoint(x: logoRect.maxX + 10, y: 46),
-                    withAttributes: brandTaglineAttrs
+                    withAttributes: [
+                        .font: UIFont.systemFont(ofSize: 10),
+                        .foregroundColor: UIColor.white.withAlphaComponent(0.85)
+                    ]
                 )
             }
 
             // --- RIGHT SIDE TITLE ---
-            let headerAttrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.boldSystemFont(ofSize: 26),
-                .foregroundColor: UIColor.white
-            ]
-
-            let subHeaderAttrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 14),
-                .foregroundColor: UIColor.white.withAlphaComponent(0.9)
-            ]
-
             "Payment Summary".draw(
                 at: CGPoint(x: pageRect.width - 240, y: 28),
-                withAttributes: headerAttrs
+                withAttributes: [
+                    .font: UIFont.boldSystemFont(ofSize: 26),
+                    .foregroundColor: UIColor.white
+                ]
             )
 
             "\(event.eventName) • \(event.clientName)".draw(
                 at: CGPoint(x: pageRect.width - 240, y: 60),
-                withAttributes: subHeaderAttrs
+                withAttributes: [
+                    .font: UIFont.systemFont(ofSize: 14),
+                    .foregroundColor: UIColor.white.withAlphaComponent(0.9)
+                ]
             )
 
             y = headerHeight + 24
+
             // =========================
             // SUMMARY CARD
             // =========================
             let cardRect = CGRect(x: 24, y: y, width: pageRect.width - 48, height: 120)
             ctx.setFillColor(UIColor.white.cgColor)
-            ctx.setShadow(offset: CGSize(width: 0, height: 2), blur: 6, color: UIColor.black.withAlphaComponent(0.1).cgColor)
+            ctx.setShadow(
+                offset: CGSize(width: 0, height: 2),
+                blur: 6,
+                color: UIColor.black.withAlphaComponent(0.1).cgColor
+            )
             ctx.fill(cardRect)
             ctx.setShadow(offset: .zero, blur: 0, color: nil)
 
-            let titleFont = UIFont.systemFont(ofSize: 14, weight: .medium)
-            let valueFont = UIFont.boldSystemFont(ofSize: 18)
-
             func drawSummary(title: String, value: String, x: CGFloat) {
-                title.draw(at: CGPoint(x: x, y: y + 24), withAttributes: [.font: titleFont, .foregroundColor: UIColor.gray])
-                value.draw(at: CGPoint(x: x, y: y + 48), withAttributes: [.font: valueFont])
+                title.draw(
+                    at: CGPoint(x: x, y: y + 24),
+                    withAttributes: [
+                        .font: UIFont.systemFont(ofSize: 14, weight: .medium),
+                        .foregroundColor: UIColor(white: 0.4, alpha: 1)
+                    ]
+                )
+
+                value.draw(
+                    at: CGPoint(x: x, y: y + 48),
+                    withAttributes: [
+                        .font: UIFont.boldSystemFont(ofSize: 18),
+                        .foregroundColor: UIColor.black
+                    ]
+                )
             }
 
             drawSummary(title: "Total Amount", value: "₹\(formatMoney(totalAmount))", x: 40)
@@ -184,7 +204,10 @@ final class PaymentListViewController: UIViewController {
             // =========================
             "Payment History".draw(
                 at: CGPoint(x: 32, y: y),
-                withAttributes: [.font: UIFont.boldSystemFont(ofSize: 18)]
+                withAttributes: [
+                    .font: UIFont.boldSystemFont(ofSize: 18),
+                    .foregroundColor: UIColor.black
+                ]
             )
 
             y += 20
@@ -193,16 +216,16 @@ final class PaymentListViewController: UIViewController {
             // TABLE HEADER
             // =========================
             let headerY = y
-            ctx.setFillColor(UIColor.systemGray6.cgColor)
+            ctx.setFillColor(UIColor(white: 0.95, alpha: 1).cgColor)
             ctx.fill(CGRect(x: 24, y: headerY, width: pageRect.width - 48, height: 32))
-
-            let tableHeaderFont = UIFont.systemFont(ofSize: 13, weight: .semibold)
-            let headerColor = UIColor.darkGray
 
             func drawHeader(_ text: String, x: CGFloat) {
                 text.draw(
                     at: CGPoint(x: x, y: headerY + 8),
-                    withAttributes: [.font: tableHeaderFont, .foregroundColor: headerColor]
+                    withAttributes: [
+                        .font: UIFont.systemFont(ofSize: 13, weight: .semibold),
+                        .foregroundColor: UIColor(white: 0.3, alpha: 1)
+                    ]
                 )
             }
 
@@ -215,8 +238,6 @@ final class PaymentListViewController: UIViewController {
             // =========================
             // TABLE ROWS
             // =========================
-            let rowFont = UIFont.systemFont(ofSize: 13)
-
             for p in payments {
 
                 if y > pageRect.height - 80 {
@@ -224,8 +245,7 @@ final class PaymentListViewController: UIViewController {
                     y = 40
                 }
 
-                // Row separator
-                ctx.setStrokeColor(UIColor.systemGray4.cgColor)
+                ctx.setStrokeColor(UIColor(white: 0.85, alpha: 1).cgColor)
                 ctx.setLineWidth(0.5)
                 ctx.move(to: CGPoint(x: 24, y: y))
                 ctx.addLine(to: CGPoint(x: pageRect.width - 24, y: y))
@@ -233,23 +253,33 @@ final class PaymentListViewController: UIViewController {
 
                 "₹\(formatMoney(p.amount))".draw(
                     at: CGPoint(x: 40, y: y + 10),
-                    withAttributes: [.font: rowFont]
+                    withAttributes: [
+                        .font: UIFont.systemFont(ofSize: 13),
+                        .foregroundColor: UIColor.black
+                    ]
                 )
 
                 (p.method.isEmpty ? "Payment" : p.method).draw(
                     at: CGPoint(x: 200, y: y + 10),
-                    withAttributes: [.font: rowFont]
+                    withAttributes: [
+                        .font: UIFont.systemFont(ofSize: 13),
+                        .foregroundColor: UIColor.black
+                    ]
                 )
 
                 formattedDateDisplay(p.received_on).draw(
                     at: CGPoint(x: 400, y: y + 10),
-                    withAttributes: [.font: rowFont]
+                    withAttributes: [
+                        .font: UIFont.systemFont(ofSize: 13),
+                        .foregroundColor: UIColor.black
+                    ]
                 )
 
                 y += 32
             }
+
             // =========================
-            // PAYMENT REMINDER MESSAGE
+            // REMINDER
             // =========================
             let reminderText = """
             This is a gentle reminder that an amount of ₹\(formatMoney(remaining)) is currently pending for the event.
@@ -259,21 +289,12 @@ final class PaymentListViewController: UIViewController {
             Thank you for your cooperation and Trust.
             """
 
-            let reminderRect = CGRect(
-                x: 32,
-                y: pageRect.height - 120,
-                width: pageRect.width - 64,
-                height: 70
-            )
-
-            let reminderAttrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.systemFont(ofSize: 12),
-                .foregroundColor: UIColor.darkGray
-            ]
-
             (reminderText as NSString).draw(
-                in: reminderRect,
-                withAttributes: reminderAttrs
+                in: CGRect(x: 32, y: pageRect.height - 120, width: pageRect.width - 64, height: 70),
+                withAttributes: [
+                    .font: UIFont.systemFont(ofSize: 12),
+                    .foregroundColor: UIColor(white: 0.35, alpha: 1)
+                ]
             )
 
             // =========================
@@ -284,13 +305,14 @@ final class PaymentListViewController: UIViewController {
                 at: CGPoint(x: 32, y: pageRect.height - 40),
                 withAttributes: [
                     .font: UIFont.systemFont(ofSize: 10),
-                    .foregroundColor: UIColor.gray
+                    .foregroundColor: UIColor(white: 0.45, alpha: 1)
                 ]
             )
-        })
+        }
 
         return url
     }
+
     @objc private func backPressed() { navigationController?.popViewController(animated: true) }
 
     private func setupUI() {
