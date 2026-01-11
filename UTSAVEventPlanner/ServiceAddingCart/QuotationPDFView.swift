@@ -4,26 +4,27 @@ struct QuotationPDFView: View {
 
     let data: QuotationPDFData
 
-    // Brand Colors
+    // ✅ FIXED BRAND COLORS (NON-DYNAMIC)
     private let purple = Color(red: 138/255, green: 73/255, blue: 246/255)
-    private let lightGray = Color.gray.opacity(0.15)
+    private let lightGray = Color(red: 235/255, green: 235/255, blue: 235/255)
 
     var body: some View {
         VStack(spacing: 22) {
 
             headerSection
-            eventInfoSection   // 👈 enhanced
+            eventInfoSection
             itemsTable
             summaryBox
 
         }
         .padding(24)
-        .frame(width: 595) // A4 width
-        .background(Color.white)
+        .frame(width: 595)                // A4 width
+        .background(Color.white)          // ✅ FIXED BACKGROUND
+        .environment(\.colorScheme, .light) // ✅ FORCE LIGHT MODE
     }
 
     // --------------------------------------------------
-    // MARK: Header (UNCHANGED)
+    // MARK: Header
     // --------------------------------------------------
     private var headerSection: some View {
         VStack(spacing: 6) {
@@ -42,16 +43,14 @@ struct QuotationPDFView: View {
     }
 
     // --------------------------------------------------
-    // MARK: Event Info (UPDATED – layout preserved)
+    // MARK: Event Info
     // --------------------------------------------------
     private var eventInfoSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-
             infoRow(title: "Event", value: data.eventName)
             infoRow(title: "Client", value: data.clientName)
             infoRow(title: "Location", value: data.location)
             infoRow(title: "Date", value: data.eventDate)
-
         }
         .padding(.horizontal, 4)
     }
@@ -60,34 +59,28 @@ struct QuotationPDFView: View {
         HStack {
             Text("\(title):")
                 .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.black)
 
             Text(value.isEmpty ? "—" : value)
                 .font(.system(size: 14))
+                .foregroundColor(.black)
 
             Spacer()
         }
     }
 
     // --------------------------------------------------
-    // MARK: Items Table (UNCHANGED)
+    // MARK: Items Table
     // --------------------------------------------------
     private var itemsTable: some View {
         VStack(spacing: 0) {
 
             HStack {
-                Text("Service")
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                Text("Rate")
-                    .frame(width: 70, alignment: .trailing)
-
-                Text("Qty")
-                    .frame(width: 40, alignment: .center)
-
-                Text("Total")
-                    .frame(width: 80, alignment: .trailing)
+                tableHeader("Service", align: .leading, flex: true)
+                tableHeader("Rate", width: 70)
+                tableHeader("Qty", width: 40)
+                tableHeader("Total", width: 80)
             }
-            .font(.system(size: 12, weight: .semibold))
             .padding(10)
             .background(lightGray)
 
@@ -97,17 +90,23 @@ struct QuotationPDFView: View {
                 HStack {
                     Text(item.subserviceName)
                         .font(.system(size: 13))
+                        .foregroundColor(.black)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                     Text("₹\(Int(item.rate))")
+                        .font(.system(size: 13))
+                        .foregroundColor(.black)
                         .frame(width: 70, alignment: .trailing)
 
                     Text("\(item.quantity)")
+                        .font(.system(size: 13))
+                        .foregroundColor(.black)
                         .frame(width: 40, alignment: .center)
 
                     Text("₹\(Int(item.lineTotal))")
-                        .frame(width: 80, alignment: .trailing)
                         .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.black)
+                        .frame(width: 80, alignment: .trailing)
                 }
                 .padding(.vertical, 10)
                 .padding(.horizontal, 10)
@@ -122,8 +121,24 @@ struct QuotationPDFView: View {
         .cornerRadius(8)
     }
 
+    private func tableHeader(
+        _ text: String,
+        align: Alignment = .trailing,
+        width: CGFloat? = nil,
+        flex: Bool = false
+    ) -> some View {
+        Text(text)
+            .font(.system(size: 12, weight: .semibold))
+            .foregroundColor(.black)
+            .frame(
+                maxWidth: flex ? .infinity : nil,
+                alignment: align
+            )
+            .frame(width: width)
+    }
+
     // --------------------------------------------------
-    // MARK: Summary Box (UNCHANGED)
+    // MARK: Summary Box
     // --------------------------------------------------
     private var summaryBox: some View {
         VStack(spacing: 12) {
@@ -142,7 +157,7 @@ struct QuotationPDFView: View {
             )
         }
         .padding(16)
-        .background(purple.opacity(0.06))
+        .background(Color(red: 245/255, green: 240/255, blue: 255/255))
         .cornerRadius(10)
     }
 
@@ -155,6 +170,7 @@ struct QuotationPDFView: View {
         HStack {
             Text(title)
                 .font(.system(size: 14, weight: bold ? .semibold : .regular))
+                .foregroundColor(.black)
 
             Spacer()
 
