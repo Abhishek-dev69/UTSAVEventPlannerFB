@@ -8,6 +8,8 @@ final class ServicesListViewController: UIViewController {
 
     // MARK: - Data
     private var services: [Service] = []
+    
+    private let addButton = UIButton(type: .system)
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -29,14 +31,25 @@ final class ServicesListViewController: UIViewController {
 
     // MARK: - Navigation Bar
     private func setupNavBar() {
-        // ONLY add button — no back, no save
-        navigationItem.rightBarButtonItem = UIBarButtonItem(
-            barButtonSystemItem: .add,
-            target: self,
-            action: #selector(addServiceTapped)
-        )
-    }
+        navigationItem.title = "Services"
 
+        let plusConfig = UIImage.SymbolConfiguration(pointSize: 20, weight: .bold)
+        addButton.setImage(
+            UIImage(systemName: "plus", withConfiguration: plusConfig),
+            for: .normal
+        )
+        addButton.tintColor = UIColor(
+            red: 138/255,
+            green: 73/255,
+            blue: 246/255,
+            alpha: 1
+        )
+
+        addButton.addTarget(self, action: #selector(addServiceTapped), for: .touchUpInside)
+
+        // wrap inside UIBarButtonItem (NO background, NO circle)
+        navigationItem.rightBarButtonItem = UIBarButtonItem(customView: addButton)
+    }
     // MARK: - TableView
     private func setupTableView() {
         tableView.delegate = self

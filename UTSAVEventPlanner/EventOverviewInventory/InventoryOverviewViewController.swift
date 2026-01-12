@@ -12,6 +12,9 @@ final class InventoryOverviewViewController: UIViewController {
     // inventory_items (allocated)
     private var plannerItems: [InventoryItemRecord] = []
     private var vendorItems: [InventoryItemRecord] = []
+    
+    private let addButton = UIButton(type: .system)
+
 
     // post-event: use PostEventRow (pending rows from vw_postevent_pending)
     private var postEventRows: [PostEventRow] = []
@@ -57,17 +60,27 @@ final class InventoryOverviewViewController: UIViewController {
     }
 
     private func setupNav() {
-        // ✅ Show event name as title
         navigationItem.title = event.eventName
         navigationItem.largeTitleDisplayMode = .never
 
-        navigationItem.rightBarButtonItem = UIBarButtonItem(
-            image: UIImage(systemName: "plus"),
-            style: .plain,
-            target: self,
-            action: #selector(addItemTapped)
+        let plusConfig = UIImage.SymbolConfiguration(pointSize: 20, weight: .bold)
+        addButton.setImage(
+            UIImage(systemName: "plus", withConfiguration: plusConfig),
+            for: .normal
         )
+        addButton.tintColor = UIColor(
+            red: 138/255,
+            green: 73/255,
+            blue: 246/255,
+            alpha: 1
+        )
+
+        addButton.addTarget(self, action: #selector(addItemTapped), for: .touchUpInside)
+
+        navigationItem.rightBarButtonItem = UIBarButtonItem(customView: addButton)
     }
+
+
     @objc private func addItemTapped() {
         let sheet = UIAlertController(
             title: "Add Inventory",
