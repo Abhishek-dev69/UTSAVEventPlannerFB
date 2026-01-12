@@ -20,6 +20,9 @@ final class VendorMarketplaceViewController: UIViewController {
         super.viewDidLoad()
         title = "Vendors"
         view.backgroundColor = .systemBackground
+        let tap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        tap.cancelsTouchesInView = false
+        view.addGestureRecognizer(tap)
 
         setupSearchBar()
         setupTableView()
@@ -32,8 +35,12 @@ final class VendorMarketplaceViewController: UIViewController {
         searchBar.searchBarStyle = .minimal
         searchBar.sizeToFit()
     }
+    @objc private func dismissKeyboard() {
+        view.endEditing(true)
+    }
 
     private func setupTableView() {
+        tableView.keyboardDismissMode = .onDrag
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.dataSource = self
         tableView.delegate = self
