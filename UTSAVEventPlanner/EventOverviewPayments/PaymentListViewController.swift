@@ -21,6 +21,26 @@ final class PaymentListViewController: UIViewController {
         blue: 240/255,
         alpha: 1
     )
+    
+    private func styleSegments() {
+        segmented.selectedSegmentTintColor = UIColor(
+            red: 136/255,
+            green: 71/255,
+            blue: 246/255,
+            alpha: 1
+        )
+
+        segmented.setTitleTextAttributes(
+            [.foregroundColor: UIColor.white],
+            for: .selected
+        )
+
+        segmented.setTitleTextAttributes(
+            [.foregroundColor: UIColor.gray],
+            for: .normal
+        )
+    }
+
 
     private var event: EventRecord
 
@@ -320,6 +340,8 @@ final class PaymentListViewController: UIViewController {
         segmented.translatesAutoresizingMaskIntoConstraints = false
         segmented.addTarget(self, action: #selector(segmentChanged), for: .valueChanged)
         view.addSubview(segmented)
+        
+        styleSegments()
 
         headerCard.backgroundColor = .white
         headerCard.layer.cornerRadius = 12
