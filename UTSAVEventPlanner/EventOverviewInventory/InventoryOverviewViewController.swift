@@ -14,6 +14,26 @@ final class InventoryOverviewViewController: UIViewController {
     private var vendorItems: [InventoryItemRecord] = []
     
     private let addButton = UIButton(type: .system)
+    
+    private func styleSegments() {
+        segmented.selectedSegmentTintColor = UIColor(
+            red: 136/255,
+            green: 71/255,
+            blue: 246/255,
+            alpha: 1
+        )
+
+        segmented.setTitleTextAttributes(
+            [.foregroundColor: UIColor.white],
+            for: .selected
+        )
+
+        segmented.setTitleTextAttributes(
+            [.foregroundColor: UIColor.gray],
+            for: .normal
+        )
+    }
+
 
 
     // post-event: use PostEventRow (pending rows from vw_postevent_pending)
@@ -137,6 +157,8 @@ final class InventoryOverviewViewController: UIViewController {
         segmented.translatesAutoresizingMaskIntoConstraints = false
         segmented.addTarget(self, action: #selector(segChanged), for: .valueChanged)
         view.addSubview(segmented)
+        
+        styleSegments()
 
         NSLayoutConstraint.activate([
             segmented.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),

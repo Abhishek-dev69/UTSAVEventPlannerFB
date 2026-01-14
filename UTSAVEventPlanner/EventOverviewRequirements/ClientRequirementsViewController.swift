@@ -22,6 +22,26 @@ final class ClientRequirementsViewController: UIViewController {
         self.cartItems = cartItems
         super.init(nibName: nil, bundle: nil)
     }
+    
+    private func styleSegments() {
+        segmented.selectedSegmentTintColor = UIColor(
+            red: 136/255,
+            green: 71/255,
+            blue: 246/255,
+            alpha: 1
+        )
+
+        segmented.setTitleTextAttributes(
+            [.foregroundColor: UIColor.white],
+            for: .selected
+        )
+
+        segmented.setTitleTextAttributes(
+            [.foregroundColor: UIColor.gray],
+            for: .normal
+        )
+    }
+
 
     required init?(coder: NSCoder) { fatalError("Use init(event:cartItems:)") }
 
@@ -101,6 +121,7 @@ final class ClientRequirementsViewController: UIViewController {
         segmented.translatesAutoresizingMaskIntoConstraints = false
         segmented.addTarget(self, action: #selector(segmentChanged), for: .valueChanged)
         view.addSubview(segmented)
+        styleSegments()
 
         NSLayoutConstraint.activate([
             segmented.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),

@@ -27,6 +27,26 @@ final class ServicePickerViewController: UIViewController, CartObserver {
     private var services: [Service] = []           // original
     private var filteredServices: [Service] = []   // used by table
     private var expanded: [Bool] = []
+    
+    private func styleSegments() {
+        segmented.selectedSegmentTintColor = UIColor(
+            red: 136/255,
+            green: 71/255,
+            blue: 246/255,
+            alpha: 1
+        )
+
+        segmented.setTitleTextAttributes(
+            [.foregroundColor: UIColor.white],
+            for: .selected
+        )
+
+        segmented.setTitleTextAttributes(
+            [.foregroundColor: UIColor.gray],
+            for: .normal
+        )
+    }
+
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -222,6 +242,8 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         segmented.layer.cornerRadius = 16
         segmented.clipsToBounds = true
         segmentContainer.addSubview(segmented)
+        
+        styleSegments()
 
         NSLayoutConstraint.activate([
             segmentContainer.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
