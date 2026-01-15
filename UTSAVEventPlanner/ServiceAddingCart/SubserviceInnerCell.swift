@@ -1,14 +1,9 @@
-//
-//  SubserviceInnerCell.swift
-//
-
 import UIKit
 
 final class SubserviceInnerCell: UITableViewCell {
 
     static let reuseID = "SubserviceInnerCell"
 
-    private let thumb = UIImageView()
     private let titleLabel = UILabel()
     private let priceLabel = UILabel()
 
@@ -17,9 +12,9 @@ final class SubserviceInnerCell: UITableViewCell {
     private let qtyLabel = UILabel()
     private let addBtn = UIButton(type: .system)
 
-    // --- NEW: store serviceId so we can send it to CartManager
-    private var parentServiceId: String?
+    private weak var qtyStack: UIStackView?
 
+    private var parentServiceId: String?
     private var parentService = ""
     private var subservice: Subservice?
     private var quantity = 0
@@ -34,16 +29,12 @@ final class SubserviceInnerCell: UITableViewCell {
     private func setupUI() {
         selectionStyle = .none
 
-        thumb.layer.cornerRadius = 10
-        thumb.clipsToBounds = true
-        thumb.translatesAutoresizingMaskIntoConstraints = false
-        thumb.contentMode = .scaleAspectFill
-        contentView.addSubview(thumb)
-
+        // Title
         titleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(titleLabel)
 
+        // Price
         priceLabel.font = .systemFont(ofSize: 13)
         priceLabel.textColor = .secondaryLabel
         priceLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -59,6 +50,7 @@ final class SubserviceInnerCell: UITableViewCell {
         addBtn.addTarget(self, action: #selector(addTapped), for: .touchUpInside)
         contentView.addSubview(addBtn)
 
+        // Quantity controls
         minusBtn.setTitle("-", for: .normal)
         minusBtn.titleLabel?.font = .boldSystemFont(ofSize: 18)
         minusBtn.translatesAutoresizingMaskIntoConstraints = false
@@ -79,28 +71,20 @@ final class SubserviceInnerCell: UITableViewCell {
         qtyStack.spacing = 10
         qtyStack.alignment = .center
         qtyStack.translatesAutoresizingMaskIntoConstraints = false
+        qtyStack.isHidden = true
         contentView.addSubview(qtyStack)
 
-        qtyStack.isHidden = true
+        self.qtyStack = qtyStack
 
         NSLayoutConstraint.activate([
-            // Thumb pinned top + fixed height and bottom margin to contentView (so cell gets vertical size)
-            thumb.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 32),
-            thumb.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 12),
-            thumb.widthAnchor.constraint(equalToConstant: 58),
-            thumb.heightAnchor.constraint(equalToConstant: 58),
-            thumb.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -12),
-
-            // Title anchored to thumb top and price below it
-            titleLabel.leadingAnchor.constraint(equalTo: thumb.trailingAnchor, constant: 12),
-            titleLabel.topAnchor.constraint(equalTo: thumb.topAnchor),
-            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: addBtn.leadingAnchor, constant: -8),
+            titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
+            titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
+            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: addBtn.leadingAnchor, constant: -12),
 
             priceLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             priceLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
-            priceLabel.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -12),
+            priceLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -16),
 
-            // Add / qty controls pinned right & centered vertically
             addBtn.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             addBtn.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
             addBtn.widthAnchor.constraint(equalToConstant: 70),
@@ -109,20 +93,14 @@ final class SubserviceInnerCell: UITableViewCell {
             qtyStack.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             qtyStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24)
         ])
-
-        self.qtyStack = qtyStack
     }
 
-    private weak var qtyStack: UIStackView?
-
-    // NOTE: updated configure signature to accept serviceId
     func configure(parentServiceId: String, parentService: String, sub: Subservice, quantity: Int) {
         self.parentServiceId = parentServiceId
         self.parentService = parentService
         self.subservice = sub
         self.quantity = quantity
 
-        thumb.image = sub.image ?? UIImage(systemName: "photo")
         titleLabel.text = sub.name
         priceLabel.text = "₹\(Int(sub.rate))"
 
@@ -136,8 +114,9 @@ final class SubserviceInnerCell: UITableViewCell {
     }
 
     @objc private func addTapped() {
-        guard let serviceId = parentServiceId else { return }
-        guard let sub = subservice, let subId = sub.id else { return }
+        guard let serviceId = parentServiceId,
+              let sub = subservice,
+              let subId = sub.id else { return }
 
         let alert = UIAlertController(
             title: "Add \(sub.name)",
@@ -145,14 +124,12 @@ final class SubserviceInnerCell: UITableViewCell {
             preferredStyle: .alert
         )
 
-        // Quantity
         alert.addTextField {
             $0.placeholder = "Quantity"
             $0.keyboardType = .numberPad
             $0.text = "1"
         }
 
-        // If negotiable, ask price
         if !sub.isFixed {
             alert.addTextField {
                 $0.placeholder = "Price (₹)"
@@ -164,7 +141,7 @@ final class SubserviceInnerCell: UITableViewCell {
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
 
         alert.addAction(UIAlertAction(title: "Add", style: .default) { [weak self] _ in
-            guard let self = self else { return }
+            guard let self else { return }
 
             let qty = Int(alert.textFields?[0].text ?? "1") ?? 1
             let rate = sub.isFixed
@@ -186,19 +163,17 @@ final class SubserviceInnerCell: UITableViewCell {
             )
         })
 
-        // Present from correct VC
-        self.parentViewController?.present(alert, animated: true)
+        parentViewController?.present(alert, animated: true)
     }
 
     @objc private func minusTapped() {
         quantity = max(0, quantity - 1)
 
         guard let sub = subservice else { return }
-        let subName = sub.name
 
         CartManager.shared.setQuantity(
             serviceName: parentService,
-            subserviceName: subName,
+            subserviceName: sub.name,
             quantity: quantity
         )
 
@@ -209,11 +184,10 @@ final class SubserviceInnerCell: UITableViewCell {
         quantity += 1
 
         guard let sub = subservice else { return }
-        let subName = sub.name
 
         CartManager.shared.setQuantity(
             serviceName: parentService,
-            subserviceName: subName,
+            subserviceName: sub.name,
             quantity: quantity
         )
 
@@ -221,16 +195,14 @@ final class SubserviceInnerCell: UITableViewCell {
     }
 }
 
-
-// MARK: - UIView helper to find owning view controller
+// MARK: - Helper to find ViewController
 fileprivate extension UIView {
     var parentViewController: UIViewController? {
-        var parentResponder: UIResponder? = self
-        while let next = parentResponder?.next {
+        var parent: UIResponder? = self
+        while let next = parent?.next {
             if let vc = next as? UIViewController { return vc }
-            parentResponder = next
+            parent = next
         }
         return nil
     }
 }
-
