@@ -20,6 +20,17 @@ final class RecordClientPaymentViewController: UIViewController {
 
     private let datePicker = UIDatePicker()
 
+    // 🔽 Payment Method Picker
+    private let methodPicker = UIPickerView()
+    private let paymentMethods = [
+        "UPI",
+        "Cash",
+        "Cheque",
+        "Bank Transfer",
+        "Card",
+        "Other"
+    ]
+
     // MARK: Init
     init(event: EventRecord) {
         self.event = event
@@ -46,6 +57,7 @@ final class RecordClientPaymentViewController: UIViewController {
         close.tintColor = .black
         navigationItem.leftBarButtonItem = close
     }
+
     @objc private func closeTapped() {
         dismiss(animated: true)
     }
@@ -86,8 +98,15 @@ final class RecordClientPaymentViewController: UIViewController {
         amountField.placeholder = "Amount"
         amountField.keyboardType = .decimalPad
 
+        // 🔽 Payment Method Dropdown
         methodField.borderStyle = .roundedRect
-        methodField.placeholder = "Payment Method (Cash / UPI / Bank)"
+        methodField.placeholder = "Payment Method"
+        methodField.tintColor = .clear   // hide cursor
+        methodField.inputView = methodPicker
+
+        methodPicker.dataSource = self
+        methodPicker.delegate = self
+        attachPickerToolbar(to: methodField)
 
         dateField.borderStyle = .roundedRect
         dateField.placeholder = "Date"
@@ -117,6 +136,10 @@ final class RecordClientPaymentViewController: UIViewController {
 
     private func configureDefaults() {
         clientField.text = event.clientName
+
+        // default payment method
+        methodField.text = "Cash"
+
         // default date today
         let out = DateFormatter()
         out.dateFormat = "yyyy-MM-dd"
@@ -136,9 +159,12 @@ final class RecordClientPaymentViewController: UIViewController {
             presentAlert(title: "Invalid amount", message: "Please enter a valid amount")
             return
         }
+
         let method = methodField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "Cash"
         let date = dateField.text ?? {
-            let out = DateFormatter(); out.dateFormat = "yyyy-MM-dd"; return out.string(from: Date())
+            let out = DateFormatter()
+            out.dateFormat = "yyyy-MM-dd"
+            return out.string(from: Date())
         }()
 
         saveButton.isEnabled = false
@@ -152,7 +178,7 @@ final class RecordClientPaymentViewController: UIViewController {
                     receivedOn: date,
                     payerType: "client"
                 )
-                // notify overview/list to reload
+
                 NotificationCenter.default.post(name: Notification.Name("ReloadEventOverview"), object: nil)
                 NotificationCenter.default.post(name: Notification.Name("ReloadPaymentsList"), object: nil)
 
@@ -169,6 +195,21 @@ final class RecordClientPaymentViewController: UIViewController {
         }
     }
 
+    private func attachPickerToolbar(to field: UITextField) {
+        let toolbar = UIToolbar()
+        toolbar.sizeToFit()
+
+        let spacer = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
+        let done = UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(donePickingMethod))
+
+        toolbar.setItems([spacer, done], animated: false)
+        field.inputAccessoryView = toolbar
+    }
+
+    @objc private func donePickingMethod() {
+        methodField.resignFirstResponder()
+    }
+
     private func presentAlert(title: String, message: String) {
         let a = UIAlertController(title: title, message: message, preferredStyle: .alert)
         a.addAction(UIAlertAction(title: "OK", style: .default))
@@ -176,3 +217,24 @@ final class RecordClientPaymentViewController: UIViewController {
     }
 }
 
+// MARK: - Picker Delegates
+extension RecordClientPaymentViewController: UIPickerViewDataSource, UIPickerViewDelegate {
+
+    func numberOfComponents(in pickerView: UIPickerView) -> Int { 1 }
+
+    func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
+        paymentMethods.count
+    }
+
+    func pickerView(_ pickerView: UIPickerView,
+                    titleForRow row: Int,
+                    forComponent component: Int) -> String? {
+        paymentMethods[row]
+    }
+
+    func pickerView(_ pickerView: UIPickerView,
+                    didSelectRow row: Int,
+                    inComponent component: Int) {
+        methodField.text = paymentMethods[row]
+    }
+}
