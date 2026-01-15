@@ -195,6 +195,12 @@ final class SupabaseManager {
             throw error
         }
     }
+    func signInWithGoogle() async throws {
+        try await client.auth.signInWithOAuth(
+            provider: .google,
+            redirectTo: URL(string: "utsav://callback")
+        )
+    }
 
     func signOutAuth() async throws {
         do {
@@ -227,26 +233,6 @@ final class SupabaseManager {
             throw AuthError.http(http.statusCode, msg)
         }
         NSLog("sendPasswordResetEmail -> request accepted for %@", email)
-    }
-
-    // MARK: - OAuth helpers
-    func getOAuthSignInURL(providerName: String) throws -> URL {
-        var components = URLComponents(url: supabaseBaseURL.appendingPathComponent("/auth/v1/authorize"),
-                                       resolvingAgainstBaseURL: false)
-
-        let hostedCallback = supabaseBaseURL.appendingPathComponent("/auth/v1/callback").absoluteString
-
-        components?.queryItems = [
-            URLQueryItem(name: "provider", value: providerName),
-            URLQueryItem(name: "response_type", value: "code"),
-            URLQueryItem(name: "flow_type", value: "pkce"),
-            URLQueryItem(name: "scope", value: "openid email profile"),
-            URLQueryItem(name: "prompt", value: "consent"),
-            URLQueryItem(name: "redirect_to", value: hostedCallback)
-        ]
-
-        guard let url = components?.url else { throw NSError(domain: "SupabaseManager", code: -1, userInfo: nil) }
-        return url
     }
 
     func handleAuthCallback(_ callbackURL: URL) async throws {
