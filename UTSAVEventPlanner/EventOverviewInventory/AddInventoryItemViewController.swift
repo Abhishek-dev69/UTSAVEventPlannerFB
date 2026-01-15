@@ -173,7 +173,7 @@ final class AddInventoryItemViewController: UIViewController {
 
                 // 3) callback and pop
                 onItemAdded?(item)
-                navigationController?.popViewController(animated: true)
+                dismiss(animated: true)
             } catch {
                 print("Failed to add inventory item:", error)
                 let alert = UIAlertController(title: "Error", message: "Failed to save item. Try again.", preferredStyle: .alert)
@@ -184,6 +184,5 @@ final class AddInventoryItemViewController: UIViewController {
     }
 
     @objc private func cancelTapped() {
-        navigationController?.popViewController(animated: true)
-    }
+        dismiss(animated: true)    }
 }
