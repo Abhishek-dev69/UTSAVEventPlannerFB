@@ -603,100 +603,24 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
 
     // MARK: - Google Sign-in via Supabase + ASWebAuthenticationSession
     @objc private func googleTapped() {
-        let callbackScheme = self.callbackScheme
-
-        // Build the Supabase authorize URL (requesting PKCE/code flow)
-        let authURL: URL
-        do {
-            // UPDATED CALL: manager now expects only providerName
-            authURL = try SupabaseManager.shared.getOAuthSignInURL(providerName: "google")
-        } catch {
-            presentAuthErrorAlert("Failed to build auth URL", error: error)
-            return
-        }
-
-        // Debugging: Print the URL the app will open.
-        NSLog("==> Opening authURL: %@", authURL.absoluteString)
-
-        // show spinner & disable UI to prevent double-tap
         setAuthInProgress(true)
 
-        let session = ASWebAuthenticationSession(url: authURL, callbackURLScheme: callbackScheme) { [weak self] callbackURL, error in
-            guard let self = self else { return }
+        Task {
+            do {
+                try await SupabaseManager.shared.signInWithGoogle()
 
-            // cancel timeout
-            self.authTimeoutWorkItem?.cancel()
-            self.authTimeoutWorkItem = nil
-
-            // Always log completion for debugging
-            NSLog("ASWebAuthenticationSession completion - callbackURL: %@", callbackURL?.absoluteString ?? "nil")
-            if let err = error {
-                NSLog("ASWebAuthenticationSession completion - error: %@", String(describing: err))
                 DispatchQueue.main.async {
                     self.setAuthInProgress(false)
-                    self.presentAuthErrorAlert("Google auth error", error: err)
+                    self.navigateToMainTabBar()
                 }
-                return
-            }
-
-            guard let callbackURL = callbackURL else {
+            } catch {
                 DispatchQueue.main.async {
                     self.setAuthInProgress(false)
-                    self.presentAuthErrorAlert("No callback URL returned", error: nil)
-                }
-                return
-            }
-
-            // Debug: what was returned before we hand it to SupabaseManager
-            NSLog("ASWebAuth returned URL (raw): %@", callbackURL.absoluteString)
-
-            Task {
-                do {
-                    try await SupabaseManager.shared.handleAuthCallback(callbackURL)
-                    if let uid = await SupabaseManager.shared.getCurrentUserId() {
-                        NSLog("Signed in user id: %@", uid)
-                        DispatchQueue.main.async {
-                            self.setAuthInProgress(false)
-                            self.navigateToMainTabBar()
-                        }
-                    } else {
-                        DispatchQueue.main.async {
-                            self.setAuthInProgress(false)
-                            self.presentAuthErrorAlert("Sign-in succeeded but no user returned", error: nil)
-                        }
-                    }
-                } catch {
-                    NSLog("handleAuthCallback error: %@", String(describing: error))
-                    DispatchQueue.main.async {
-                        self.setAuthInProgress(false)
-                        self.presentAuthErrorAlert("Failed to finish sign-in", error: error)
-                    }
+                    self.presentAuthErrorAlert("Google sign-in failed", error: error)
                 }
             }
         }
-
-        session.prefersEphemeralWebBrowserSession = false
-        session.presentationContextProvider = self
-        currentAuthSession = session
-
-        // timeout work item
-        let wi = DispatchWorkItem { [weak self] in
-            guard let self = self else { return }
-            NSLog("Auth timeout triggered - cancelling session")
-            self.currentAuthSession?.cancel()
-            self.currentAuthSession = nil
-            DispatchQueue.main.async {
-                self.setAuthInProgress(false)
-                self.presentAuthErrorAlert("Authentication timed out", error: nil)
-            }
-        }
-        authTimeoutWorkItem = wi
-        DispatchQueue.main.asyncAfter(deadline: .now() + 60, execute: wi)
-
-        let started = session.start()
-        NSLog("ASWebAuthenticationSession started: %d", started ? 1 : 0)
     }
-
     // set UI state during auth
     private func setAuthInProgress(_ inProgress: Bool) {
         DispatchQueue.main.async {
