@@ -21,6 +21,14 @@ final class AddInventoryItemViewController: UIViewController {
     private let saveBtn = UIButton(type: .system)
     private let cancelBtn = UIButton(type: .system)
 
+    // ✅ SAME purple as segmented control
+    private let brandPurple = UIColor(
+        red: 136/255,
+        green: 71/255,
+        blue: 246/255,
+        alpha: 1
+    )
+
     // state (single selection)
     private var selectedSource: String = "planner" {
         didSet { updateRadioUI() }
@@ -39,12 +47,8 @@ final class AddInventoryItemViewController: UIViewController {
 
         setupUI()
 
-        // 👇 auto-select from dropdown
-        if let src = preselectedSource {
-            selectedSource = src
-        } else {
-            selectedSource = "planner"
-        }
+        // auto-select from dropdown
+        selectedSource = preselectedSource ?? "planner"
     }
 
     private func setupUI() {
@@ -73,13 +77,13 @@ final class AddInventoryItemViewController: UIViewController {
         vendorRadio.addTarget(self, action: #selector(vendorTapped), for: .touchUpInside)
 
         saveBtn.setTitle("Save Item", for: .normal)
-        saveBtn.backgroundColor = UIColor.systemPurple
+        saveBtn.backgroundColor = brandPurple
         saveBtn.layer.cornerRadius = 10
         saveBtn.setTitleColor(.white, for: .normal)
         saveBtn.addTarget(self, action: #selector(saveTapped), for: .touchUpInside)
 
         cancelBtn.setTitle("Cancel", for: .normal)
-        cancelBtn.backgroundColor = UIColor.systemRed
+        cancelBtn.backgroundColor = .systemRed
         cancelBtn.layer.cornerRadius = 10
         cancelBtn.setTitleColor(.white, for: .normal)
         cancelBtn.addTarget(self, action: #selector(cancelTapped), for: .touchUpInside)
@@ -121,11 +125,12 @@ final class AddInventoryItemViewController: UIViewController {
         func image(forSelected selected: Bool) -> UIImage? {
             UIImage(systemName: selected ? "largecircle.fill.circle" : "circle")
         }
+
         plannerRadio.setImage(image(forSelected: selectedSource == "planner"), for: .normal)
         vendorRadio.setImage(image(forSelected: selectedSource == "vendor"), for: .normal)
 
-        plannerRadio.tintColor = selectedSource == "planner" ? .systemPurple : .systemGray
-        vendorRadio.tintColor = selectedSource == "vendor" ? .systemPurple : .systemGray
+        plannerRadio.tintColor = selectedSource == "planner" ? brandPurple : .systemGray
+        vendorRadio.tintColor = selectedSource == "vendor" ? brandPurple : .systemGray
     }
 
     @objc private func plannerTapped() {
@@ -140,17 +145,20 @@ final class AddInventoryItemViewController: UIViewController {
         guard let name = nameField.text?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty,
               let qtyText = qtyField.text?.trimmingCharacters(in: .whitespacesAndNewlines),
               let qty = Int(qtyText) else {
-            let alert = UIAlertController(title: "Missing data", message: "Please enter a valid name and quantity.", preferredStyle: .alert)
+            let alert = UIAlertController(
+                title: "Missing data",
+                message: "Please enter a valid name and quantity.",
+                preferredStyle: .alert
+            )
             alert.addAction(UIAlertAction(title: "OK", style: .default))
             present(alert, animated: true)
             return
         }
 
-        let source = selectedSource // "planner" or "vendor"
+        let source = selectedSource
 
         Task {
             do {
-                // 1) create inventory item with correct quantity
                 let item = try await InventoryDataManager.shared.addInventoryItem(
                     eventId: eventId,
                     name: name,
@@ -159,24 +167,21 @@ final class AddInventoryItemViewController: UIViewController {
                     sourceType: source
                 )
 
-                // 2) create corresponding post-event pending row with the same qty as item
-                //    (previously this passed qty:1 always)
-                do {
-                    try await InventoryDataManager.shared.createPostEventRow(
-                        inventoryItemId: item.id,
-                        eventId: eventId,
-                        qty: qty            // <--- pass real item quantity
-                    )
-                } catch {
-                    print("Warning: failed to create post-event row for item \(item.id):", error)
-                }
+                try? await InventoryDataManager.shared.createPostEventRow(
+                    inventoryItemId: item.id,
+                    eventId: eventId,
+                    qty: qty
+                )
 
-                // 3) callback and pop
                 onItemAdded?(item)
                 dismiss(animated: true)
+
             } catch {
-                print("Failed to add inventory item:", error)
-                let alert = UIAlertController(title: "Error", message: "Failed to save item. Try again.", preferredStyle: .alert)
+                let alert = UIAlertController(
+                    title: "Error",
+                    message: "Failed to save item. Try again.",
+                    preferredStyle: .alert
+                )
                 alert.addAction(UIAlertAction(title: "OK", style: .default))
                 present(alert, animated: true)
             }
@@ -184,5 +189,7 @@ final class AddInventoryItemViewController: UIViewController {
     }
 
     @objc private func cancelTapped() {
-        dismiss(animated: true)    }
+        dismiss(animated: true)
+    }
 }
+
