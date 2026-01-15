@@ -140,4 +140,3 @@ final class OutsourceRequirementCell: UITableViewCell {
         budgetLabel.text = "Clients Budget: ₹\(total)"
     }
 }
-

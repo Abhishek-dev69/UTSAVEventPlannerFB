@@ -456,4 +456,3 @@ private extension InventoryOverviewViewController {
         }
     }
 }
-

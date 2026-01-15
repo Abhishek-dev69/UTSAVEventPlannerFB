@@ -595,4 +595,3 @@ extension PaymentListViewController: UITableViewDataSource, UITableViewDelegate 
         return iso
     }
 }
-

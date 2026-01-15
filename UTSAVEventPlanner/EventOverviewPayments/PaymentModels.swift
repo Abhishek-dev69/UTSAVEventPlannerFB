@@ -17,4 +17,3 @@ struct PaymentInsert: Encodable {
     let received_on: String
     let payer_type: String
 }
-

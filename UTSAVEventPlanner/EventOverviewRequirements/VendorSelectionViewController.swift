@@ -276,4 +276,3 @@ extension VendorSelectionViewController: UISearchBarDelegate {
         searchBar.resignFirstResponder()
     }
 }
-

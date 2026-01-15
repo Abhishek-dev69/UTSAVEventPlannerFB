@@ -83,6 +83,4 @@ final class ServiceCardHeaderCell: UIView {
             ? CGAffineTransform(rotationAngle: .pi / 2)
             : .identity
     }
-
 }
-

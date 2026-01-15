@@ -82,4 +82,3 @@ final class OutsourceRequirementDetailViewController: UIViewController {
         navigationController?.pushViewController(vc, animated: true)
     }
 }
-

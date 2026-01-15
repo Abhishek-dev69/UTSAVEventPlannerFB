@@ -62,4 +62,3 @@ final class InhouseRequirementCell: UITableViewCell {
         qtyLabel.text = "\(item.quantity ?? 0)"
     }
 }
-

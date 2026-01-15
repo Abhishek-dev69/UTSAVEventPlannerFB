@@ -137,4 +137,3 @@ extension String {
         self.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
-
