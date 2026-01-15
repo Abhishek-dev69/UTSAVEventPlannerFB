@@ -478,4 +478,3 @@ extension ServicePickerViewController: UISearchBarDelegate {
         tableView.reloadData()
     }
 }
-

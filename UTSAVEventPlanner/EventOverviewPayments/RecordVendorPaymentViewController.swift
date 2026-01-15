@@ -164,4 +164,3 @@ final class RecordVendorPaymentViewController: UIViewController {
         present(a, animated: true)
     }
 }
-

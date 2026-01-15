@@ -192,4 +192,3 @@ final class AddInventoryItemViewController: UIViewController {
         dismiss(animated: true)
     }
 }
-

@@ -8,4 +8,3 @@ struct Vendor: Codable {
     let rating: Double
     let years: Int
 }
-

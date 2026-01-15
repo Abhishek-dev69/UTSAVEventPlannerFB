@@ -288,4 +288,3 @@ final class VendorProposalViewController: UIViewController {
         }
     }
 }
-
