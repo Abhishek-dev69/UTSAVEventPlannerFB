@@ -21,7 +21,7 @@ final class ServiceDetailListViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
         title = service.name
         setupSearch()
         setupTable()

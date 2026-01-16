@@ -51,7 +51,7 @@ final class ServicePickerViewController: UIViewController, CartObserver {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .white
+        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
 
         setupNav()
         setupSegmentContainer()
@@ -276,7 +276,7 @@ final class ServicePickerViewController: UIViewController, CartObserver {
     // MARK: - Table
     private func setupTable() {
         tableView.translatesAutoresizingMaskIntoConstraints = false
-        tableView.backgroundColor = .white
+        tableView.backgroundColor = UIColor(white: 0.97, alpha: 1)
         tableView.separatorStyle = .none
         tableView.showsVerticalScrollIndicator = false
         
