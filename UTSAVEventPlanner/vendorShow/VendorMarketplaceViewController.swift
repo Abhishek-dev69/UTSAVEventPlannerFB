@@ -19,7 +19,7 @@ final class VendorMarketplaceViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         title = "Vendors"
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
         let tap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
         tap.cancelsTouchesInView = false
         view.addGestureRecognizer(tap)

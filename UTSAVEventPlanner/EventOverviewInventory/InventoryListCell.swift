@@ -14,6 +14,7 @@ final class InventoryListCell: UITableViewCell {
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         backgroundColor = .clear
+        contentView.backgroundColor = .clear
         selectionStyle = .none
 
         card.layer.cornerRadius = 10

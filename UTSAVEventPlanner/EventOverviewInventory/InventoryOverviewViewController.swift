@@ -14,6 +14,7 @@ final class InventoryOverviewViewController: UIViewController {
     private var vendorItems: [InventoryItemRecord] = []
     
     private let addButton = UIButton(type: .system)
+    private var tableBottomConstraint: NSLayoutConstraint!
     
     private func styleSegments() {
         segmented.selectedSegmentTintColor = UIColor(
@@ -65,8 +66,7 @@ final class InventoryOverviewViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
-
+        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
         setupNav()
         setupBottomButton()
         setupSegment()
@@ -171,6 +171,7 @@ final class InventoryOverviewViewController: UIViewController {
     private func setupTable() {
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.separatorStyle = .none
+        tableView.backgroundColor = .clear
         tableView.register(InventoryListCell.self, forCellReuseIdentifier: "InventoryListCell")
         tableView.register(InventoryCheckboxCell.self, forCellReuseIdentifier: "InventoryCheckboxCell")
         tableView.dataSource = self
@@ -182,8 +183,12 @@ final class InventoryOverviewViewController: UIViewController {
             tableView.topAnchor.constraint(equalTo: segmented.bottomAnchor, constant: 12),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            tableView.bottomAnchor.constraint(equalTo: bottomButton.topAnchor, constant: -14)
         ])
+        tableBottomConstraint = tableView.bottomAnchor.constraint(
+            equalTo: view.safeAreaLayoutGuide.bottomAnchor
+        )
+        tableBottomConstraint.isActive = true
+
     }
 
     private func setupBottomButton() {
