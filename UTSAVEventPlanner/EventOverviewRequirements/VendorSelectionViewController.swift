@@ -8,7 +8,12 @@ import UIKit
 final class VendorSelectionViewController: UIViewController {
 
     // MARK: - Input
-    private let requirement: CartItemRecord
+    private let requirements: [CartItemRecord]
+
+    init(requirements: [CartItemRecord]) {
+        self.requirements = requirements
+        super.init(nibName: nil, bundle: nil)
+    }
 
     // MARK: - UI
     private let segmented = UISegmentedControl(items: ["My Vendors", "Marketplace"])
@@ -27,10 +32,6 @@ final class VendorSelectionViewController: UIViewController {
     private var loadingHud: UIActivityIndicatorView?
 
     // MARK: - Init
-    init(requirement: CartItemRecord) {
-        self.requirement = requirement
-        super.init(nibName: nil, bundle: nil)
-    }
     required init?(coder: NSCoder) { fatalError() }
 
     // MARK: - Lifecycle
@@ -220,8 +221,9 @@ extension VendorSelectionViewController: UITableViewDataSource, UITableViewDeleg
             guard let self = self else { return }
             let vc = VendorProposalViewController(
                 vendor: vendor,
-                requirement: self.requirement
+                requirements: self.requirements
             )
+
             self.navigationController?.pushViewController(vc, animated: true)
         }
 
@@ -237,7 +239,7 @@ extension VendorSelectionViewController: UITableViewDataSource, UITableViewDeleg
 
         let vc = VendorProposalViewController(
             vendor: vendor,
-            requirement: requirement
+            requirements: self.requirements
         )
         navigationController?.pushViewController(vc, animated: true)
     }

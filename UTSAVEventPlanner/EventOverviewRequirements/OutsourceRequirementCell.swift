@@ -2,141 +2,113 @@ import UIKit
 
 final class OutsourceRequirementCell: UITableViewCell {
 
-    // MARK: - Stored Action (🔥 VERY IMPORTANT)
-    private var assignUIAction: UIAction?
+    // MARK: - Callbacks
+    var onSelectionChanged: ((Bool) -> Void)?
 
-    // MARK: - UI Elements
-    private let container: UIView = {
-        let v = UIView()
-        v.translatesAutoresizingMaskIntoConstraints = false
-        v.backgroundColor = .white
-        v.layer.cornerRadius = 12
-        v.layer.shadowColor = UIColor.black.withAlphaComponent(0.08).cgColor
-        v.layer.shadowOffset = CGSize(width: 0, height: 2)
-        v.layer.shadowRadius = 6
-        v.layer.shadowOpacity = 1
-        return v
-    }()
+    // MARK: - UI
+    private let container = UIView()
+    private let checkbox = UIButton(type: .system)
+    private let titleLabel = UILabel()
+    private let descLabel = UILabel()
+    private let budgetLabel = UILabel()
 
-    private let titleLabel: UILabel = {
-        let l = UILabel()
-        l.translatesAutoresizingMaskIntoConstraints = false
-        l.font = .systemFont(ofSize: 16, weight: .semibold)
-        l.numberOfLines = 1
-        return l
-    }()
-
-    private let descLabel: UILabel = {
-        let l = UILabel()
-        l.translatesAutoresizingMaskIntoConstraints = false
-        l.font = .systemFont(ofSize: 13, weight: .regular)
-        l.numberOfLines = 2
-        l.textColor = .darkGray
-        return l
-    }()
-
-    private let budgetLabel: UILabel = {
-        let l = UILabel()
-        l.translatesAutoresizingMaskIntoConstraints = false
-        l.font = .systemFont(ofSize: 14, weight: .medium)
-        l.numberOfLines = 1
-        l.textColor = .systemGreen
-        return l
-    }()
-
-    private let assignButton: UIButton = {
-        let b = UIButton(type: .system)
-        b.translatesAutoresizingMaskIntoConstraints = false
-        b.setTitle("Assign", for: .normal)
-        b.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
-        return b
-    }()
-
-    // MARK: - Init
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         selectionStyle = .none
-        contentView.backgroundColor = .systemGroupedBackground
         setup()
     }
 
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        setup()
-    }
+    required init?(coder: NSCoder) { fatalError() }
 
-    // MARK: - Reuse Cleanup (🔥 CRITICAL)
     override func prepareForReuse() {
         super.prepareForReuse()
-
-        if let action = assignUIAction {
-            assignButton.removeAction(action, for: .touchUpInside)
-            assignUIAction = nil
-        }
+        checkbox.isSelected = false
+        onSelectionChanged = nil
     }
 
     private func setup() {
+
+        contentView.backgroundColor = .systemGroupedBackground
+
+        // Card container
+        container.backgroundColor = .white
+        container.layer.cornerRadius = 12
+        container.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(container)
-        container.addSubview(titleLabel)
-        container.addSubview(descLabel)
-        container.addSubview(budgetLabel)
-        container.addSubview(assignButton)
+
+        // Checkbox (clean, no background)
+        checkbox.setImage(UIImage(systemName: "circle"), for: .normal)
+        checkbox.setImage(UIImage(systemName: "checkmark.circle.fill"), for: .selected)
+        checkbox.tintColor = .utsavPurple
+        checkbox.backgroundColor = .clear
+        checkbox.translatesAutoresizingMaskIntoConstraints = false
+        checkbox.addTarget(self, action: #selector(toggle), for: .touchUpInside)
+
+        // Labels
+        titleLabel.font = .systemFont(ofSize: 16, weight: .semibold)
+
+        descLabel.font = .systemFont(ofSize: 13)
+        descLabel.textColor = .darkGray
+
+        budgetLabel.font = .systemFont(ofSize: 14, weight: .medium)
+        budgetLabel.textColor = .systemGreen
+
+        [titleLabel, descLabel, budgetLabel, checkbox].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            container.addSubview($0)
+        }
 
         NSLayoutConstraint.activate([
+            // Card
             container.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
             container.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 12),
             container.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -12),
             container.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
 
-            titleLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 12),
+            // Checkbox (RIGHT, clean)
+            checkbox.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
+            checkbox.topAnchor.constraint(equalTo: container.topAnchor, constant: 14),
+            checkbox.widthAnchor.constraint(equalToConstant: 26),
+            checkbox.heightAnchor.constraint(equalToConstant: 26),
+
+            // Title
             titleLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
-            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: assignButton.leadingAnchor, constant: -8),
+            titleLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 12),
+            titleLabel.trailingAnchor.constraint(equalTo: checkbox.leadingAnchor, constant: -12),
 
+            // Description
+            descLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             descLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 6),
-            descLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
-            descLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
+            descLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
 
+            // Budget
+            budgetLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             budgetLabel.topAnchor.constraint(equalTo: descLabel.bottomAnchor, constant: 8),
-            budgetLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
             budgetLabel.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -12),
-
-            assignButton.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
-            assignButton.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
-            assignButton.heightAnchor.constraint(equalToConstant: 32),
-            assignButton.widthAnchor.constraint(equalToConstant: 80)
+            budgetLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor)
         ])
     }
 
-    // MARK: - Assign Action (✅ SAFE)
-    func setAssignAction(_ action: @escaping () -> Void) {
-
-        // Remove previous action if exists
-        if let oldAction = assignUIAction {
-            assignButton.removeAction(oldAction, for: .touchUpInside)
-        }
-
-        let newAction = UIAction { _ in
-            action()
-        }
-
-        assignUIAction = newAction
-        assignButton.addAction(newAction, for: .touchUpInside)
+    @objc private func toggle() {
+        checkbox.isSelected.toggle()
+        onSelectionChanged?(checkbox.isSelected)
     }
 
-    // MARK: - Configure
-    func configure(item: CartItemRecord) {
+    func configure(item: CartItemRecord, isSelected: Bool) {
+        checkbox.isSelected = isSelected
+        titleLabel.text = item.serviceName ?? "Service"
+        descLabel.text = "Client Requirement: \(item.subserviceName ?? "—")"
 
-        let serviceName = item.serviceName?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let subserviceName = item.subserviceName?.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        titleLabel.text = serviceName?.isEmpty == false ? serviceName : "Service"
-        descLabel.text = "Client Requirement: " +
-            (subserviceName?.isEmpty == false ? subserviceName! : "—")
-
-        let rate = item.rate ?? 0
-        let qty = item.quantity ?? 0
-        let total = Int(rate * Double(qty))
-
+        let total = Int((item.rate ?? 0) * Double(item.quantity ?? 1))
         budgetLabel.text = "Clients Budget: ₹\(total)"
     }
+}
+
+extension UIColor {
+    static let utsavPurple = UIColor(
+        red: 136/255,
+        green: 71/255,
+        blue: 246/255,
+        alpha: 1
+    )
 }

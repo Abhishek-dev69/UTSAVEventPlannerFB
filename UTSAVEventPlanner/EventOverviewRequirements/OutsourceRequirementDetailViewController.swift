@@ -8,6 +8,7 @@ final class OutsourceRequirementDetailViewController: UIViewController {
         self.item = item
         super.init(nibName: nil, bundle: nil)
     }
+
     required init?(coder: NSCoder) { fatalError() }
 
     private let scroll = UIScrollView()
@@ -20,7 +21,6 @@ final class OutsourceRequirementDetailViewController: UIViewController {
         super.viewDidLoad()
         view.backgroundColor = UIColor(white: 0.97, alpha: 1)
         title = "Outsource Requirement"
-
         setupUI()
         fillData()
     }
@@ -40,7 +40,6 @@ final class OutsourceRequirementDetailViewController: UIViewController {
         stack.axis = .vertical
         stack.spacing = 16
         stack.translatesAutoresizingMaskIntoConstraints = false
-
         scroll.addSubview(stack)
 
         NSLayoutConstraint.activate([
@@ -52,13 +51,13 @@ final class OutsourceRequirementDetailViewController: UIViewController {
         ])
 
         nameLabel.font = .systemFont(ofSize: 22, weight: .bold)
-        descLabel.numberOfLines = 0
         descLabel.font = .systemFont(ofSize: 15)
+        descLabel.numberOfLines = 0
         budgetLabel.font = .systemFont(ofSize: 16, weight: .semibold)
         budgetLabel.textColor = .systemGreen
 
         assignButton.setTitle("Assign Vendor", for: .normal)
-        assignButton.backgroundColor = UIColor.systemPurple
+        assignButton.backgroundColor = .systemPurple
         assignButton.setTitleColor(.white, for: .normal)
         assignButton.layer.cornerRadius = 22
         assignButton.heightAnchor.constraint(equalToConstant: 50).isActive = true
@@ -73,12 +72,13 @@ final class OutsourceRequirementDetailViewController: UIViewController {
     private func fillData() {
         nameLabel.text = item.serviceName
         descLabel.text = item.subserviceName
-        let total = (item.rate ?? 0) * Double(item.quantity ?? 1)
-        budgetLabel.text = "Budget: ₹\(Int(total))"
+        let total = Int((item.rate ?? 0) * Double(item.quantity ?? 1))
+        budgetLabel.text = "Budget: ₹\(total)"
     }
 
     @objc private func assignTapped() {
-        let vc = VendorSelectionViewController(requirement: item)
+        let vc = VendorSelectionViewController(requirements: [item])
         navigationController?.pushViewController(vc, animated: true)
     }
 }
+
