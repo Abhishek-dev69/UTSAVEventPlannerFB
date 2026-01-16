@@ -53,7 +53,7 @@ final class ClientRequirementsViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .white
+        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
         title = "Client Requirements"
 
         setupSegment()
@@ -139,6 +139,7 @@ final class ClientRequirementsViewController: UIViewController {
     private func setupTable() {
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.separatorStyle = .none
+        tableView.backgroundColor = .clear
         tableView.dataSource = self
         tableView.delegate = self
 

@@ -18,7 +18,7 @@ final class OutsourceRequirementDetailViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .white
+        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
         title = "Outsource Requirement"
 
         setupUI()
