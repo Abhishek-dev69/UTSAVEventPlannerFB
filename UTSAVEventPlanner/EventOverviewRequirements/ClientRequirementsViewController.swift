@@ -12,6 +12,18 @@ final class ClientRequirementsViewController: UIViewController {
     private var cartItems: [CartItemRecord] = []
     private var inhouse: [CartItemRecord] = []
     private var outsource: [CartItemRecord] = []
+    private var selectedOutsourceIds: Set<String> = []
+    private let bottomAssignButton: UIButton = {
+        let b = UIButton(type: .system)
+        b.setTitle("Assign Vendor", for: .normal)
+        b.backgroundColor = .utsavPurple
+        b.setTitleColor(.white, for: .normal)
+        b.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
+        b.layer.cornerRadius = 26
+        b.isHidden = true
+        return b
+    }()
+
 
     private var selectedSegment = 0
     private var cartPersistObserver: NSObjectProtocol?
@@ -59,6 +71,8 @@ final class ClientRequirementsViewController: UIViewController {
         setupSegment()
         setupTable()
         setupAddButton()
+        setupBottomAssignButton()
+
 
         // Observe persisted cart changes and refetch only if it belongs to this event
         cartPersistObserver = NotificationCenter.default.addObserver(forName: .CartItemPersisted, object: nil, queue: .main) { [weak self] note in
@@ -86,6 +100,25 @@ final class ClientRequirementsViewController: UIViewController {
             tableView.reloadData()
         }
     }
+    private func setupBottomAssignButton() {
+
+        bottomAssignButton.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(bottomAssignButton)
+
+        NSLayoutConstraint.activate([
+            bottomAssignButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            bottomAssignButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            bottomAssignButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
+            bottomAssignButton.heightAnchor.constraint(equalToConstant: 52)
+        ])
+
+        bottomAssignButton.addTarget(
+            self,
+            action: #selector(assignSelectedOutsource),
+            for: .touchUpInside
+        )
+    }
+
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
@@ -262,6 +295,21 @@ final class ClientRequirementsViewController: UIViewController {
             }
         }
     }
+    @objc private func assignSelectedOutsource() {
+
+        let selectedItems = outsource.filter {
+            selectedOutsourceIds.contains($0.id)
+        }
+
+        guard !selectedItems.isEmpty else { return }
+
+        let vc = VendorSelectionViewController(
+            requirements: selectedItems
+        )
+
+        navigationController?.pushViewController(vc, animated: true)
+    }
+
 
     /// Optionally refetch if the current arrays are empty (prevents unnecessary network calls)
     private func fetchAndSplitCartIfNeeded() async {
@@ -287,10 +335,13 @@ extension ClientRequirementsViewController: UITableViewDataSource, UITableViewDe
         return selectedSegment == 0 ? 60 : 150
     }
 
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    func tableView(_ tableView: UITableView,
+                   cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 
         if selectedSegment == 0 {
+            // -------------------------
             // IN-HOUSE CELL
+            // -------------------------
             let cell = tableView.dequeueReusableCell(
                 withIdentifier: "InhouseRequirementCell",
                 for: indexPath
@@ -300,24 +351,31 @@ extension ClientRequirementsViewController: UITableViewDataSource, UITableViewDe
             return cell
 
         } else {
+            // -------------------------
             // OUTSOURCE CELL
-            // OUTSOURCE CELL
+            // -------------------------
             let cell = tableView.dequeueReusableCell(
                 withIdentifier: "OutsourceRequirementCell",
                 for: indexPath
             ) as! OutsourceRequirementCell
 
-            cell.configure(item: outsource[indexPath.row])
+            let item = outsource[indexPath.row]
+            let isSelected = selectedOutsourceIds.contains(item.id)
 
-            // ✅ FIXED FLOW: Directly open Assign Vendor screen
-            cell.setAssignAction { [weak self] in
+            cell.configure(item: item, isSelected: isSelected)
+
+            // checkbox handling
+            cell.onSelectionChanged = { [weak self] selected in
                 guard let self else { return }
-                let item = self.outsource[indexPath.row]
 
-                let vc = VendorSelectionViewController(requirement: item)
-                self.navigationController?.pushViewController(vc, animated: true)
+                if selected {
+                    self.selectedOutsourceIds.insert(item.id)
+                } else {
+                    self.selectedOutsourceIds.remove(item.id)
+                }
+
+                self.bottomAssignButton.isHidden = self.selectedOutsourceIds.isEmpty
             }
-
             return cell
         }
     }

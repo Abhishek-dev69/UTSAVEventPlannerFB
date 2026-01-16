@@ -8,7 +8,7 @@ import UIKit
 final class VendorProposalViewController: UIViewController {
 
     private let vendor: VendorRecord
-    private let requirement: CartItemRecord
+    private let requirements: [CartItemRecord]
 
     // Top card
     private let card = UIView()
@@ -25,9 +25,9 @@ final class VendorProposalViewController: UIViewController {
     // Date picker
     private let datePicker = UIDatePicker()
 
-    init(vendor: VendorRecord, requirement: CartItemRecord) {
+    init(vendor: VendorRecord, requirements: [CartItemRecord]) {
         self.vendor = vendor
-        self.requirement = requirement
+        self.requirements = requirements
         super.init(nibName: nil, bundle: nil)
     }
     required init?(coder: NSCoder) { fatalError() }
@@ -221,47 +221,61 @@ final class VendorProposalViewController: UIViewController {
 
     // MARK: - Fill values
     private func fillData() {
-        // Title should be service/material name
-        titleLabel.text = requirement.serviceName?.isEmpty == false ? requirement.serviceName : "Service"
 
-        // Description should be the detailed requirements (subservice_name)
-        descriptionLabel.text = requirement.subserviceName ?? ""
+            vendorField.text = vendor.fullName ?? vendor.businessName ?? ""
 
-        // Default vendor is passed, budget default uses rate * qty
-        // Use vendor.fullName if available, else businessName
-        vendorField.text = vendor.fullName ?? vendor.businessName ?? ""
+            titleLabel.text = requirements.count > 1
+                ? "Multiple Requirements"
+                : (requirements.first?.serviceName ?? "Requirement")
 
-        let rate = requirement.rate ?? 0
-        let qty = requirement.quantity ?? 1
-        let total = Int(rate * Double(qty))
-        budgetField.text = "\(total)"
-    }
+            descriptionLabel.text = requirements
+                .map {
+                    "• \($0.serviceName ?? "") – \($0.subserviceName ?? "")"
+                }
+                .joined(separator: "\n")
 
+            let totalBudget = requirements.reduce(0) {
+                $0 + Int(($1.rate ?? 0) * Double($1.quantity ?? 1))
+            }
+
+            budgetField.text = "\(totalBudget)"
+        }
     // MARK: - SEND TO SUPABASE
     @objc private func sendTapped() {
-        // Validate inputs
+
+        // 1️⃣ Validate budget
         guard
             let budgetText = budgetField.text,
             let budget = Double(budgetText),
-            let eventId = requirement.eventId
+            let eventId = requirements.first?.eventId
         else {
-            let a = UIAlertController(title: "Missing info", message: "Please fill required fields.", preferredStyle: .alert)
-            a.addAction(UIAlertAction(title: "OK", style: .default))
-            present(a, animated: true)
+            let alert = UIAlertController(
+                title: "Missing info",
+                message: "Please fill required fields.",
+                preferredStyle: .alert
+            )
+            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            present(alert, animated: true)
             return
         }
+
+        // 2️⃣ Prepare combined description
+        let combinedDescription = requirements
+            .map { "• \($0.serviceName ?? "") – \($0.subserviceName ?? "")" }
+            .joined(separator: "\n")
 
         let completionDate = dateField.text ?? ""
         let notes = notesText.text ?? ""
         let vendorIdToSend = vendor.userId ?? vendor.id
 
+        // 3️⃣ Send ONE proposal for MANY requirements
         Task {
             do {
                 try await VendorProposalSupabaseManager.shared.sendProposal(
                     eventId: eventId,
                     vendorId: vendorIdToSend,
-                    serviceName: requirement.serviceName ?? "",
-                    description: requirement.subserviceName ?? "",
+                    serviceName: "Multiple Requirements",
+                    description: combinedDescription,
                     budget: budget,
                     completionDate: completionDate,
                     notes: notes
@@ -274,13 +288,18 @@ final class VendorProposalViewController: UIViewController {
                         preferredStyle: .alert
                     )
                     alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
-                        self.navigationController?.popViewController(animated: true)
+                        self.navigationController?.popToRootViewController(animated: true)
                     })
                     self.present(alert, animated: true)
                 }
+
             } catch {
                 await MainActor.run {
-                    let alert = UIAlertController(title: "Error", message: error.localizedDescription, preferredStyle: .alert)
+                    let alert = UIAlertController(
+                        title: "Error",
+                        message: error.localizedDescription,
+                        preferredStyle: .alert
+                    )
                     alert.addAction(UIAlertAction(title: "OK", style: .default))
                     self.present(alert, animated: true)
                 }
