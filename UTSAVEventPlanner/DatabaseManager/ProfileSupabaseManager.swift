@@ -63,7 +63,7 @@ final class ProfileSupabaseManager {
         try await bucket.upload(
             path,
             data: data,
-            options: FileOptions(contentType: "image/jpeg")
+            options: FileOptions(contentType: "image/jpeg",upsert: true)
         )
 
         // Get public URL

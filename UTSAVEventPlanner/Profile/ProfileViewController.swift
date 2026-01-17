@@ -1,5 +1,6 @@
 import UIKit
 import PhotosUI
+import Supabase
 
 final class ProfileViewController: UIViewController {
 
@@ -12,6 +13,12 @@ final class ProfileViewController: UIViewController {
     private let profileStack = UIStackView()
     private let profileImageView = UIImageView()
     private let profileHintLabel = UILabel()
+    private var didSelectProfileImage = false
+    private var didRemoveProfileImage = false
+    private var currentProfileImageURL: String?
+
+
+
 
     // Cards
     private let personalCard = UIView()
@@ -160,6 +167,8 @@ final class ProfileViewController: UIViewController {
         profileImageView.isUserInteractionEnabled = true
         profileImageView.image = UIImage(systemName: "person.crop.circle")?.withRenderingMode(.alwaysTemplate)
         profileImageView.tintColor = .secondaryLabel
+        self.didSelectProfileImage = false
+        self.didRemoveProfileImage = false
 
         let tap = UITapGestureRecognizer(target: self, action: #selector(profileTapped))
         profileImageView.addGestureRecognizer(tap)
@@ -322,20 +331,41 @@ final class ProfileViewController: UIViewController {
     }
 
     // MARK: - SAVE PROFILE (With Image Upload)
-
     @objc private func saveProfileTapped() {
         Task {
             do {
                 let userId = try await SupabaseManager.shared.ensureUserId()
 
-                var uploadedImageURL: String? = nil
-                if profileImageView.tintColor == nil,
+                var uploadedImageURL: String? = currentProfileImageURL
+
+                // ✅ CASE 1: New image selected
+                if didSelectProfileImage,
                    let img = profileImageView.image {
+
                     uploadedImageURL =
                         try await ProfileSupabaseManager.shared.uploadProfileImage(
                             userId: userId,
                             image: img
                         )
+                }
+
+                // ✅ CASE 2: Image removed
+                if didRemoveProfileImage {
+
+                    // 1️⃣ Clear DB column
+                    let clearPayload = ProfileImageNullUpdate(profile_image_url: nil)
+
+                    try await SupabaseManager.shared.client
+                        .from("user_profiles")
+                        .update(clearPayload)
+                        .eq("id", value: userId)
+                        .execute()
+
+                    // 2️⃣ Delete image from storage
+                    _ = try? await SupabaseManager.shared.client
+                        .storage
+                        .from("profile-photos")
+                        .remove(paths: ["profiles/\(userId).jpg"])
                 }
 
                 let payload = UserProfileInsert(
@@ -352,7 +382,6 @@ final class ProfileViewController: UIViewController {
 
                 await MainActor.run {
                     let tabBar = MainTabBarController.make()
-
                     if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
                        let window = scene.windows.first {
                         window.rootViewController = tabBar
@@ -365,36 +394,52 @@ final class ProfileViewController: UIViewController {
         }
     }
 
-
     // MARK: - Load Profile
 
     private func loadProfile() async {
         do {
             let uid = try await SupabaseManager.shared.ensureUserId()
-            if let p = try await ProfileSupabaseManager.shared.fetchProfile(for: uid) {
 
-                await MainActor.run {
-                    nameField.text = p.fullName
-                    emailField.text = p.email
-                    phoneField.text = p.phone
-                    businessNameField.text = p.businessName
-                    businessAddressField.text = p.businessAddress
+            guard let p = try await ProfileSupabaseManager.shared.fetchProfile(for: uid) else {
+                return
+            }
 
-                    if let urlStr = p.profileImageUrl,
-                       let url = URL(string: urlStr),
-                       let data = try? Data(contentsOf: url),
-                       let img = UIImage(data: data) {
+            // ✅ Update text fields + state on main thread
+            await MainActor.run {
+                self.nameField.text = p.fullName
+                self.emailField.text = p.email
+                self.phoneField.text = p.phone
+                self.businessNameField.text = p.businessName
+                self.businessAddressField.text = p.businessAddress
 
-                        self.profileImageView.image = img
-                        self.profileImageView.tintColor = nil
-                    }
-                }
+                // ✅ Preserve existing image URL
+                self.currentProfileImageURL = p.profileImageUrl
+
+                // Reset flags (VERY IMPORTANT)
+                self.didSelectProfileImage = false
+                self.didRemoveProfileImage = false
+            }
+
+            // ✅ Load image asynchronously (NON-BLOCKING)
+            guard let urlStr = p.profileImageUrl,
+                  let url = URL(string: urlStr) else {
+                return
+            }
+
+            let (data, _) = try await URLSession.shared.data(from: url)
+
+            guard let img = UIImage(data: data) else { return }
+
+            await MainActor.run {
+                self.profileImageView.image = img
+                self.profileImageView.tintColor = nil
             }
 
         } catch {
             print("Failed to load profile:", error)
         }
     }
+
 
     // MARK: - Image Picker
 
@@ -416,6 +461,8 @@ final class ProfileViewController: UIViewController {
         a.addAction(UIAlertAction(title: "Remove Photo", style: .destructive) { _ in
             self.profileImageView.image = UIImage(systemName: "person.crop.circle")
             self.profileImageView.tintColor = .secondaryLabel
+            self.didRemoveProfileImage = true
+            self.didSelectProfileImage = false
         })
 
         a.addAction(UIAlertAction(title: "Cancel", style: .cancel))
@@ -483,6 +530,8 @@ extension ProfileViewController: PHPickerViewControllerDelegate {
             DispatchQueue.main.async {
                 self?.profileImageView.image = img
                 self?.profileImageView.tintColor = nil
+                self?.didSelectProfileImage = true
+                self?.didRemoveProfileImage = false
             }
         }
     }
@@ -505,7 +554,14 @@ extension ProfileViewController: UIImagePickerControllerDelegate, UINavigationCo
         if let image = img {
             profileImageView.image = image
             profileImageView.tintColor = nil
+            didSelectProfileImage = true
+            didRemoveProfileImage = false
         }
     }
 }
+
+private struct ProfileImageNullUpdate: Encodable {
+    let profile_image_url: String?
+}
+
 
