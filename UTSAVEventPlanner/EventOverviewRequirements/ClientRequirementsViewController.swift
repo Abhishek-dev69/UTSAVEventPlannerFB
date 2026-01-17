@@ -3,6 +3,7 @@
 //
 
 import UIKit
+import Supabase
 
 final class ClientRequirementsViewController: UIViewController {
 
@@ -13,6 +14,9 @@ final class ClientRequirementsViewController: UIViewController {
     private var inhouse: [CartItemRecord] = []
     private var outsource: [CartItemRecord] = []
     private var selectedOutsourceIds: Set<String> = []
+    private var cartRealtimeChannel: RealtimeChannelV2?
+    private var didUnsubscribeRealtime = false
+
     private let bottomAssignButton: UIButton = {
         let b = UIButton(type: .system)
         b.setTitle("Assign Vendor", for: .normal)
@@ -61,8 +65,14 @@ final class ClientRequirementsViewController: UIViewController {
         if let obs = cartPersistObserver {
             NotificationCenter.default.removeObserver(obs)
         }
-    }
 
+        if let channel = cartRealtimeChannel {
+            Task {
+                await channel.unsubscribe()
+                print("🛑 Cart realtime unsubscribed (deinit)")
+            }
+        }
+    }
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor(white: 0.97, alpha: 1)
@@ -72,6 +82,7 @@ final class ClientRequirementsViewController: UIViewController {
         setupTable()
         setupAddButton()
         setupBottomAssignButton()
+        subscribeToCartRealtime()
 
 
         // Observe persisted cart changes and refetch only if it belongs to this event
@@ -100,6 +111,38 @@ final class ClientRequirementsViewController: UIViewController {
             tableView.reloadData()
         }
     }
+    private func subscribeToCartRealtime() {
+        guard cartRealtimeChannel == nil else { return }
+
+        let client = SupabaseManager.shared.client
+
+        let channel = client.channel("cart-items-\(event.id)")
+        cartRealtimeChannel = channel
+
+        channel.onPostgresChange(
+            AnyAction.self,
+            schema: "public",
+            table: "cart_items",
+            filter: "event_id=eq.\(event.id)"
+        ) { [weak self] _ in
+            guard let self else { return }
+
+            print("📡 Cart item changed → refreshing planner UI")
+
+            Task {
+                await self.fetchAndSplitCart()
+            }
+        }
+        Task {
+            do {
+                try await channel.subscribeWithError()
+                print("✅ Subscribed to cart_items realtime for event \(event.id)")
+            } catch {
+                print("❌ Realtime subscription failed:", error)
+            }
+        }
+    }
+
     private func setupBottomAssignButton() {
 
         bottomAssignButton.translatesAutoresizingMaskIntoConstraints = false
@@ -251,7 +294,12 @@ final class ClientRequirementsViewController: UIViewController {
                 metadata: first.metadata,
                 createdAt: first.createdAt,
                 updatedAt: first.updatedAt,
-                sourceType: first.sourceType
+                sourceType: first.sourceType,
+
+                // ✅ ADD THESE 3 LINES
+                assignmentStatus: first.assignmentStatus,
+                assignedVendorId: first.assignedVendorId,
+                assignedVendorName: first.assignedVendorName
             )
             compacted.append(merged)
         }
@@ -288,9 +336,10 @@ final class ClientRequirementsViewController: UIViewController {
         } catch {
             print("Failed to fetch cart items for event: \(error)")
             await MainActor.run {
-                // still attempt to show grouped/split existing local data
                 self.groupCartItems()
                 self.splitCartItems()
+                self.selectedOutsourceIds.removeAll()
+                self.bottomAssignButton.isHidden = true
                 self.tableView.reloadData()
             }
         }
@@ -310,7 +359,6 @@ final class ClientRequirementsViewController: UIViewController {
         navigationController?.pushViewController(vc, animated: true)
     }
 
-
     /// Optionally refetch if the current arrays are empty (prevents unnecessary network calls)
     private func fetchAndSplitCartIfNeeded() async {
         if cartItems.isEmpty || (inhouse.isEmpty && outsource.isEmpty) {
@@ -319,6 +367,11 @@ final class ClientRequirementsViewController: UIViewController {
             await MainActor.run {
                 self.groupCartItems()
                 self.splitCartItems()
+
+                // ✅ RESET SELECTION STATE
+                self.selectedOutsourceIds.removeAll()
+                self.bottomAssignButton.isHidden = true
+
                 self.tableView.reloadData()
             }
         }
@@ -360,13 +413,22 @@ extension ClientRequirementsViewController: UITableViewDataSource, UITableViewDe
             ) as! OutsourceRequirementCell
 
             let item = outsource[indexPath.row]
-            let isSelected = selectedOutsourceIds.contains(item.id)
-
+            let isSelectable = item.assignmentStatus == nil || item.assignmentStatus == "rejected"
+            let isSelected = isSelectable && selectedOutsourceIds.contains(item.id)
             cell.configure(item: item, isSelected: isSelected)
 
             // checkbox handling
             cell.onSelectionChanged = { [weak self] selected in
-                guard let self else { return }
+                guard let self = self else { return }
+
+                let status = item.assignmentStatus
+
+                switch status {
+                case nil, "rejected":
+                    break   // selectable
+                default:
+                    return // pending / accepted → NOT selectable
+                }
 
                 if selected {
                     self.selectedOutsourceIds.insert(item.id)
@@ -380,3 +442,4 @@ extension ClientRequirementsViewController: UITableViewDataSource, UITableViewDe
         }
     }
 }
+

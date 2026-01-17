@@ -28,6 +28,7 @@ struct VendorProposalInsert: Encodable {
     let completion_date: String
     let notes: String
     let status: String
+    let cart_item_ids: [String]
 }
 
 struct VendorProposalRecord: Codable {
@@ -86,7 +87,8 @@ final class VendorProposalSupabaseManager {
         description: String,
         budget: Double,
         completionDate: String,
-        notes: String
+        notes: String,
+        cartItemIds: [String]
     ) async throws {
 
         let plannerId = try await ensureUserId()
@@ -100,7 +102,8 @@ final class VendorProposalSupabaseManager {
             proposed_budget: budget,
             completion_date: completionDate,
             notes: notes,
-            status: "pending"
+            status: "pending",
+            cart_item_ids: cartItemIds
         )
 
         _ = try await client

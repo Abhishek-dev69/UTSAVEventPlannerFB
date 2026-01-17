@@ -50,6 +50,11 @@ struct CartItemRecord: Codable {
     let updatedAt: String?
     let sourceType: String?
 
+    // ✅ ADD THESE
+    let assignmentStatus: String?
+    let assignedVendorId: String?
+    let assignedVendorName: String?
+
     enum CodingKeys: String, CodingKey {
         case id
         case userId = "user_id"
@@ -64,6 +69,11 @@ struct CartItemRecord: Codable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
         case sourceType = "source_type"
+
+        // ✅ MAP DB COLUMNS
+        case assignmentStatus = "assignment_status"
+        case assignedVendorId = "assigned_vendor_id"
+        case assignedVendorName = "assigned_vendor_name"
     }
 }
 

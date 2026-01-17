@@ -267,6 +267,7 @@ final class VendorProposalViewController: UIViewController {
         let completionDate = dateField.text ?? ""
         let notes = notesText.text ?? ""
         let vendorIdToSend = vendor.userId ?? vendor.id
+        let cartItemIds = requirements.compactMap { $0.id }
 
         // 3️⃣ Send ONE proposal for MANY requirements
         Task {
@@ -278,7 +279,8 @@ final class VendorProposalViewController: UIViewController {
                     description: combinedDescription,
                     budget: budget,
                     completionDate: completionDate,
-                    notes: notes
+                    notes: notes,
+                    cartItemIds: cartItemIds
                 )
 
                 await MainActor.run {
