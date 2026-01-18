@@ -196,9 +196,7 @@ final class EventDetailsViewController: UIViewController {
         formStack.addArrangedSubview(labeled("Event Name", eventName))
         formStack.addArrangedSubview(labeled("Client Name", clientName))
         formStack.addArrangedSubview(labeled("Location", locationField))
-        formStack.addArrangedSubview(labeled("Guest Count", guestCountField))
-        formStack.addArrangedSubview(labeled("Budget", budgetField))
-
+        // ✅ Dates FIRST (important)
         let dateRow = UIStackView()
         dateRow.axis = .horizontal
         dateRow.spacing = 16
@@ -207,6 +205,11 @@ final class EventDetailsViewController: UIViewController {
         dateRow.addArrangedSubview(labeled("End Date", endDateField))
 
         formStack.addArrangedSubview(dateRow)
+
+        // ➖ Optional fields LAST
+        formStack.addArrangedSubview(labeled("Guest Count (optional)", guestCountField))
+        formStack.addArrangedSubview(labeled("Budget (optional)", budgetField))
+
     }
 
     private func sectionLabel(_ text: String) -> UILabel {
@@ -438,20 +441,28 @@ final class EventDetailsViewController: UIViewController {
         guard let loc = locationField.text?.trimmingCharacters(in: .whitespaces), !loc.isEmpty else {
             throw FError.missing("Location")
         }
-        guard let gcText = guestCountField.text?.filter(\.isNumber), let gc = Int(gcText), gc > 0 else {
-            throw FError.missing("Guest Count")
-        }
-        guard let budget = parseINR(budgetField.text), budget > 0 else {
-            throw FError.missing("Budget")
-        }
+        // ✅ Guest Count (optional)
+        let guestCount: Int = {
+            let digits = guestCountField.text?.filter(\.isNumber) ?? ""
+            return Int(digits) ?? 0
+        }()
+
+        // ✅ Budget (optional)
+        let budgetPaise: Int = parseINR(budgetField.text) ?? 0
 
         let s = startPicker.date
         let e = endPicker.date
         if e < s { throw FError.logical("End date cannot be before start date.") }
 
-        return EventDetails(eventName: name, clientName: client, location: loc,
-                            guestCount: gc, budgetInPaise: budget,
-                            startDate: s, endDate: e)
+        return EventDetails(
+            eventName: name,
+            clientName: client,
+            location: loc,
+            guestCount: guestCount,        // 0 if empty
+            budgetInPaise: budgetPaise,    // 0 if empty
+            startDate: s,
+            endDate: e
+        )
     }
 
     // MARK: Insert Event (Continue)
