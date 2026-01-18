@@ -57,7 +57,7 @@ final class ConfirmationViewController: UIViewController {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        
+
         EventSession.shared.currentEventName = details.eventName
         EventSession.shared.currentClientName = details.clientName
         EventSession.shared.currentLocation = details.location
@@ -80,12 +80,6 @@ final class ConfirmationViewController: UIViewController {
             target: self,
             action: #selector(didTapBack)
         )
-    }
-
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
-        navigationController?.setNavigationBarHidden(false, animated: false)
-        navigationController?.navigationBar.prefersLargeTitles = false
     }
 
     // MARK: - Layout
@@ -133,16 +127,12 @@ final class ConfirmationViewController: UIViewController {
 
     // MARK: - Populate UI
     private func populate() {
+
         stack.addArrangedSubview(card(title: "Event Name", value: details.eventName))
         stack.addArrangedSubview(card(title: "Client Name", value: details.clientName))
         stack.addArrangedSubview(card(title: "Location", value: details.location))
-        stack.addArrangedSubview(card(title: "Guest Count", value: "\(details.guestCount) People"))
 
-        let budget = currencyFormatter.string(
-            from: NSNumber(value: details.budgetInPaise / 100)
-        ) ?? "—"
-        stack.addArrangedSubview(card(title: "Budget", value: budget))
-
+        // ✅ Dates FIRST (important)
         let start = dateFormatter.string(from: details.startDate)
         let end = dateFormatter.string(from: details.endDate)
 
@@ -154,6 +144,21 @@ final class ConfirmationViewController: UIViewController {
         datesRow.addArrangedSubview(card(title: "End Date", value: end))
 
         stack.addArrangedSubview(datesRow)
+
+        // ✅ Guest Count (optional)
+        let guestText = details.guestCount > 0
+            ? "\(details.guestCount) People"
+            : "—"
+        stack.addArrangedSubview(card(title: "Guest Count", value: guestText))
+
+        // ✅ Budget (optional)
+        let budgetText: String = {
+            guard details.budgetInPaise > 0 else { return "—" }
+            return currencyFormatter.string(
+                from: NSNumber(value: details.budgetInPaise / 100)
+            ) ?? "—"
+        }()
+        stack.addArrangedSubview(card(title: "Budget", value: budgetText))
     }
 
     // MARK: - Card Component
@@ -216,10 +221,8 @@ final class ConfirmationViewController: UIViewController {
         presentedViewController?.dismiss(animated: true)
     }
 
-    // ✅ FIXED
     @objc private func didTapDoLater() {
         presentingViewController?.dismiss(animated: true)
-
         NotificationCenter.default.post(
             name: NSNotification.Name("ReloadEventsDashboard"),
             object: nil
