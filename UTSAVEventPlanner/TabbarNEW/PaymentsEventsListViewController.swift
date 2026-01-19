@@ -28,7 +28,7 @@ final class PaymentsEventsListViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
+        view.backgroundColor = .clear
         navigationItem.title = "All Events Payments Track"
 
         setupTable()
@@ -137,6 +137,8 @@ final class PaymentsEventsListViewController: UIViewController {
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.register(EventPaymentCardCell.self, forCellReuseIdentifier: "EventPaymentCardCell")
         tableView.separatorStyle = .none
+        tableView.contentInset.bottom = 120
+
 
         tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 140

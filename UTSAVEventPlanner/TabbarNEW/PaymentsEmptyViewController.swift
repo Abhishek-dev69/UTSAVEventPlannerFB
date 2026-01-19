@@ -8,7 +8,7 @@ final class PaymentsEmptyViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = .clear
         setupUI()
     }
 
