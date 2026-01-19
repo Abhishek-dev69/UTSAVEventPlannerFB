@@ -160,7 +160,9 @@ final class RecordClientPaymentViewController: UIViewController {
             return
         }
 
-        let method = methodField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "Cash"
+        let method = methodField.text?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? "Cash"
+
         let date = dateField.text ?? {
             let out = DateFormatter()
             out.dateFormat = "yyyy-MM-dd"
@@ -171,25 +173,34 @@ final class RecordClientPaymentViewController: UIViewController {
 
         Task {
             do {
-                _ = try await PaymentSupabaseManager.shared.insertPayment(
+                _ = try await EventDataManager.shared.addPayment(
                     eventId: event.id,
                     amount: amount,
                     method: method,
-                    receivedOn: date,
-                    payerType: "client"
+                    date: date
                 )
 
-                NotificationCenter.default.post(name: Notification.Name("ReloadEventOverview"), object: nil)
-                NotificationCenter.default.post(name: Notification.Name("ReloadPaymentsList"), object: nil)
+                NotificationCenter.default.post(
+                    name: Notification.Name("ReloadEventOverview"),
+                    object: nil
+                )
+                NotificationCenter.default.post(
+                    name: Notification.Name("ReloadPaymentsList"),
+                    object: nil
+                )
 
                 await MainActor.run {
                     saveButton.isEnabled = true
                     self.dismiss(animated: true)
                 }
+
             } catch {
                 await MainActor.run {
                     saveButton.isEnabled = true
-                    presentAlert(title: "Save failed", message: error.localizedDescription)
+                    presentAlert(
+                        title: "Save failed",
+                        message: error.localizedDescription
+                    )
                 }
             }
         }
@@ -227,7 +238,7 @@ extension RecordClientPaymentViewController: UIPickerViewDataSource, UIPickerVie
     }
 
     func pickerView(_ pickerView: UIPickerView,
-                    titleForRow row: Int,
+               titleForRow row: Int,
                     forComponent component: Int) -> String? {
         paymentMethods[row]
     }

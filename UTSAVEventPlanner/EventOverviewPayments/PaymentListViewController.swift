@@ -1,13 +1,13 @@
 //
 // PaymentListViewController.swift
-// Shows Client / Vendor payments for an event (opens from EventOverview -> Payment Status "Open")
+// Shows Client payments for an event
 //
 
 import UIKit
 
 final class PaymentListViewController: UIViewController {
 
-    private let segmented = UISegmentedControl(items: ["Client Payments", "Vendor Payments"])
+    // MARK: - UI
     private let headerCard = UIView()
     private let titleLabel = UILabel()
     private let totalLabel = UILabel()
@@ -15,44 +15,19 @@ final class PaymentListViewController: UIViewController {
     private let progressView = UIProgressView(progressViewStyle: .default)
     private let transactionsTable = UITableView(frame: .zero, style: .plain)
     private let addPaymentButton = UIButton(type: .system)
+
     private let utsavPurple = UIColor(
         red: 139/255,
         green: 59/255,
         blue: 240/255,
         alpha: 1
     )
-    
-    private func styleSegments() {
-        segmented.selectedSegmentTintColor = UIColor(
-            red: 136/255,
-            green: 71/255,
-            blue: 246/255,
-            alpha: 1
-        )
 
-        segmented.setTitleTextAttributes(
-            [.foregroundColor: UIColor.white],
-            for: .selected
-        )
-
-        segmented.setTitleTextAttributes(
-            [.foregroundColor: UIColor.gray],
-            for: .normal
-        )
-    }
-
-
+    // MARK: - Data
     private var event: EventRecord
-
-    // data
     private var payments: [PaymentRecord] = []
     private var totalAmount: Double = 0.0
     private var receivedAmount: Double = 0.0
-
-    // current payer type
-    private var payerType: String {
-        segmented.selectedSegmentIndex == 0 ? "client" : "vendor"
-    }
 
     // MARK: - Init
     init(event: EventRecord) {
@@ -61,6 +36,7 @@ final class PaymentListViewController: UIViewController {
     }
     required init?(coder: NSCoder) { fatalError("Use init(event:)") }
 
+    // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor(white: 0.97, alpha: 1)
@@ -71,6 +47,7 @@ final class PaymentListViewController: UIViewController {
         Task { await loadData() }
     }
 
+    // MARK: - Navigation
     private func setupNav() {
         navigationItem.title = event.eventName
 
@@ -83,7 +60,6 @@ final class PaymentListViewController: UIViewController {
         back.tintColor = .black
         navigationItem.leftBarButtonItem = back
 
-        // ✅ SHARE ICON
         let share = UIBarButtonItem(
             image: UIImage(systemName: "square.and.arrow.up"),
             style: .plain,
@@ -93,6 +69,12 @@ final class PaymentListViewController: UIViewController {
         share.tintColor = .black
         navigationItem.rightBarButtonItem = share
     }
+
+    @objc private func backPressed() {
+        navigationController?.popViewController(animated: true)
+    }
+
+    // MARK: - Share PDF
     @objc private func shareTapped() {
         let pdfURL = generatePaymentPDF()
         let vc = UIActivityViewController(activityItems: [pdfURL], applicationActivities: nil)
@@ -333,15 +315,9 @@ final class PaymentListViewController: UIViewController {
         return url
     }
 
-    @objc private func backPressed() { navigationController?.popViewController(animated: true) }
 
+    // MARK: - UI
     private func setupUI() {
-        segmented.selectedSegmentIndex = 0
-        segmented.translatesAutoresizingMaskIntoConstraints = false
-        segmented.addTarget(self, action: #selector(segmentChanged), for: .valueChanged)
-        view.addSubview(segmented)
-        
-        styleSegments()
 
         headerCard.backgroundColor = .white
         headerCard.layer.cornerRadius = 12
@@ -352,6 +328,7 @@ final class PaymentListViewController: UIViewController {
         titleLabel.font = .systemFont(ofSize: 18, weight: .semibold)
         titleLabel.text = "Client: \(event.clientName)"
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
+
         totalLabel.font = .systemFont(ofSize: 16, weight: .semibold)
         totalLabel.translatesAutoresizingMaskIntoConstraints = false
 
@@ -361,16 +338,8 @@ final class PaymentListViewController: UIViewController {
 
         progressView.layer.cornerRadius = 3
         progressView.clipsToBounds = true
-
-        // ✅ UTSAV BRAND COLORS
         progressView.progressTintColor = utsavPurple
-        progressView.trackTintColor = UIColor(
-            red: 139/255,
-            green: 59/255,
-            blue: 240/255,
-            alpha: 0.15
-        )
-
+        progressView.trackTintColor = utsavPurple.withAlphaComponent(0.15)
         progressView.translatesAutoresizingMaskIntoConstraints = false
 
         headerCard.addSubview(titleLabel)
@@ -378,9 +347,9 @@ final class PaymentListViewController: UIViewController {
         headerCard.addSubview(progressView)
         headerCard.addSubview(remainingLabel)
 
-        addPaymentButton.setTitle("+  Add Payment", for: .normal)
+        addPaymentButton.setTitle("+ Add Client Payment", for: .normal)
         addPaymentButton.setTitleColor(.white, for: .normal)
-        addPaymentButton.backgroundColor = UIColor(red: 140/255, green: 75/255, blue: 245/255, alpha: 1)
+        addPaymentButton.backgroundColor = utsavPurple
         addPaymentButton.layer.cornerRadius = 22
         addPaymentButton.translatesAutoresizingMaskIntoConstraints = false
         addPaymentButton.addTarget(self, action: #selector(addPaymentTapped), for: .touchUpInside)
@@ -390,12 +359,7 @@ final class PaymentListViewController: UIViewController {
         view.addSubview(transactionsTable)
 
         NSLayoutConstraint.activate([
-            segmented.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
-            segmented.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            segmented.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            segmented.heightAnchor.constraint(equalToConstant: 36),
-
-            headerCard.topAnchor.constraint(equalTo: segmented.bottomAnchor, constant: 12),
+            headerCard.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
             headerCard.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             headerCard.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
 
@@ -435,67 +399,58 @@ final class PaymentListViewController: UIViewController {
     }
 
     private func setupObservers() {
-        NotificationCenter.default.addObserver(self, selector: #selector(reloadPayments), name: Notification.Name("ReloadPaymentsList"), object: nil)
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(reloadPayments),
+            name: Notification.Name("ReloadPaymentsList"),
+            object: nil
+        )
     }
 
+    // MARK: - Data
     @objc private func reloadPayments() {
         Task { await loadData() }
     }
 
-    @objc private func segmentChanged() {
-        // update UI and data
-        Task { await loadPaymentsOnly() }
-    }
-
-    // MARK: - Data loading
     @MainActor
     private func loadData() async {
-        // 1) total from cart items
+
+        // 1️⃣ Load total from cart
         do {
             let cart = try await EventDataManager.shared.fetchCartItems(eventId: event.id)
             totalAmount = cart.reduce(0.0) { acc, c in
                 if let lt = c.lineTotal { return acc + lt }
-                let r = c.rate ?? 0; let q = Double(c.quantity ?? 0)
+                let r = c.rate ?? 0
+                let q = Double(c.quantity ?? 0)
                 return acc + (r * q)
             }
         } catch {
             print("load cart error:", error)
-            totalAmount = 0.0
+            totalAmount = 0
         }
 
-        // 2) payments
-        await loadPaymentsOnly()
-    }
-
-    @MainActor
-    private func loadPaymentsOnly() async {
+        // 2️⃣ Load client payments
         do {
-            // fetch all payments (we'll filter by payerType locally since your schema currently doesn't have payer_type)
-            // If you added payer_type to DB, modify PaymentSupabaseManager.fetchPayments to accept payerType.
-            let filtered = try await PaymentSupabaseManager.shared.fetchPayments(eventId: event.id, payerType: payerType)
-            self.payments = filtered
-            self.receivedAmount = self.payments.reduce(0.0) { $0 + $1.amount }
-
-            // If PaymentRecord has a payerType field, use: self.payments = all.filter { $0.payerType == payerType }
-
-            self.receivedAmount = self.payments.reduce(0.0) { $0 + $1.amount }
-
-            updateHeaderUI()
-            transactionsTable.reloadData()
+            payments = try await PaymentSupabaseManager.shared.fetchPayments(
+                eventId: event.id,
+                payerType: "client"
+            )
+            receivedAmount = payments.reduce(0) { $0 + $1.amount }
         } catch {
             print("load payments error:", error)
-            self.payments = []
-            self.receivedAmount = 0.0
-            updateHeaderUI()
-            transactionsTable.reloadData()
+            payments = []
+            receivedAmount = 0
         }
+
+        updateHeaderUI()
+        transactionsTable.reloadData()
     }
 
     private func updateHeaderUI() {
         totalLabel.text = "Total Amount: ₹\(formatMoney(totalAmount))"
-        let remaining = max(0.0, totalAmount - receivedAmount)
+        let remaining = max(0, totalAmount - receivedAmount)
         remainingLabel.text = "Remaining: ₹\(formatMoney(remaining))"
-        let progress = totalAmount > 0 ? Float(min(1.0, receivedAmount / totalAmount)) : 0.0
+        let progress = totalAmount > 0 ? Float(receivedAmount / totalAmount) : 0
         progressView.setProgress(progress, animated: true)
     }
 
@@ -506,39 +461,30 @@ final class PaymentListViewController: UIViewController {
         return f.string(from: NSNumber(value: v)) ?? "0"
     }
 
+    // MARK: - Actions
     @objc private func addPaymentTapped() {
-
-        let contentVC: UIViewController
-
-        if segmented.selectedSegmentIndex == 0 {
-            contentVC = RecordClientPaymentViewController(event: event)
-        } else {
-            contentVC = RecordVendorPaymentViewController(event: event)
-        }
-
-        let nav = UINavigationController(rootViewController: contentVC)
+        let vc = RecordClientPaymentViewController(event: event)
+        let nav = UINavigationController(rootViewController: vc)
         nav.modalPresentationStyle = .pageSheet
 
         if let sheet = nav.sheetPresentationController {
-            sheet.detents = [
-                .medium(),   // 👈 dropdown height
-                .large()     // 👈 expandable if needed
-            ]
+            sheet.detents = [.medium(), .large()]
             sheet.prefersGrabberVisible = true
             sheet.preferredCornerRadius = 20
-            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
         }
 
         present(nav, animated: true)
     }
 }
-
 extension PaymentListViewController: UITableViewDataSource, UITableViewDelegate {
+
     func tableView(_ t: UITableView, numberOfRowsInSection section: Int) -> Int {
         payments.count
     }
 
-    func tableView(_ t: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat { 68 }
+    func tableView(_ t: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
+        68
+    }
 
     func tableView(_ t: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 
@@ -546,38 +492,36 @@ extension PaymentListViewController: UITableViewDataSource, UITableViewDelegate 
         let cell = t.dequeueReusableCell(withIdentifier: "txCell", for: indexPath)
         cell.selectionStyle = .none
 
-        // left: amount bold, below: method; right: date
         let amt = "₹\(formatMoney(p.amount))"
-        var method = p.method
-        if method.isEmpty { method = "Payment" }
+        let method = p.method.isEmpty ? "Payment" : p.method
         let dateText = formattedDateDisplay(p.received_on)
 
-        // Build content
-        let title = NSMutableAttributedString(string: amt, attributes: [
-            .font: UIFont.systemFont(ofSize: 16, weight: .semibold)
-        ])
-        title.append(NSAttributedString(string: "\n\(method)", attributes: [
-            .font: UIFont.systemFont(ofSize: 13),
-            .foregroundColor: UIColor.secondaryLabel
-        ]))
+        let title = NSMutableAttributedString(
+            string: amt,
+            attributes: [.font: UIFont.systemFont(ofSize: 16, weight: .semibold)]
+        )
+        title.append(NSAttributedString(
+            string: "\n\(method)",
+            attributes: [
+                .font: UIFont.systemFont(ofSize: 13),
+                .foregroundColor: UIColor.secondaryLabel
+            ]
+        ))
 
         cell.textLabel?.numberOfLines = 2
         cell.textLabel?.attributedText = title
-        cell.detailTextLabel?.text = dateText
 
-        // Use accessory-like right-aligned label
         let rightLabel = UILabel()
         rightLabel.text = dateText
         rightLabel.font = .systemFont(ofSize: 13)
         rightLabel.textColor = .secondaryLabel
         rightLabel.sizeToFit()
-
         cell.accessoryView = rightLabel
+
         return cell
     }
 
     private func formattedDateDisplay(_ iso: String) -> String {
-        // expected receivedOn is "yyyy-MM-dd" (or ISO). Try parse.
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
         if let d = df.date(from: iso) {
@@ -585,7 +529,7 @@ extension PaymentListViewController: UITableViewDataSource, UITableViewDelegate 
             out.dateFormat = "dd MMM"
             return out.string(from: d)
         }
-        // fallback: attempt ISO8601
+
         let isoFmt = ISO8601DateFormatter()
         if let d = isoFmt.date(from: iso) {
             let out = DateFormatter()
@@ -595,3 +539,4 @@ extension PaymentListViewController: UITableViewDataSource, UITableViewDelegate 
         return iso
     }
 }
+

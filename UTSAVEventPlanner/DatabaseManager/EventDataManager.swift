@@ -77,18 +77,18 @@ final class EventDataManager {
         eventId: String,
         amount: Double,
         method: String,
-        date: String,
-        payerType: String? = "client"
-    ) async throws -> PaymentRecord {
+        date: String
+    ) async throws -> PaymentRecord
+{
 
-        let payload = PaymentInsert(
-            event_id: eventId,
-            amount: amount,
-            method: method,
-            received_on: date,
-            payer_type: payerType ?? "client"
-        )
-
+    let payload = PaymentInsert(
+        event_id: eventId,
+        vendor_id: nil,
+        amount: amount,
+        method: method,
+        received_on: date,
+        payer_type: "client"
+    )
         let response = try await client
             .from("event_payments")
             .insert(payload)

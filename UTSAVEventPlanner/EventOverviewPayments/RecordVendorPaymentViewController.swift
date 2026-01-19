@@ -1,16 +1,12 @@
-//
-// RecordVendorPaymentViewController.swift
-// Same layout as RecordClientPayment but intended for vendor payments.
-// When saved, you may want to mark payer_type = 'vendor' in DB (requires DB + manager support).
-//
-
 import UIKit
 
 final class RecordVendorPaymentViewController: UIViewController {
 
-    private let event: EventRecord
+    // MARK: - Inputs
+    private let vendorId: String
+    private let vendorName: String
 
-    // UI
+    // MARK: - UI
     private let scroll = UIScrollView()
     private let stack = UIStackView()
     private let vendorField = UITextField()
@@ -21,11 +17,27 @@ final class RecordVendorPaymentViewController: UIViewController {
 
     private let datePicker = UIDatePicker()
 
-    init(event: EventRecord) {
-        self.event = event
+    // 🔽 Payment Method Picker (SAME AS CLIENT)
+    private let methodPicker = UIPickerView()
+    private let paymentMethods = [
+        "UPI",
+        "Cash",
+        "Cheque",
+        "Bank Transfer",
+        "Card",
+        "Other"
+    ]
+
+    // MARK: - Init
+    init(vendorId: String, vendorName: String) {
+        self.vendorId = vendorId
+        self.vendorName = vendorName
         super.init(nibName: nil, bundle: nil)
     }
-    required init?(coder: NSCoder) { fatalError("Use init(event:)") }
+
+    required init?(coder: NSCoder) {
+        fatalError("Use init(vendorId:vendorName:)")
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -35,14 +47,21 @@ final class RecordVendorPaymentViewController: UIViewController {
         configureDefaults()
     }
 
+    // MARK: - Nav
     private func setupNav() {
-        navigationItem.title = "Record Vendor Payment"
-        let close = UIBarButtonItem(image: UIImage(systemName: "xmark"), style: .plain, target: self, action: #selector(closePressed))
-        close.tintColor = .black
-        navigationItem.leftBarButtonItem = close
+        navigationItem.title = "Pay Vendor"
+        navigationItem.leftBarButtonItem = UIBarButtonItem(
+            barButtonSystemItem: .close,
+            target: self,
+            action: #selector(closeTapped)
+        )
     }
-    @objc private func closePressed() { navigationController?.popViewController(animated: true) }
 
+    @objc private func closeTapped() {
+        dismiss(animated: true)
+    }
+
+    // MARK: - UI Setup
     private func setupViews() {
         scroll.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(scroll)
@@ -63,104 +82,137 @@ final class RecordVendorPaymentViewController: UIViewController {
             stack.topAnchor.constraint(equalTo: scroll.topAnchor, constant: 20),
             stack.leadingAnchor.constraint(equalTo: scroll.leadingAnchor, constant: 16),
             stack.trailingAnchor.constraint(equalTo: scroll.trailingAnchor, constant: -16),
-            stack.bottomAnchor.constraint(lessThanOrEqualTo: scroll.bottomAnchor),
             stack.widthAnchor.constraint(equalTo: scroll.widthAnchor, constant: -32)
         ])
 
-        [vendorField, amountField, methodField, dateField, saveButton].forEach {
-            $0.translatesAutoresizingMaskIntoConstraints = false
-        }
-
         vendorField.borderStyle = .roundedRect
-        vendorField.placeholder = "Vendor / Payee Name"
+        vendorField.isEnabled = false
+        vendorField.text = vendorName
 
         amountField.borderStyle = .roundedRect
         amountField.placeholder = "Amount"
         amountField.keyboardType = .decimalPad
 
+        // 🔽 Payment Method Picker
         methodField.borderStyle = .roundedRect
         methodField.placeholder = "Payment Method"
+        methodField.tintColor = .clear // hide cursor
+        methodField.inputView = methodPicker
+
+        methodPicker.dataSource = self
+        methodPicker.delegate = self
+        attachPickerToolbar(to: methodField)
 
         dateField.borderStyle = .roundedRect
-        dateField.placeholder = "Date"
-
         datePicker.datePickerMode = .date
-        if #available(iOS 14.0, *) { datePicker.preferredDatePickerStyle = .wheels }
-        datePicker.addTarget(self, action: #selector(dateChanged(_:)), for: .valueChanged)
+        datePicker.addTarget(self, action: #selector(dateChanged), for: .valueChanged)
         dateField.inputView = datePicker
 
-        saveButton.setTitle("Save", for: .normal)
+        saveButton.setTitle("Save Payment", for: .normal)
+        saveButton.backgroundColor = UIColor(
+            red: 139/255, green: 59/255, blue: 240/255, alpha: 1
+        )
         saveButton.setTitleColor(.white, for: .normal)
-        saveButton.backgroundColor = UIColor(red: 140/255, green: 75/255, blue: 245/255, alpha: 1)
         saveButton.layer.cornerRadius = 22
         saveButton.heightAnchor.constraint(equalToConstant: 48).isActive = true
         saveButton.addTarget(self, action: #selector(saveTapped), for: .touchUpInside)
 
-        stack.addArrangedSubview(vendorField)
-        stack.addArrangedSubview(amountField)
-        stack.addArrangedSubview(methodField)
-        stack.addArrangedSubview(dateField)
-        stack.addArrangedSubview(UIView())
-        stack.addArrangedSubview(saveButton)
+        [vendorField, amountField, methodField, dateField, saveButton].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            stack.addArrangedSubview($0)
+        }
     }
 
     private func configureDefaults() {
-        // Vendor default blank — user picks vendor
-        let out = DateFormatter()
-        out.dateFormat = "yyyy-MM-dd"
-        dateField.text = out.string(from: Date())
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        dateField.text = df.string(from: Date())
         datePicker.date = Date()
+
+        // ✅ Default payment method
+        methodField.text = "Bank Transfer"
     }
 
-    @objc private func dateChanged(_ p: UIDatePicker) {
-        let out = DateFormatter(); out.dateFormat = "yyyy-MM-dd"; dateField.text = out.string(from: p.date)
+    // MARK: - Actions
+    @objc private func dateChanged() {
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        dateField.text = df.string(from: datePicker.date)
     }
 
     @objc private func saveTapped() {
         let amount = Double(amountField.text ?? "") ?? 0
         if amount <= 0 {
-            presentAlert(title: "Invalid amount", message: "Please enter a valid amount")
+            showAlert("Invalid amount")
             return
         }
-        let method = methodField.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "Bank Transfer"
-        let date = dateField.text ?? {
-            let out = DateFormatter(); out.dateFormat = "yyyy-MM-dd"; return out.string(from: Date())
-        }()
 
-        saveButton.isEnabled = false
+        let method = methodField.text?.trimmingCharacters(in: .whitespaces) ?? "Bank Transfer"
+        let date = dateField.text!
 
         Task {
             do {
-                // NOTE: The DB schema initially shared doesn't have payer_type — if you added payer_type earlier,
-                // extend PaymentSupabaseManager.insertPayment to accept payerType and persist vendor payments correctly.
-                _ = try await PaymentSupabaseManager.shared.insertPayment(
-                    eventId: event.id,
+                _ = try await PaymentSupabaseManager.shared.insertVendorPayment(
+                    vendorId: vendorId,
                     amount: amount,
                     method: method,
-                    receivedOn: date,
-                    payerType: "vendor"
+                    receivedOn: date
                 )
 
+                NotificationCenter.default.post(
+                    name: Notification.Name("ReloadPaymentsList"),
+                    object: nil
+                )
 
-                NotificationCenter.default.post(name: Notification.Name("ReloadEventOverview"), object: nil)
-                NotificationCenter.default.post(name: Notification.Name("ReloadPaymentsList"), object: nil)
+                await MainActor.run { self.dismiss(animated: true) }
 
-                await MainActor.run {
-                    saveButton.isEnabled = true
-                    navigationController?.popViewController(animated: true)
-                }
             } catch {
-                await MainActor.run {
-                    saveButton.isEnabled = true
-                    presentAlert(title: "Save failed", message: error.localizedDescription)
-                }
+                await MainActor.run { self.showAlert(error.localizedDescription) }
             }
         }
     }
 
-    private func presentAlert(title: String, message: String) {
-        let a = UIAlertController(title: title, message: message, preferredStyle: .alert)
+    private func attachPickerToolbar(to field: UITextField) {
+        let toolbar = UIToolbar()
+        toolbar.sizeToFit()
+
+        let spacer = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
+        let done = UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(donePickingMethod))
+
+        toolbar.setItems([spacer, done], animated: false)
+        field.inputAccessoryView = toolbar
+    }
+
+    @objc private func donePickingMethod() {
+        methodField.resignFirstResponder()
+    }
+
+    private func showAlert(_ msg: String) {
+        let a = UIAlertController(title: "Error", message: msg, preferredStyle: .alert)
         a.addAction(UIAlertAction(title: "OK", style: .default))
         present(a, animated: true)
     }
 }
+
+// MARK: - Picker
+extension RecordVendorPaymentViewController: UIPickerViewDataSource, UIPickerViewDelegate {
+
+    func numberOfComponents(in pickerView: UIPickerView) -> Int { 1 }
+
+    func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
+        paymentMethods.count
+    }
+
+    func pickerView(_ pickerView: UIPickerView,
+                    titleForRow row: Int,
+                    forComponent component: Int) -> String? {
+        paymentMethods[row]
+    }
+
+    func pickerView(_ pickerView: UIPickerView,
+                    didSelectRow row: Int,
+                    inComponent component: Int) {
+        methodField.text = paymentMethods[row]
+    }
+}
+
