@@ -1,6 +1,7 @@
 // CartManager.swift – UPDATED with addOutsource(item:) helper
 import Foundation
 import UIKit
+import Supabase
 
 // MARK: - MODEL
 struct CartItem: Equatable {
@@ -304,6 +305,19 @@ final class CartManager {
             }
         }
     }
+    func fetchAllOutsourceItemsForPlanner() async throws -> [CartItemRecord] {
+        let plannerId = try await SupabaseManager.shared.ensureUserId()
+
+        let response = try await SupabaseManager.shared.client
+            .from("cart_items")
+            .select("*")
+            .eq("planner_id", value: plannerId)
+            .eq("service_type", value: "outsource")
+            .execute()
+
+        return try JSONDecoder().decode([CartItemRecord].self, from: response.data)
+    }
+
 
     // Backwards-compatible helper: setQuantity by serviceName+subserviceName — looks up subserviceId
     func setQuantity(serviceName: String, subserviceName: String, quantity: Int) {
@@ -357,6 +371,19 @@ final class CartManager {
     func resetLocalCart() {
         items.removeAll()
     }
+    // MARK: - Vendor Payments Support
+    func fetchAssignedVendorItemsForPlanner(plannerId: String) async throws -> [CartItemRecord] {
+
+        let response = try await SupabaseManager.shared.client
+            .from("cart_items")
+            .select("*")
+            .eq("assignment_status", value: "accepted")
+            .not("assigned_vendor_id", operator: .is, value: "null")
+            .execute()
+
+        return try JSONDecoder().decode([CartItemRecord].self, from: response.data)
+    }
+
 
     // MARK: - CLEAR CART
     func clear() {

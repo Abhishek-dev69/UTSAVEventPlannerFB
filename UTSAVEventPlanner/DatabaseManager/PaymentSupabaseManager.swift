@@ -30,22 +30,48 @@ final class PaymentSupabaseManager {
 
         return try JSONDecoder().decode([PaymentRecord].self, from: response.data)
     }
+    // Fetch ALL vendor payments (no event dependency)
+    func fetchVendorPayments(vendorId: String) async throws -> [PaymentRecord] {
+        let response = try await client
+            .from("event_payments")
+            .select("*")
+            .eq("payer_type", value: "vendor")
+            .eq("vendor_id", value: vendorId)
+            .order("received_on", ascending: false)
+            .execute()
+
+        return try JSONDecoder().decode([PaymentRecord].self, from: response.data)
+    }
+    
+    // MARK: - Fetch ALL Vendor Payments (no event filter)
+    func fetchAllVendorPayments() async throws -> [PaymentRecord] {
+        let response = try await client
+            .from("event_payments")
+            .select("*")
+            .eq("payer_type", value: "vendor")
+            .order("received_on", ascending: false)
+            .execute()
+
+        return try JSONDecoder().decode([PaymentRecord].self, from: response.data)
+    }
+
+
 
     // MARK: - Insert Payment
-    func insertPayment(
-        eventId: String,
+    func insertVendorPayment(
+        vendorId: String,
         amount: Double,
         method: String,
-        receivedOn: String,
-        payerType: String
+        receivedOn: String
     ) async throws -> PaymentRecord {
 
         let payload = PaymentInsert(
-            event_id: eventId,
+            event_id: nil,
+            vendor_id: vendorId,
             amount: amount,
             method: method,
             received_on: receivedOn,
-            payer_type: payerType
+            payer_type: "vendor"
         )
 
         let response = try await client
