@@ -2,20 +2,20 @@ import UIKit
 
 final class InventoryRootController: UIViewController {
 
+    // MARK: - UI
+    private let headerView = UIView()
+    private let titleLabel = UILabel()
+
     private let emptyVC = InventoryEmptyViewController()
     private var listVC: InventoryEventsListViewController?
 
     // MARK: - Lifecycle
-
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
 
-        // Root controller title (default)
-        self.navigationItem.title = "Inventory"
-        navigationItem.largeTitleDisplayMode = .always
+        setupHeader()
 
-        // Listen for external event creations so this screen refreshes immediately
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(reloadEventsNow),
@@ -26,34 +26,54 @@ final class InventoryRootController: UIViewController {
         Task { await loadEvents() }
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+
+        // Hide nav bar only on Inventory root
+        navigationController?.setNavigationBarHidden(true, animated: false)
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+
+        // 🔥 Re-enable nav bar for pushed screens
+        navigationController?.setNavigationBarHidden(false, animated: false)
+    }
     deinit {
         NotificationCenter.default.removeObserver(self)
     }
 
-    override func viewWillAppear(_ animated: Bool) {
-        super.viewWillAppear(animated)
+    // MARK: - Header (MATCHES Dashboard & Payments)
+    private func setupHeader() {
+        headerView.backgroundColor = UIColor(white: 0.97, alpha: 1)
+        headerView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(headerView)
 
-        // Make sure nav bar is visible
-        navigationController?.navigationBar.isHidden = false
+        titleLabel.text = "Inventory"
+        titleLabel.font = .systemFont(ofSize: 22, weight: .bold)
+        titleLabel.textColor = .black
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        headerView.addSubview(titleLabel)
 
-        // Refresh list if it exists (keeps UI fresh when returning)
-        if let listVC = listVC {
-            Task { await listVC.refreshEvents() }
-        }
+        NSLayoutConstraint.activate([
+            headerView.topAnchor.constraint(equalTo: view.topAnchor),
+            headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            headerView.heightAnchor.constraint(equalToConstant: 120),
+
+            titleLabel.bottomAnchor.constraint(equalTo: headerView.bottomAnchor, constant: -16),
+            titleLabel.centerXAnchor.constraint(equalTo: headerView.centerXAnchor)
+        ])
     }
 
-    // MARK: - Notification handler
-
+    // MARK: - Reload
     @objc private func reloadEventsNow() {
         Task { await loadEvents() }
     }
 
     // MARK: - Load / Show
-
-    /// Loads events for the current user and shows either the empty screen or the events list.
     private func loadEvents() async {
         do {
-            // Use unified fetch used by Dashboard to avoid mismatch with other fetch variants.
             let events = try await EventSupabaseManager.shared.fetchAllEventsForUser()
 
             await MainActor.run {
@@ -61,44 +81,38 @@ final class InventoryRootController: UIViewController {
                     show(emptyVC)
                 } else {
                     if listVC == nil {
-                        let list = InventoryEventsListViewController()
-                        listVC = list
-                        show(list)
+                        listVC = InventoryEventsListViewController()
                     }
-                    // Ask the list VC to refresh its own internal data (it will fetch events as needed)
+                    show(listVC!)
                     Task { await listVC?.refreshEvents() }
                 }
             }
-
         } catch {
-            // Log error for easier debugging and show empty view
-            print("InventoryRootController.loadEvents error:", error)
+            print("Inventory load error:", error)
             await MainActor.run { show(emptyVC) }
         }
     }
 
     private func show(_ vc: UIViewController) {
 
-        // Remove old child
         children.forEach {
             $0.willMove(toParent: nil)
             $0.view.removeFromSuperview()
             $0.removeFromParent()
         }
 
-        // Add new child
         addChild(vc)
-        vc.view.frame = view.bounds
-        vc.view.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        vc.view.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(vc.view)
-        vc.didMove(toParent: self)
 
-        // Set appropriate navigation bar title based on which screen is visible
-        if vc is InventoryEventsListViewController {
-            self.navigationItem.title = "Inventory"
-        } else {
-            self.navigationItem.title = "Inventory"
-        }
+        NSLayoutConstraint.activate([
+            vc.view.topAnchor.constraint(equalTo: headerView.bottomAnchor),
+            vc.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            vc.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            vc.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+
+        vc.didMove(toParent: self)
     }
 }
 
