@@ -9,6 +9,8 @@ final class DashboardListViewController: UIViewController {
     private let titleLabel = UILabel()
     private let addButton = UIButton(type: .system)
     private let segments = UISegmentedControl(items: ["All", "Upcoming", "Completed"])
+    private let searchBar = UISearchBar()
+
 
     // Empty State
     private let emptyStateView = UIView()
@@ -27,6 +29,7 @@ final class DashboardListViewController: UIViewController {
 
         setupHeader()
         setupSegments()
+        setupSearchBar()
         setupTable()
         setupEmptyState()
 
@@ -48,6 +51,24 @@ final class DashboardListViewController: UIViewController {
     deinit {
         NotificationCenter.default.removeObserver(self)
     }
+    
+    private func setupSearchBar() {
+        searchBar.placeholder = "Search event"
+        searchBar.searchBarStyle = .minimal
+        searchBar.delegate = self
+        searchBar.translatesAutoresizingMaskIntoConstraints = false
+        searchBar.backgroundColor = .clear
+
+        view.addSubview(searchBar)
+
+        NSLayoutConstraint.activate([
+            searchBar.topAnchor.constraint(equalTo: segments.bottomAnchor, constant: 12),
+            searchBar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            searchBar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            searchBar.heightAnchor.constraint(equalToConstant: 44)
+        ])
+    }
+
 
     // MARK: - Header
     private func setupHeader() {
@@ -126,10 +147,11 @@ final class DashboardListViewController: UIViewController {
             action: #selector(handleLongPress(_:))
         )
         tableView.addGestureRecognizer(longPress)
+        tableView.keyboardDismissMode = .onDrag
 
 
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: segments.bottomAnchor, constant: 18),
+            tableView.topAnchor.constraint(equalTo: searchBar.bottomAnchor, constant: 12),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
@@ -397,6 +419,31 @@ extension DashboardListViewController: UITableViewDataSource, UITableViewDelegat
             vc.hidesBottomBarWhenPushed = true
             navigationController?.pushViewController(vc, animated: true)
         }
+    }
+}
+
+extension DashboardListViewController: UISearchBarDelegate {
+
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        let q = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+
+        if q.isEmpty {
+            segmentedChanged()
+            return
+        }
+
+        events = allEvents.filter {
+            $0.eventName.lowercased().contains(q) ||
+            $0.clientName.lowercased().contains(q) ||
+            $0.location.lowercased().contains(q)
+        }
+
+        tableView.reloadData()
+        updateEmptyState()
+    }
+
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        searchBar.resignFirstResponder()
     }
 }
 
