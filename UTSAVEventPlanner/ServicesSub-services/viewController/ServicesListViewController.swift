@@ -4,20 +4,20 @@ import Supabase
 final class ServicesListViewController: UIViewController {
 
     // MARK: - UI
+    private let headerView = UIView()
+    private let titleLabel = UILabel()
+    private let addButton = UIButton(type: .system)
     private let tableView = UITableView(frame: .zero, style: .plain)
 
     // MARK: - Data
     private var services: [Service] = []
-    
-    private let addButton = UIButton(type: .system)
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
-        title = "Services"
+        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
 
-        setupNavBar()
+        setupHeader()
         setupTableView()
         setupLayout()
 
@@ -26,12 +26,30 @@ final class ServicesListViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+
+        // ✅ Hide nav bar ONLY for Services root
+        navigationController?.setNavigationBarHidden(true, animated: false)
+
         Task { await fetchAllServices() }
     }
 
-    // MARK: - Navigation Bar
-    private func setupNavBar() {
-        navigationItem.title = "Services"
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+
+        // ✅ Restore nav bar for pushed screens
+        navigationController?.setNavigationBarHidden(false, animated: false)
+    }
+
+    // MARK: - Header (MATCHES Dashboard / Payments)
+    private func setupHeader() {
+        headerView.backgroundColor = UIColor(white: 0.97, alpha: 1)
+        headerView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(headerView)
+
+        titleLabel.text = "Services"
+        titleLabel.font = .systemFont(ofSize: 22, weight: .bold)
+        titleLabel.textColor = .black
+        titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
         let plusConfig = UIImage.SymbolConfiguration(pointSize: 20, weight: .bold)
         addButton.setImage(
@@ -44,25 +62,42 @@ final class ServicesListViewController: UIViewController {
             blue: 246/255,
             alpha: 1
         )
-
+        addButton.translatesAutoresizingMaskIntoConstraints = false
         addButton.addTarget(self, action: #selector(addServiceTapped), for: .touchUpInside)
 
-        // wrap inside UIBarButtonItem (NO background, NO circle)
-        navigationItem.rightBarButtonItem = UIBarButtonItem(customView: addButton)
+        headerView.addSubview(titleLabel)
+        headerView.addSubview(addButton)
+
+        NSLayoutConstraint.activate([
+            headerView.topAnchor.constraint(equalTo: view.topAnchor),
+            headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            headerView.heightAnchor.constraint(equalToConstant: 120),
+
+            titleLabel.bottomAnchor.constraint(equalTo: headerView.bottomAnchor, constant: -16),
+            titleLabel.centerXAnchor.constraint(equalTo: headerView.centerXAnchor),
+
+            addButton.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
+            addButton.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -20),
+            addButton.widthAnchor.constraint(equalToConstant: 24),
+            addButton.heightAnchor.constraint(equalToConstant: 24)
+        ])
     }
+
     // MARK: - TableView
     private func setupTableView() {
         tableView.delegate = self
         tableView.dataSource = self
         tableView.register(ServiceCell.self, forCellReuseIdentifier: ServiceCell.reuseID)
         tableView.separatorStyle = .singleLine
+        tableView.backgroundColor = .clear
         tableView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(tableView)
     }
 
     private func setupLayout() {
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.topAnchor.constraint(equalTo: headerView.bottomAnchor, constant: 12),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
@@ -70,7 +105,7 @@ final class ServicesListViewController: UIViewController {
     }
 
     // MARK: - Fetch Services
-    func fetchAllServices() async {
+    private func fetchAllServices() async {
         do {
             let records = try await SupabaseManager.shared.fetchServices()
 
@@ -85,22 +120,37 @@ final class ServicesListViewController: UIViewController {
                         isFixed: true
                     )
                 }
-                return Service(
-                    id: rec.id,
-                    name: rec.name,
-                    subservices: subs
-                )
+                return Service(id: rec.id, name: rec.name, subservices: subs)
             }
 
             await MainActor.run {
                 self.services = mapped
-                self.tableView.reloadData()   // ✅ THIS WAS MISSING
+                self.tableView.reloadData()
             }
 
         } catch {
             print("❌ Fetch services failed:", error)
         }
     }
+
+    // MARK: - Add Service
+    @objc private func addServiceTapped() {
+        let vc = ServiceAddingViewController()
+        vc.modalPresentationStyle = .pageSheet
+
+        if let sheet = vc.sheetPresentationController {
+            sheet.detents = [.large()]
+            sheet.prefersGrabberVisible = true
+        }
+
+        vc.onServiceSave = { [weak self] _ in
+            Task { await self?.fetchAllServices() }
+        }
+
+        present(vc, animated: true)
+    }
+
+    // MARK: - Delete
     private func confirmDeleteService(at indexPath: IndexPath) {
         let service = services[indexPath.row]
 
@@ -111,26 +161,23 @@ final class ServicesListViewController: UIViewController {
         )
 
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-
         alert.addAction(UIAlertAction(
             title: "Delete",
-            style: .destructive,
-            handler: { [weak self] _ in
-                self?.deleteService(service, at: indexPath)
-            }
-        ))
+            style: .destructive
+        ) { [weak self] _ in
+            self?.deleteService(service, at: indexPath)
+        })
 
         present(alert, animated: true)
     }
+
     private func deleteService(_ service: Service, at indexPath: IndexPath) {
         guard let serviceId = service.id else { return }
 
         Task {
             do {
-                // 🔥 Delete from Supabase
                 try await SupabaseManager.shared.deleteService(serviceId: serviceId)
 
-                // 🔥 Update UI on main thread
                 await MainActor.run {
                     self.services.remove(at: indexPath.row)
                     self.tableView.deleteRows(at: [indexPath], with: .automatic)
@@ -149,25 +196,6 @@ final class ServicesListViewController: UIViewController {
             }
         }
     }
-
-
-
-    // MARK: - Add Service
-    @objc private func addServiceTapped() {
-        let vc = ServiceAddingViewController()
-        vc.modalPresentationStyle = .pageSheet
-
-        if let sheet = vc.sheetPresentationController {
-            sheet.detents = [.large()]
-            sheet.prefersGrabberVisible = true
-        }
-
-        vc.onServiceSave = { [weak self] _ in
-            Task { await self?.fetchAllServices() }
-        }
-
-        present(vc, animated: true)
-    }
 }
 
 // MARK: - UITableView Delegate & DataSource
@@ -176,6 +204,7 @@ extension ServicesListViewController: UITableViewDelegate, UITableViewDataSource
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         services.count
     }
+
     func tableView(
         _ tableView: UITableView,
         trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath
