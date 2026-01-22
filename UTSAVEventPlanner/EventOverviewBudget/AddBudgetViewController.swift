@@ -5,6 +5,8 @@ final class AddBudgetViewController: UIViewController {
 
     // MARK: - Init
     private let vendorName: String?
+    
+    var onExpenseAdded: (() -> Void)?
 
     init(vendorName: String?) {
         self.vendorName = vendorName
@@ -28,6 +30,11 @@ final class AddBudgetViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
+
+        // ✅ Bottom Sheet Style
+        view.layer.cornerRadius = 20
+        view.clipsToBounds = true
+
         navigationItem.title = "Add Expense"
         setupNav()
         setupUI()
@@ -37,60 +44,56 @@ final class AddBudgetViewController: UIViewController {
     // MARK: - Navigation
     private func setupNav() {
         navigationItem.leftBarButtonItem = UIBarButtonItem(
-            image: UIImage(systemName: "chevron.left"),
-            style: .plain,
-            target: self,
-            action: #selector(closeTapped)
+            systemItem: .close,
+            primaryAction: UIAction { [weak self] _ in
+                self?.dismiss(animated: true)
+            }
         )
-    }
-
-    @objc private func closeTapped() {
-        navigationController?.popViewController(animated: true)
     }
 
     // MARK: - UI Setup
     private func setupUI() {
         stack.axis = .vertical
-        stack.spacing = 16
+        stack.spacing = 14
         stack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stack)
 
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
-            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
-            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
+            stack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
+            stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            stack.bottomAnchor.constraint(lessThanOrEqualTo: view.bottomAnchor, constant: -20)
         ])
 
-        amountField.placeholder = "Amount"
-        amountField.borderStyle = .roundedRect
+        configureField(amountField, placeholder: "Amount (₹)")
         amountField.keyboardType = .decimalPad
-        amountField.heightAnchor.constraint(equalToConstant: 48).isActive = true
 
-        vendorField.placeholder = "Vendor / Expense Title"
-        vendorField.borderStyle = .roundedRect
-        vendorField.heightAnchor.constraint(equalToConstant: 48).isActive = true
+        configureField(vendorField, placeholder: "Vendor / Expense Title")
         vendorField.text = vendorName
 
-        categoryField.placeholder = "Category (optional)"
-        categoryField.borderStyle = .roundedRect
-        categoryField.heightAnchor.constraint(equalToConstant: 48).isActive = true
+        configureField(categoryField, placeholder: "Category (optional)")
 
-        dateField.placeholder = "Date"
-        dateField.borderStyle = .roundedRect
-        dateField.heightAnchor.constraint(equalToConstant: 48).isActive = true
+        configureField(dateField, placeholder: "Date")
         dateField.addTarget(self, action: #selector(dateFieldTapped), for: .editingDidBegin)
 
-        attachButton.setTitle("Attach Receipt (optional)", for: .normal)
+        attachButton.setTitle("📎 Attach Receipt (optional)", for: .normal)
         attachButton.contentHorizontalAlignment = .left
         attachButton.addTarget(self, action: #selector(attachTapped), for: .touchUpInside)
 
+        // ✅ Premium Add Button
         addButton.setTitle("Add Expense", for: .normal)
-        addButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
-        addButton.backgroundColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
+        addButton.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
+        addButton.backgroundColor = UIColor.utsavPurple
         addButton.setTitleColor(.white, for: .normal)
-        addButton.layer.cornerRadius = 26
-        addButton.heightAnchor.constraint(equalToConstant: 52).isActive = true
+        addButton.layer.cornerRadius = 14
+        addButton.heightAnchor.constraint(equalToConstant: 54).isActive = true
         addButton.addTarget(self, action: #selector(addExpenseTapped), for: .touchUpInside)
+
+        // Shadow
+        addButton.layer.shadowColor = UIColor.black.cgColor
+        addButton.layer.shadowOpacity = 0.15
+        addButton.layer.shadowRadius = 8
+        addButton.layer.shadowOffset = CGSize(width: 0, height: 4)
 
         [
             amountField,
@@ -104,6 +107,16 @@ final class AddBudgetViewController: UIViewController {
         let tap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
         tap.cancelsTouchesInView = false
         view.addGestureRecognizer(tap)
+    }
+
+    private func configureField(_ field: UITextField, placeholder: String) {
+        field.placeholder = placeholder
+        field.borderStyle = .none
+        field.backgroundColor = UIColor.systemGray6
+        field.layer.cornerRadius = 12
+        field.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 12, height: 0))
+        field.leftViewMode = .always
+        field.heightAnchor.constraint(equalToConstant: 48).isActive = true
     }
 
     // MARK: - Date Picker
@@ -171,7 +184,9 @@ final class AddBudgetViewController: UIViewController {
                 )
 
                 await MainActor.run {
-                    self.navigationController?.popViewController(animated: true)
+                    // ✅ Close Bottom Sheet
+                    self.onExpenseAdded?()
+                    self.dismiss(animated: true)
                 }
             } catch {
                 await MainActor.run {
@@ -206,4 +221,3 @@ extension AddBudgetViewController: PHPickerViewControllerDelegate {
         }
     }
 }
-
