@@ -14,7 +14,7 @@ final class BudgetDetailViewController: UIViewController {
         let b = UIButton(type: .system)
         b.setTitle("Add Expense", for: .normal)
         b.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
-        b.backgroundColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
+        b.backgroundColor = UIColor.utsavPurple
         b.setTitleColor(.white, for: .normal)
         b.layer.cornerRadius = 26
         b.translatesAutoresizingMaskIntoConstraints = false
@@ -27,9 +27,11 @@ final class BudgetDetailViewController: UIViewController {
     private var totalSpent: Double = 0
     private var eventBudget: Double = 0
 
-    // MARK: - Budget Card refs
+    // MARK: - Budget Card UI refs
     private let progressView = UIProgressView(progressViewStyle: .default)
-    private let amountLabel = UILabel()
+    private let remainingLabel = UILabel()
+    private let spentLabel = UILabel()
+    private let totalLabel = UILabel()
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -51,18 +53,26 @@ final class BudgetDetailViewController: UIViewController {
         Task { await loadBudget() }
     }
 
-    // MARK: - DATA LOADING
+    // MARK: - DATA LOADING (✅ FIXED LOGIC)
     private func loadBudget() async {
         guard let eventId = EventDataManager.shared.currentEventId else { return }
 
         do {
+            // 1️⃣ Expenses (Spent)
             let entries = try await EventDataManager.shared.fetchBudgetEntries(eventId: eventId)
-            let event = try await EventSupabaseManager.shared.fetchEvent(id: eventId)
+
+            // 2️⃣ Cart Items (Client Budget / Quotation Total)
+            let cartItems = try await EventDataManager.shared.fetchCartItems(eventId: eventId)
+
+            let totalCartAmount = cartItems.reduce(0) { sum, item in
+                let lineTotal = item.lineTotal ?? ((item.rate ?? 0) * Double(item.quantity ?? 0))
+                return sum + lineTotal
+            }
 
             await MainActor.run {
                 self.budgetEntries = entries
                 self.totalSpent = entries.reduce(0) { $0 + $1.amount }
-                self.eventBudget = Double(event.budgetInPaise) / 100
+                self.eventBudget = totalCartAmount   // ✅ FIXED
                 self.reloadBudgetCard()
                 self.reloadExpenses()
             }
@@ -98,39 +108,51 @@ final class BudgetDetailViewController: UIViewController {
         ])
     }
 
+    // MARK: - PREMIUM BUDGET CARD UI
     private func setupBudgetCard() {
-        let title = UILabel()
-        title.text = "Budget Overview"
-        title.font = .systemFont(ofSize: 18, weight: .semibold)
 
-        let util = UILabel()
-        util.text = "Budget Utilization"
-        util.font = .systemFont(ofSize: 14)
-        util.textColor = .secondaryLabel
+        budgetCard.backgroundColor = UIColor.utsavPurple
+        budgetCard.layer.cornerRadius = 18
+        budgetCard.layer.shadowColor = UIColor.black.cgColor
+        budgetCard.layer.shadowOpacity = 0.15
+        budgetCard.layer.shadowRadius = 12
+        budgetCard.layer.shadowOffset = CGSize(width: 0, height: 8)
 
-        progressView.trackTintColor = UIColor(white: 0.94, alpha: 1)
-        progressView.progressTintColor = UIColor(red: 140/255, green: 75/255, blue: 245/255, alpha: 1)
+        let titleLabel = UILabel()
+        titleLabel.text = "REMAINING BALANCE"
+        titleLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        titleLabel.textColor = UIColor.white.withAlphaComponent(0.7)
 
-        amountLabel.font = .systemFont(ofSize: 13)
-        amountLabel.textColor = .secondaryLabel
+        remainingLabel.font = .systemFont(ofSize: 30, weight: .bold)
+        remainingLabel.textColor = .white
 
-        let stack = UIStackView(arrangedSubviews: [title, util, progressView, amountLabel])
+        progressView.trackTintColor = UIColor.white.withAlphaComponent(0.25)
+        progressView.progressTintColor = .white
+
+        spentLabel.font = .systemFont(ofSize: 13)
+        spentLabel.textColor = UIColor.white.withAlphaComponent(0.8)
+
+        totalLabel.font = .systemFont(ofSize: 13)
+        totalLabel.textColor = UIColor.white.withAlphaComponent(0.8)
+        totalLabel.textAlignment = .right
+
+        let bottomStack = UIStackView(arrangedSubviews: [spentLabel, UIView(), totalLabel])
+        bottomStack.axis = .horizontal
+
+        let stack = UIStackView(arrangedSubviews: [titleLabel, remainingLabel, progressView, bottomStack])
         stack.axis = .vertical
-        stack.spacing = 10
+        stack.spacing = 12
         stack.translatesAutoresizingMaskIntoConstraints = false
 
-        budgetCard.backgroundColor = .white
-        budgetCard.layer.cornerRadius = 12
         budgetCard.addSubview(stack)
+        content.addArrangedSubview(budgetCard)
 
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: budgetCard.topAnchor, constant: 16),
-            stack.leadingAnchor.constraint(equalTo: budgetCard.leadingAnchor, constant: 16),
-            stack.trailingAnchor.constraint(equalTo: budgetCard.trailingAnchor, constant: -16),
-            stack.bottomAnchor.constraint(equalTo: budgetCard.bottomAnchor, constant: -16)
+            stack.topAnchor.constraint(equalTo: budgetCard.topAnchor, constant: 20),
+            stack.leadingAnchor.constraint(equalTo: budgetCard.leadingAnchor, constant: 20),
+            stack.trailingAnchor.constraint(equalTo: budgetCard.trailingAnchor, constant: -20),
+            stack.bottomAnchor.constraint(equalTo: budgetCard.bottomAnchor, constant: -20)
         ])
-
-        content.addArrangedSubview(budgetCard)
     }
 
     private func setupSearch() {
@@ -162,11 +184,14 @@ final class BudgetDetailViewController: UIViewController {
     }
 
     // MARK: - UI Updates
-
     private func reloadBudgetCard() {
+        let remaining = max(eventBudget - totalSpent, 0)
         let progress = eventBudget == 0 ? 0 : Float(totalSpent / eventBudget)
+
         progressView.progress = progress
-        amountLabel.text = "₹\(Int(totalSpent)) / ₹\(Int(eventBudget))"
+        remainingLabel.text = "₹\(Int(remaining))"
+        spentLabel.text = "Spent: ₹\(Int(totalSpent))"
+        totalLabel.text = "Total: ₹\(Int(eventBudget))"
     }
 
     private func reloadExpenses() {
@@ -181,7 +206,11 @@ final class BudgetDetailViewController: UIViewController {
     private func makeExpenseCard(title: String, subtitle: String) -> UIView {
         let card = UIView()
         card.backgroundColor = .white
-        card.layer.cornerRadius = 10
+        card.layer.cornerRadius = 12
+        card.layer.shadowColor = UIColor.black.cgColor
+        card.layer.shadowOpacity = 0.05
+        card.layer.shadowRadius = 6
+        card.layer.shadowOffset = CGSize(width: 0, height: 4)
 
         let t = UILabel()
         t.text = title
@@ -215,4 +244,3 @@ final class BudgetDetailViewController: UIViewController {
         navigationController?.pushViewController(vc, animated: true)
     }
 }
-
