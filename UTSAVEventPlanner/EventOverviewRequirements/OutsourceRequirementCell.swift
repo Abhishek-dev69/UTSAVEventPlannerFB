@@ -2,18 +2,18 @@ import UIKit
 
 final class OutsourceRequirementCell: UITableViewCell {
 
-    // MARK: - Callback
     var onSelectionChanged: ((Bool) -> Void)?
 
-    // MARK: - UI
     private let container = UIView()
-    private let checkbox = UIButton(type: .custom) // 🔴 IMPORTANT
+    private let checkbox = UIButton(type: .custom)
 
     private let titleLabel = UILabel()
     private let descLabel = UILabel()
-    private let budgetLabel = UILabel()
+    private let vendorLabel = UILabel()   // ✅ NEW
+    private let budgetLabel = UILabel()   // ✅ NEW
 
-    // MARK: - Init
+    private let infoStack = UIStackView() // ✅ NEW
+
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         selectionStyle = .none
@@ -26,53 +26,58 @@ final class OutsourceRequirementCell: UITableViewCell {
         super.prepareForReuse()
         checkbox.isSelected = false
         checkbox.isEnabled = true
-        onSelectionChanged = nil
+        vendorLabel.text = nil
         updateCheckboxUI()
     }
 
-    // MARK: - Setup
     private func setupUI() {
 
         contentView.backgroundColor = .systemGroupedBackground
 
         // Card
         container.backgroundColor = .white
-        container.layer.cornerRadius = 12
+        container.layer.cornerRadius = 14
         container.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(container)
 
-        // Checkbox (CUSTOM BUTTON → no UIKit padding)
+        // Checkbox
         checkbox.translatesAutoresizingMaskIntoConstraints = false
-        checkbox.backgroundColor = .clear
         checkbox.layer.cornerRadius = 13
         checkbox.layer.borderWidth = 2
         checkbox.layer.borderColor = UIColor.utsavPurple.cgColor
-
-        // 🔴 CRITICAL FIXES
         checkbox.contentEdgeInsets = .zero
         checkbox.imageEdgeInsets = .zero
         checkbox.adjustsImageWhenHighlighted = false
 
         let config = UIImage.SymbolConfiguration(pointSize: 12, weight: .bold)
-        checkbox.setImage(
-            UIImage(systemName: "checkmark", withConfiguration: config),
-            for: .selected
-        )
+        checkbox.setImage(UIImage(systemName: "checkmark", withConfiguration: config), for: .selected)
         checkbox.tintColor = .white
 
         checkbox.addTarget(self, action: #selector(toggle), for: .touchUpInside)
         container.addSubview(checkbox)
 
-        // Labels
-        titleLabel.font = .systemFont(ofSize: 16, weight: .semibold)
+        // Labels Style
+        titleLabel.font = .systemFont(ofSize: 17, weight: .semibold)
+        titleLabel.textColor = .black
 
         descLabel.font = .systemFont(ofSize: 13)
-        descLabel.textColor = .darkGray
+        descLabel.textColor = .systemGray
+
+        vendorLabel.font = .systemFont(ofSize: 14, weight: .medium)
+        vendorLabel.textColor = .utsavPurple   // ✅ Purple instead of green
 
         budgetLabel.font = .systemFont(ofSize: 14, weight: .medium)
-        budgetLabel.textColor = .systemGreen
+        budgetLabel.textColor = .utsavPurple   // ✅ Purple instead of green
 
-        [titleLabel, descLabel, budgetLabel].forEach {
+        // StackView for vendor + budget (perfect spacing)
+        infoStack.axis = .vertical
+        infoStack.spacing = 4   // ✅ clean spacing
+        infoStack.translatesAutoresizingMaskIntoConstraints = false
+
+        infoStack.addArrangedSubview(vendorLabel)
+        infoStack.addArrangedSubview(budgetLabel)
+
+        [titleLabel, descLabel, infoStack].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
             container.addSubview($0)
         }
@@ -92,8 +97,8 @@ final class OutsourceRequirementCell: UITableViewCell {
             checkbox.heightAnchor.constraint(equalToConstant: 26),
 
             // Title
-            titleLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
-            titleLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 12),
+            titleLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 14),
+            titleLabel.topAnchor.constraint(equalTo: container.topAnchor, constant: 14),
             titleLabel.trailingAnchor.constraint(equalTo: checkbox.leadingAnchor, constant: -12),
 
             // Description
@@ -101,15 +106,14 @@ final class OutsourceRequirementCell: UITableViewCell {
             descLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 6),
             descLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
 
-            // Budget
-            budgetLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            budgetLabel.topAnchor.constraint(equalTo: descLabel.bottomAnchor, constant: 8),
-            budgetLabel.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
-            budgetLabel.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -12)
+            // Stack (Vendor + Budget)
+            infoStack.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
+            infoStack.topAnchor.constraint(equalTo: descLabel.bottomAnchor, constant: 10),
+            infoStack.trailingAnchor.constraint(equalTo: titleLabel.trailingAnchor),
+            infoStack.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -14)
         ])
     }
 
-    // MARK: - Toggle
     @objc private func toggle() {
         checkbox.isSelected.toggle()
         updateCheckboxUI()
@@ -127,40 +131,39 @@ final class OutsourceRequirementCell: UITableViewCell {
         }
     }
 
-    // MARK: - Configure
     func configure(item: CartItemRecord, isSelected: Bool) {
 
         titleLabel.text = item.serviceName
         descLabel.text = "Client Requirement: \(item.subserviceName ?? "")"
 
         let total = Int((item.rate ?? 0) * Double(item.quantity ?? 1))
+        budgetLabel.text = "Client Budget: ₹\(total)"
 
         switch item.assignmentStatus {
 
         case "pending":
             checkbox.isSelected = false
             checkbox.isUserInteractionEnabled = false
-            budgetLabel.text = "Request sent to vendor"
+            vendorLabel.text = "Request sent to vendor"
 
         case "accepted":
             checkbox.isSelected = true
-            checkbox.isUserInteractionEnabled = false   // 🔴 key fix
-            budgetLabel.text = "Assigned to: \(item.assignedVendorName ?? "Vendor")"
+            checkbox.isUserInteractionEnabled = false
+            vendorLabel.text = "Assigned to: \(item.assignedVendorName ?? "Vendor")"
 
         case "rejected":
             checkbox.isSelected = false
             checkbox.isUserInteractionEnabled = true
-            budgetLabel.text = "Rejected by vendor"
+            vendorLabel.text = "Rejected by vendor"
 
         default:
             checkbox.isSelected = isSelected
             checkbox.isUserInteractionEnabled = true
-            budgetLabel.text = "Client Budget: ₹\(total)"
+            vendorLabel.text = nil
         }
 
         updateCheckboxUI()
     }
-
 }
 
 // MARK: - Color
