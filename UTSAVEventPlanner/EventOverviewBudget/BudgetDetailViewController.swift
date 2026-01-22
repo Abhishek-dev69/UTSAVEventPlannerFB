@@ -10,15 +10,22 @@ final class BudgetDetailViewController: UIViewController {
     private let searchField = UITextField()
     private let expensesContainer = UIStackView()
 
-    private let addPaymentsButton: UIButton = {
+    // ✅ Professional Floating Button
+    private let addExpenseButton: UIButton = {
         let b = UIButton(type: .system)
-        b.setTitle("Add Expense", for: .normal)
-        b.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
+        b.setTitle("＋ Add Expense", for: .normal)
+        b.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
         b.backgroundColor = UIColor.utsavPurple
         b.setTitleColor(.white, for: .normal)
-        b.layer.cornerRadius = 26
+        b.layer.cornerRadius = 28
         b.translatesAutoresizingMaskIntoConstraints = false
-        b.heightAnchor.constraint(equalToConstant: 52).isActive = true
+
+        // Shadow (Premium Look)
+        b.layer.shadowColor = UIColor.black.cgColor
+        b.layer.shadowOpacity = 0.25
+        b.layer.shadowRadius = 10
+        b.layer.shadowOffset = CGSize(width: 0, height: 6)
+
         return b
     }()
 
@@ -43,7 +50,7 @@ final class BudgetDetailViewController: UIViewController {
         setupBudgetCard()
         setupSearch()
         setupExpenseList()
-        setupBottomButton()
+        setupFloatingButton()
 
         Task { await loadBudget() }
     }
@@ -53,15 +60,12 @@ final class BudgetDetailViewController: UIViewController {
         Task { await loadBudget() }
     }
 
-    // MARK: - DATA LOADING (✅ FIXED LOGIC)
+    // MARK: - DATA LOADING
     private func loadBudget() async {
         guard let eventId = EventDataManager.shared.currentEventId else { return }
 
         do {
-            // 1️⃣ Expenses (Spent)
             let entries = try await EventDataManager.shared.fetchBudgetEntries(eventId: eventId)
-
-            // 2️⃣ Cart Items (Client Budget / Quotation Total)
             let cartItems = try await EventDataManager.shared.fetchCartItems(eventId: eventId)
 
             let totalCartAmount = cartItems.reduce(0) { sum, item in
@@ -72,7 +76,7 @@ final class BudgetDetailViewController: UIViewController {
             await MainActor.run {
                 self.budgetEntries = entries
                 self.totalSpent = entries.reduce(0) { $0 + $1.amount }
-                self.eventBudget = totalCartAmount   // ✅ FIXED
+                self.eventBudget = totalCartAmount
                 self.reloadBudgetCard()
                 self.reloadExpenses()
             }
@@ -108,9 +112,8 @@ final class BudgetDetailViewController: UIViewController {
         ])
     }
 
-    // MARK: - PREMIUM BUDGET CARD UI
+    // MARK: - Premium Budget Card
     private func setupBudgetCard() {
-
         budgetCard.backgroundColor = UIColor.utsavPurple
         budgetCard.layer.cornerRadius = 18
         budgetCard.layer.shadowColor = UIColor.black.cgColor
@@ -173,13 +176,16 @@ final class BudgetDetailViewController: UIViewController {
         content.addArrangedSubview(expensesContainer)
     }
 
-    private func setupBottomButton() {
-        view.addSubview(addPaymentsButton)
-        addPaymentsButton.addTarget(self, action: #selector(addExpenseTapped), for: .touchUpInside)
+    // ✅ Floating Button Layout
+    private func setupFloatingButton() {
+        view.addSubview(addExpenseButton)
+        addExpenseButton.addTarget(self, action: #selector(addExpenseTapped), for: .touchUpInside)
 
         NSLayoutConstraint.activate([
-            addPaymentsButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            addPaymentsButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -18)
+            addExpenseButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            addExpenseButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            addExpenseButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -14),
+            addExpenseButton.heightAnchor.constraint(equalToConstant: 56)
         ])
     }
 
@@ -238,9 +244,24 @@ final class BudgetDetailViewController: UIViewController {
         return card
     }
 
-    // MARK: - Actions
+    // MARK: - Bottom Sheet Add Expense
     @objc private func addExpenseTapped() {
         let vc = AddBudgetViewController(vendorName: nil)
-        navigationController?.pushViewController(vc, animated: true)
+
+        // ✅ CALLBACK WHEN EXPENSE IS ADDED
+        vc.onExpenseAdded = { [weak self] in
+            Task { await self?.loadBudget() }   // reload instantly
+        }
+
+        let nav = UINavigationController(rootViewController: vc)
+        nav.modalPresentationStyle = .pageSheet
+
+        if let sheet = nav.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.prefersGrabberVisible = true
+            sheet.preferredCornerRadius = 22
+        }
+
+        present(nav, animated: true)
     }
 }
