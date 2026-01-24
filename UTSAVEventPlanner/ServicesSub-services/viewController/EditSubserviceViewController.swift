@@ -192,7 +192,6 @@ final class EditSubserviceViewController: UIViewController {
             name: name,
             rate: rate,
             unit: "",       // intentionally empty
-            image: nil,     // no image
             isFixed: isFixedRate
         )
 
