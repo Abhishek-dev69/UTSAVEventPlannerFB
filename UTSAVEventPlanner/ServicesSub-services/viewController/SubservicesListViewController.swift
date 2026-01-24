@@ -141,7 +141,6 @@ extension SubservicesListViewController: UITableViewDataSource, UITableViewDeleg
         var cfg = cell.defaultContentConfiguration()
         cfg.text = sub.name
         cfg.secondaryText = "₹\(Int(sub.rate)) • \(sub.unit)"
-        cfg.image = sub.image
         cfg.imageProperties.maximumSize = CGSize(width: 44, height: 44)
         cfg.imageProperties.cornerRadius = 8
         cell.contentConfiguration = cfg

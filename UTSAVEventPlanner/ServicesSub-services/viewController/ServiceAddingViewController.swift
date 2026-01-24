@@ -432,7 +432,6 @@ extension ServiceAddingViewController: UITableViewDelegate, UITableViewDataSourc
         let item = subServices[indexPath.row]
         var content = cell.defaultContentConfiguration()
         content.text = "\(item.name) — ₹\(Int(item.rate)) (\(item.unit))"
-        content.image = item.image
         content.imageProperties.maximumSize = CGSize(width: 40, height: 40)
         content.imageProperties.cornerRadius = 8
         content.secondaryTextProperties.font = .systemFont(ofSize: 12)
