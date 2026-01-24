@@ -40,7 +40,16 @@ final class DashboardListViewController: UIViewController {
             object: nil
         )
 
-        Task { await loadEvents() }
+        // ✅ 1. Show cached events instantly
+        if DashboardEventStore.shared.hasCache {
+            self.allEvents = DashboardEventStore.shared.cachedEvents
+            self.events = self.allEvents
+            self.tableView.reloadData()
+            self.updateEmptyState()
+        }
+
+        // ✅ 2. Sync from server in background
+        Task { await refreshFromServer() }
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -167,6 +176,8 @@ final class DashboardListViewController: UIViewController {
                 // Remove locally
                 self.allEvents.removeAll { $0.id == event.id }
                 self.events.removeAll { $0.id == event.id }
+                
+                DashboardEventStore.shared.set(self.allEvents)
 
                 // Animate row deletion
                 self.tableView.deleteRows(at: [indexPath], with: .automatic)
@@ -266,22 +277,26 @@ final class DashboardListViewController: UIViewController {
 
     // MARK: - Data
     @objc private func reloadEvents() {
-        Task { await loadEvents() }
+        Task { await refreshFromServer() }
     }
 
-    private func loadEvents() async {
+    private func refreshFromServer() async {
         do {
             let uid = try await EventSupabaseManager.shared.ensureUserId()
             let fetched = try await EventSupabaseManager.shared.fetchUserEvents(userId: uid)
 
             await MainActor.run {
+                // Update cache
+                DashboardEventStore.shared.set(fetched)
+
+                // Update UI
                 self.allEvents = fetched
                 self.events = fetched
                 self.tableView.reloadData()
                 self.updateEmptyState()
             }
         } catch {
-            print("Error loading events:", error)
+            print("❌ Dashboard refresh failed:", error)
         }
     }
 
