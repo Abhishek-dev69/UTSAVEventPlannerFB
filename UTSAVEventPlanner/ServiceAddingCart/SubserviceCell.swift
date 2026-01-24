@@ -63,8 +63,6 @@ final class SubserviceCell: UITableViewCell {
 
         titleLabel.text = sub.name
         priceLabel.text = "₹\(Int(sub.rate)) / \(sub.unit)"
-
-        thumb.image = sub.image ?? UIImage(systemName: "photo")
         qtyLabel.text = "\(quantity)"
 
         updateControls()

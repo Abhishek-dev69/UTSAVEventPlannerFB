@@ -1,19 +1,18 @@
 // Service.swift
-import UIKit
+import Foundation
 
 // MARK: - UI MODELS
-struct Service {
+struct Service:Codable {
     var id: String?
     var name: String
     var subservices: [Subservice]
 }
 
-struct Subservice {
+struct Subservice:Codable {
     var id: String?
     var name: String
     var rate: Double
     var unit: String
-    var image: UIImage?
     var isFixed: Bool        // REQUIRED
 }
 
@@ -30,7 +29,6 @@ struct SubserviceRecord: Codable {
     let name: String
     let rate: Double
     let unit: String
-    let image_url: String?
     let is_fixed: Bool?        // <-- IMPORTANT
 
     func toSubserviceModel() -> Subservice {
@@ -42,7 +40,6 @@ struct SubserviceRecord: Codable {
             name: name,
             rate: rate,
             unit: unit,
-            image: nil,
             isFixed: fixed
         )
     }
