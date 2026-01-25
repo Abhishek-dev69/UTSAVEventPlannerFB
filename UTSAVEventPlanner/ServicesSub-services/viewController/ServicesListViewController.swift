@@ -33,6 +33,10 @@ final class ServicesListViewController: UIViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         navigationController?.setNavigationBarHidden(true, animated: false)
+
+        // 🔁 Always sync UI from cache
+        self.services = ServicesStore.shared.services
+        self.tableView.reloadData()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -226,7 +230,16 @@ extension ServicesListViewController: UITableViewDataSource, UITableViewDelegate
         let svc = services[indexPath.row]
         let vc = SubservicesListViewController(service: svc)
 
-        vc.onSubservicesChanged = { updatedSubs in
+        vc.onSubservicesChanged = { [weak self] updatedSubs in
+            guard let self = self else { return }
+
+            // 1️⃣ Update local UI state
+            if let idx = self.services.firstIndex(where: { $0.id == svc.id }) {
+                self.services[idx].subservices = updatedSubs
+                self.tableView.reloadRows(at: [IndexPath(row: idx, section: 0)], with: .none)
+            }
+
+            // 2️⃣ Update persistent cache
             var all = ServicesStore.shared.services
             if let idx = all.firstIndex(where: { $0.id == svc.id }) {
                 all[idx].subservices = updatedSubs

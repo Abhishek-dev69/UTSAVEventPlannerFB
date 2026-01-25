@@ -42,7 +42,19 @@ final class EventOverviewViewController: UIViewController {
         setupScroll()
         setupHeaderCard()
 
-        Task { await loadAllData() }
+        // ✅ 1. Load cached overview instantly
+        if let cached = EventOverviewStore.shared.load(eventId: event.id) {
+            self.cartItems = cached.cartItems
+            self.receivedAmount = cached.receivedAmount
+            self.totalExpenses = cached.totalExpenses
+
+            computeFromCart()
+            updateHeaderContent()
+            buildAllSections()
+        }
+
+        // ✅ 2. Sync in background
+        Task { await refreshFromServer() }
     }
 
     // MARK: - NAV
@@ -147,26 +159,39 @@ final class EventOverviewViewController: UIViewController {
 
     // MARK: - LOAD ALL DATA
     @MainActor
-    private func loadAllData() async {
+    private func refreshFromServer() async {
         do {
-            // ✅ CART ITEMS (CLIENT BUDGET)
-            cartItems = try await EventDataManager.shared.fetchCartItems(eventId: event.id)
-
-            // ✅ PAYMENTS RECEIVED
+            let cart = try await EventDataManager.shared.fetchCartItems(eventId: event.id)
             let payments = try await EventDataManager.shared.fetchPayments(eventId: event.id)
-            receivedAmount = payments.reduce(0) { $0 + $1.amount }
-
-            // ✅ EXPENSES (BUDGET ENTRIES)
             let expenses = try await EventDataManager.shared.fetchBudgetEntries(eventId: event.id)
-            totalExpenses = expenses.reduce(0) { $0 + $1.amount }
+
+            let received = payments.reduce(0) { $0 + $1.amount }
+            let spent = expenses.reduce(0) { $0 + $1.amount }
+
+            let overview = EventOverviewCache(
+                eventId: event.id,
+                cartItems: cart,
+                receivedAmount: received,
+                totalExpenses: spent
+            )
+
+            // ✅ Save to cache
+            EventOverviewStore.shared.save(overview)
+
+            await MainActor.run {
+                self.cartItems = cart
+                self.receivedAmount = received
+                self.totalExpenses = spent
+
+                self.computeFromCart()
+                self.updateHeaderContent()
+                self.buildAllSections()
+            }
 
         } catch {
-            print("❌ Error loading event data:", error)
+            print("⚠️ Overview sync failed (offline?):", error)
+            // ❌ Keep cached UI
         }
-
-        computeFromCart()
-        updateHeaderContent()
-        buildAllSections()
     }
 
     // MARK: - CART COMPUTATION
