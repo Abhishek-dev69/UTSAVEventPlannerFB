@@ -418,4 +418,3 @@ final class CartManager {
     func totalItems() -> Int { items.reduce(0) { $0 + $1.quantity } }
     func totalAmount() -> Double { items.reduce(0) { $0 + $1.lineTotal } }
 }
-

@@ -77,6 +77,7 @@ final class ProfileViewController: UIViewController {
     @objc private func backTapped() {
         navigationController?.popViewController(animated: true)
     }
+    
 
     @objc private func logoutTapped() {
         let alert = UIAlertController(
@@ -100,6 +101,8 @@ final class ProfileViewController: UIViewController {
         // Clear ONLY local app state
         EventSession.shared.currentEventId = nil
         CartManager.shared.resetLocalCart()   // ✅ FIXED
+        ProfileStore.shared.clear()
+
 
         Task {
             try? await SupabaseManager.shared.signOutAuth()
@@ -378,7 +381,11 @@ final class ProfileViewController: UIViewController {
                     profile_image_url: uploadedImageURL
                 )
 
-                _ = try await ProfileSupabaseManager.shared.saveProfile(payload)
+                let updatedProfile =
+                    try await ProfileSupabaseManager.shared.saveProfile(payload)
+
+                // ✅ Update cache immediately
+                ProfileStore.shared.set(updatedProfile)
 
                 await MainActor.run {
                     let tabBar = MainTabBarController.make()
@@ -397,48 +404,66 @@ final class ProfileViewController: UIViewController {
     // MARK: - Load Profile
 
     private func loadProfile() async {
+
+        // ✅ 1. SHOW CACHED PROFILE INSTANTLY
+        if ProfileStore.shared.hasCache,
+           let cached = ProfileStore.shared.cachedProfile {
+
+            await MainActor.run {
+                applyProfileToUI(cached)
+            }
+        }
+
+        // ✅ 2. FETCH FROM SERVER IN BACKGROUND
         do {
             let uid = try await SupabaseManager.shared.ensureUserId()
 
-            guard let p = try await ProfileSupabaseManager.shared.fetchProfile(for: uid) else {
-                return
-            }
+            guard let fresh =
+                try await ProfileSupabaseManager.shared.fetchProfile(for: uid)
+            else { return }
 
-            // ✅ Update text fields + state on main thread
-            await MainActor.run {
-                self.nameField.text = p.fullName
-                self.emailField.text = p.email
-                self.phoneField.text = p.phone
-                self.businessNameField.text = p.businessName
-                self.businessAddressField.text = p.businessAddress
-
-                // ✅ Preserve existing image URL
-                self.currentProfileImageURL = p.profileImageUrl
-
-                // Reset flags (VERY IMPORTANT)
-                self.didSelectProfileImage = false
-                self.didRemoveProfileImage = false
-            }
-
-            // ✅ Load image asynchronously (NON-BLOCKING)
-            guard let urlStr = p.profileImageUrl,
-                  let url = URL(string: urlStr) else {
-                return
-            }
-
-            let (data, _) = try await URLSession.shared.data(from: url)
-
-            guard let img = UIImage(data: data) else { return }
+            // ✅ Update cache + disk
+            ProfileStore.shared.set(fresh)
 
             await MainActor.run {
-                self.profileImageView.image = img
-                self.profileImageView.tintColor = nil
+                applyProfileToUI(fresh)
             }
 
         } catch {
-            print("Failed to load profile:", error)
+            print("❌ Profile refresh failed:", error)
         }
     }
+    
+    @MainActor
+    private func applyProfileToUI(_ p: UserProfile) {
+
+        nameField.text = p.fullName
+        emailField.text = p.email
+        phoneField.text = p.phone
+        businessNameField.text = p.businessName
+        businessAddressField.text = p.businessAddress
+
+        currentProfileImageURL = p.profileImageUrl
+        didSelectProfileImage = false
+        didRemoveProfileImage = false
+
+        guard let urlStr = p.profileImageUrl,
+              let url = URL(string: urlStr) else {
+            profileImageView.image = UIImage(systemName: "person.crop.circle")
+            profileImageView.tintColor = .secondaryLabel
+            return
+        }
+
+        Task {
+            let (data, _) = try await URLSession.shared.data(from: url)
+            if let img = UIImage(data: data) {
+                self.profileImageView.image = img
+                self.profileImageView.tintColor = nil
+            }
+        }
+    }
+
+
 
 
     // MARK: - Image Picker
