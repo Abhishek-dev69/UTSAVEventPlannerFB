@@ -194,10 +194,10 @@ final class EventSupabaseManager {
     private func isoDate(_ date: Date) -> String {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
-        f.timeZone = .init(abbreviation: "UTC")
+        f.timeZone = TimeZone.current  // use local timezone (IST)
         return f.string(from: date)
     }
-    
+
     // --------------------------------------------------------------------
     // --------------------------------------------------------------------
     // 🔥 NEW — FETCH ALL EVENTS FOR HOME SCREEN
