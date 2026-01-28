@@ -814,7 +814,7 @@ final class EstimateCartViewController: UIViewController {
                     )
 
                     alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
-                        self.navigationController?.dismiss(animated: true)
+                        self.goToDashboardListViewController()
                     })
 
                     self.present(alert, animated: true)
@@ -825,6 +825,51 @@ final class EstimateCartViewController: UIViewController {
             }
         }
     }
+    private func goToDashboardListViewController() {
+
+        let scenes = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+
+        guard let window = scenes.first?.windows.first(where: { $0.isKeyWindow }),
+              let root = window.rootViewController else {
+            self.dismiss(animated: true)
+            return
+        }
+
+        // ✅ Case 1: Root is TabBarController (your app case)
+        if let tab = root as? UITabBarController {
+
+            // ✅ Switch to Dashboard tab (index 0)
+            tab.selectedIndex = 0
+
+            // ✅ Get Dashboard NavigationController
+            if let dashNav = tab.viewControllers?.first as? UINavigationController {
+
+                // ✅ Pop to DashboardListViewController
+                dashNav.popToRootViewController(animated: true)
+            }
+
+            // ✅ Dismiss any presented controllers
+            tab.dismiss(animated: true)
+
+        }
+        // ✅ Case 2: Root is NavigationController (fallback)
+        else if let nav = root as? UINavigationController {
+            nav.popToRootViewController(animated: true)
+            nav.dismiss(animated: true)
+        }
+        // ✅ Case 3: Fallback
+        else {
+            root.dismiss(animated: true)
+        }
+
+        // ✅ Refresh Dashboard
+        NotificationCenter.default.post(
+            name: NSNotification.Name("ReloadEventsDashboard"),
+            object: nil
+        )
+    }
+
 
 
     // -------------------------------------------------------------
