@@ -95,6 +95,7 @@ struct CartInsert: Encodable {
         case userId = "user_id"
         case eventId = "event_id"
         case serviceId = "service_id"
+        case cartSessionId = "cart_session_id"
         case serviceName = "service_name"
         case subserviceId = "subservice_id"
         case subserviceName = "subservice_name"
@@ -382,18 +383,22 @@ final class SupabaseManager {
             .select("*")
             .eq("user_id", value: uid)
 
+        // ✅ PRIORITY 1: If eventId exists → fetch by event_id ONLY
         if let eId = eventId, !eId.isEmpty {
             query = query.eq("event_id", value: eId)
         }
-
-        if let sId = cartSessionId {
+        // ✅ PRIORITY 2: Only use cartSessionId when eventId is nil
+        else if let sId = cartSessionId, !sId.isEmpty {
             query = query.eq("cart_session_id", value: sId)
         }
 
         let response = try await query.execute()
 
+        if let raw = String(data: response.data, encoding: .utf8) {
+            print("🟢 fetchCartItems raw:", raw)
+        }
+
         let decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
         return try decoder.decode([CartItemRecord].self, from: response.data)
     }
 
@@ -401,7 +406,7 @@ final class SupabaseManager {
     func insertCartItem(
         userId: String?,
         eventId: String?,
-        cartSessionId: String?,   // ✅ ADD
+        cartSessionId: String?,
         serviceId: String?,
         serviceName: String,
         subserviceId: String,
@@ -417,14 +422,34 @@ final class SupabaseManager {
             ? ensureUserId()
             : userId!
 
+        // ✅ NORMALIZE SERVICE NAME (CRITICAL 🔥)
+        let safeServiceName: String = {
+            let trimmed = serviceName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { return trimmed }
+
+            let fallback = subserviceName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !fallback.isEmpty { return fallback }
+
+            return "Service"
+        }()
+
+        // ✅ NORMALIZE SUBSERVICE NAME (CRITICAL 🔥)
+        let safeSubserviceName: String = {
+            let trimmed = subserviceName.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty { return trimmed }
+            return safeServiceName
+        }()
+
+        print("🟢 INSERT CART ITEM → service:", safeServiceName, "sub:", safeSubserviceName)
+
         let payload = CartInsert(
             userId: uid,
             eventId: eventId,
-            cartSessionId: cartSessionId,   // ✅
+            cartSessionId: cartSessionId,
             serviceId: serviceId,
-            serviceName: serviceName,
+            serviceName: safeServiceName,
             subserviceId: subserviceId,
-            subserviceName: subserviceName,
+            subserviceName: safeSubserviceName,
             rate: rate,
             unit: unit,
             quantity: quantity,
@@ -435,14 +460,28 @@ final class SupabaseManager {
         let response = try await client
             .from("cart_items")
             .insert(payload)
-            .select()
+            .select("*")
             .execute()
+
+        // ✅ DEBUG LOG
+        if let raw = String(data: response.data, encoding: .utf8) {
+            print("🟢 insertCartItem raw DB response:", raw)
+        }
 
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
-        return try decoder.decode([CartItemRecord].self, from: response.data).first!
+
+        guard let item = try decoder.decode([CartItemRecord].self, from: response.data).first else {
+            throw NSError(
+                domain: "InsertCartItem",
+                code: -1,
+                userInfo: [NSLocalizedDescriptionKey: "Failed to decode inserted cart item"]
+            )
+        }
+
+        return item
     }
-    
+
     // MARK: - Delete Service (with cascading subservices)
     func deleteService(serviceId: String) async throws {
         // 1. Delete subservices first (FK safe)
