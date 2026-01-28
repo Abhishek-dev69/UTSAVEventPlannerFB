@@ -8,9 +8,11 @@ final class DashboardListViewController: UIViewController {
     private let avatar = UIImageView()
     private let titleLabel = UILabel()
     private let addButton = UIButton(type: .system)
-    private let segments = UISegmentedControl(items: ["All", "Upcoming", "Completed"])
-    private let searchBar = UISearchBar()
 
+    // ✅ UPDATED SEGMENTS (added Draft)
+    private let segments = UISegmentedControl(items: ["All", "Draft", "Upcoming", "Completed"])
+
+    private let searchBar = UISearchBar()
 
     // Empty State
     private let emptyStateView = UIView()
@@ -54,13 +56,18 @@ final class DashboardListViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        navigationController?.setNavigationBarHidden(true, animated: false)
+        navigationController?.navigationBar.isHidden = true
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        navigationController?.navigationBar.isHidden = false
     }
 
     deinit {
         NotificationCenter.default.removeObserver(self)
     }
-    
+
     private func setupSearchBar() {
         searchBar.placeholder = "Search event"
         searchBar.searchBarStyle = .minimal
@@ -77,7 +84,6 @@ final class DashboardListViewController: UIViewController {
             searchBar.heightAnchor.constraint(equalToConstant: 44)
         ])
     }
-
 
     // MARK: - Header
     private func setupHeader() {
@@ -158,7 +164,6 @@ final class DashboardListViewController: UIViewController {
         tableView.addGestureRecognizer(longPress)
         tableView.keyboardDismissMode = .onDrag
 
-
         NSLayoutConstraint.activate([
             tableView.topAnchor.constraint(equalTo: searchBar.bottomAnchor, constant: 12),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -166,77 +171,6 @@ final class DashboardListViewController: UIViewController {
             tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
         ])
     }
-    private func deleteEvent(_ event: EventRecord, at indexPath: IndexPath) async {
-
-        do {
-            try await EventSupabaseManager.shared.deleteEvent(eventId: event.id)
-
-            await MainActor.run {
-
-                // Remove locally
-                self.allEvents.removeAll { $0.id == event.id }
-                self.events.removeAll { $0.id == event.id }
-                
-                DashboardEventStore.shared.set(self.allEvents)
-
-                // Animate row deletion
-                self.tableView.deleteRows(at: [indexPath], with: .automatic)
-
-                self.updateEmptyState()
-
-                // Notify others if needed
-                NotificationCenter.default.post(
-                    name: NSNotification.Name("ReloadEventsDashboard"),
-                    object: nil
-                )
-            }
-
-        } catch {
-            print("❌ Delete failed:", error)
-
-            await MainActor.run {
-                let errAlert = UIAlertController(
-                    title: "Error",
-                    message: "Failed to delete event. Please try again.",
-                    preferredStyle: .alert
-                )
-                errAlert.addAction(UIAlertAction(title: "OK", style: .default))
-                self.present(errAlert, animated: true)
-            }
-        }
-    }
-
-    @objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
-
-        guard gesture.state == .began else { return }
-
-        let point = gesture.location(in: tableView)
-        guard let indexPath = tableView.indexPathForRow(at: point) else { return }
-
-        let event = events[indexPath.row]
-
-        let alert = UIAlertController(
-            title: event.eventName,
-            message: "Are you sure you want to delete this event?",
-            preferredStyle: .alert
-        )
-
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
-
-        alert.addAction(
-            UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
-                guard let self = self else { return }
-                Task {
-                    await self.deleteEvent(event, at: indexPath)
-                }
-            }
-        )
-
-        present(alert, animated: true)
-    }
-
-
-    // MARK: - Empty State
     private func setupEmptyState() {
         emptyIcon.image = UIImage(systemName: "calendar.badge.plus")
         emptyIcon.tintColor = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
@@ -268,11 +202,80 @@ final class DashboardListViewController: UIViewController {
             emptyStateView.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         ])
     }
-
     private func updateEmptyState() {
         let noEvents = events.isEmpty
         emptyStateView.alpha = noEvents ? 1 : 0
         tableView.alpha = noEvents ? 0 : 1
+    }
+    
+    @objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
+
+        guard gesture.state == .began else { return }
+
+        let point = gesture.location(in: tableView)
+        guard let indexPath = tableView.indexPathForRow(at: point) else { return }
+
+        let event = events[indexPath.row]
+
+        let alert = UIAlertController(
+            title: event.eventName,
+            message: "Are you sure you want to delete this event?",
+            preferredStyle: .alert
+        )
+
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        alert.addAction(
+            UIAlertAction(title: "Delete", style: .destructive) { [weak self] _ in
+                guard let self = self else { return }
+                Task {
+                    await self.deleteEvent(event, at: indexPath)
+                }
+            }
+        )
+
+        present(alert, animated: true)
+    }
+    
+    private func deleteEvent(_ event: EventRecord, at indexPath: IndexPath) async {
+        do {
+            try await EventSupabaseManager.shared.deleteEvent(eventId: event.id)
+
+            await MainActor.run {
+
+                // Remove locally
+                self.allEvents.removeAll { $0.id == event.id }
+                self.events.removeAll { $0.id == event.id }
+
+                // Update cache
+                DashboardEventStore.shared.set(self.allEvents)
+
+                // Animate row deletion
+                self.tableView.deleteRows(at: [indexPath], with: .automatic)
+
+                // Update empty state
+                self.updateEmptyState()
+
+                // Reload dashboard everywhere
+                NotificationCenter.default.post(
+                    name: NSNotification.Name("ReloadEventsDashboard"),
+                    object: nil
+                )
+            }
+
+        } catch {
+            print("❌ Delete failed:", error)
+
+            await MainActor.run {
+                let alert = UIAlertController(
+                    title: "Error",
+                    message: "Failed to delete event. Please try again.",
+                    preferredStyle: .alert
+                )
+                alert.addAction(UIAlertAction(title: "OK", style: .default))
+                self.present(alert, animated: true)
+            }
+        }
     }
 
     // MARK: - Data
@@ -286,10 +289,7 @@ final class DashboardListViewController: UIViewController {
             let fetched = try await EventSupabaseManager.shared.fetchUserEvents(userId: uid)
 
             await MainActor.run {
-                // Update cache
                 DashboardEventStore.shared.set(fetched)
-
-                // Update UI
                 self.allEvents = fetched
                 self.events = fetched
                 self.tableView.reloadData()
@@ -299,19 +299,63 @@ final class DashboardListViewController: UIViewController {
             print("❌ Dashboard refresh failed:", error)
         }
     }
+    private func openDraftCart(eventId: String) async {
+        do {
+            print("🟡 Opening draft cart for event:", eventId)
+
+            EventSession.shared.currentEventId = eventId
+
+            let sessionId = try await EventSupabaseManager.shared.fetchCartSessionId(eventId: eventId)
+
+            await MainActor.run {
+                CartSession.shared.currentSessionId = sessionId
+            }
+
+            // ✅ Clear only local cart
+            CartManager.shared.resetLocalCart()
+
+            // ✅ WAIT for cart to load
+            await withCheckedContinuation { continuation in
+                CartManager.shared.loadFromServer(eventId: eventId)
+
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    continuation.resume()
+                }
+            }
+
+            await MainActor.run {
+                let cartVC = EstimateCartViewController()
+                cartVC.hidesBottomBarWhenPushed = true
+
+                // ✅ FORCE NAVIGATION BAR TO SHOW
+                self.navigationController?.setNavigationBarHidden(false, animated: false)
+
+                self.navigationController?.pushViewController(cartVC, animated: true)
+            }
+
+        } catch {
+            print("❌ Failed to open draft cart:", error)
+        }
+    }
+
 
     // MARK: - Actions
     @objc private func segmentedChanged() {
         switch segments.selectedSegmentIndex {
+
         case 0: // All
             events = allEvents
 
-        case 1: // Upcoming
+        case 1: // ✅ Draft
+            events = allEvents.filter { ($0.status ?? "confirmed") == "draft" }
+
+        case 2: // Upcoming (confirmed + future date)
             events = allEvents.filter {
+                ($0.status ?? "confirmed") == "confirmed" &&
                 eventStatus(for: $0) == .upcoming
             }
 
-        case 2: // Completed
+        case 3: // Completed
             events = allEvents.filter {
                 eventStatus(for: $0) == .completed
             }
@@ -358,6 +402,7 @@ private let dashboardCurrencyFormatter: NumberFormatter = {
 private func parseDate(_ string: String) -> Date {
     dashboardDateFormatter.date(from: string) ?? Date()
 }
+
 enum EventStatus {
     case upcoming
     case ongoing
@@ -395,32 +440,50 @@ extension DashboardListViewController: UITableViewDataSource, UITableViewDelegat
         return cell
     }
 
-    func tableView(_ tableView: UITableView,
-                   didSelectRowAt indexPath: IndexPath) {
+    func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
 
         tableView.deselectRow(at: indexPath, animated: true)
 
         let record = events[indexPath.row]
-        EventSession.shared.currentEventId = record.id
 
+        // ✅ Set event session
+        EventSession.shared.currentEventId = record.id
+        EventSession.shared.currentEventName = record.eventName
+        EventSession.shared.currentClientName = record.clientName
+        EventSession.shared.currentLocation = record.location
+        EventSession.shared.currentStartDate = parseDate(record.startDate)
+        EventSession.shared.currentEndDate = parseDate(record.endDate)
+
+        // ✅ FIXED STATUS CHECK (safe)
+        let status = (record.status ?? "")
+            .lowercased()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        print("🟢 Event status:", status)
+
+        // ✅ Draft → Open Cart
+        if status == "draft" {
+            Task {
+                await openDraftCart(eventId: record.id)
+            }
+            return
+        }
+
+        // ✅ Normal confirmed flow
         let servicesAdded = record.metadata?["servicesAdded"] == "true"
 
         if servicesAdded {
-            // ✅ Event fully configured → Overview
             let vc = EventOverviewViewController(event: record)
             vc.hidesBottomBarWhenPushed = true
             navigationController?.pushViewController(vc, animated: true)
-
         } else {
-            // ⏳ Setup pending → Confirmation
-
             let details = EventDetails(
                 eventName: record.eventName,
                 clientName: record.clientName,
                 location: record.location,
                 guestCount: record.guestCount,
-                budgetInPaise: Int(record.budgetInPaise), // ✅ Int64 → Int
-                startDate: parseDate(record.startDate),   // ✅ String → Date
+                budgetInPaise: Int(record.budgetInPaise),
+                startDate: parseDate(record.startDate),
                 endDate: parseDate(record.endDate)
             )
 
@@ -430,7 +493,6 @@ extension DashboardListViewController: UITableViewDataSource, UITableViewDelegat
                 dateFormatter: dashboardDateFormatter,
                 title: record.eventName
             )
-
             vc.hidesBottomBarWhenPushed = true
             navigationController?.pushViewController(vc, animated: true)
         }
@@ -461,4 +523,3 @@ extension DashboardListViewController: UISearchBarDelegate {
         searchBar.resignFirstResponder()
     }
 }
-
