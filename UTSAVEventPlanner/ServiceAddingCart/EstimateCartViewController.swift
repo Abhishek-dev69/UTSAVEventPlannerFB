@@ -4,6 +4,7 @@
 //
 
 import UIKit
+import Supabase
 
 // -------------------------------------------------------------
 // MARK: - PaddedLabel
@@ -390,6 +391,8 @@ final class EstimateCartViewController: UIViewController {
         saveDraftBtn.setTitle("Save Draft", for: .normal)
         saveDraftBtn.layer.cornerRadius = 20
         saveDraftBtn.backgroundColor = UIColor(white: 0.9, alpha: 1)
+        saveDraftBtn.addTarget(self, action: #selector(saveDraftTapped), for: .touchUpInside)
+
         
         sendQuotationBtn.addTarget(
             self,
@@ -741,6 +744,13 @@ final class EstimateCartViewController: UIViewController {
                 )
 
                 try await EventSupabaseManager.shared.markServicesAdded(eventId: eventId)
+                // ✅ Mark event as confirmed
+                try await SupabaseManager.shared.client
+                    .from("events")
+                    .update(["status": "confirmed"])
+                    .eq("id", value: eventId)
+                    .execute()
+
 
                 await MainActor.run {
                     let scenes = UIApplication.shared.connectedScenes
@@ -779,6 +789,43 @@ final class EstimateCartViewController: UIViewController {
             }
         }
     }
+    @objc private func saveDraftTapped() {
+        Task {
+            do {
+                guard let eventId = EventSession.shared.currentEventId else { return }
+
+                try await SupabaseManager.shared.client
+                    .from("events")
+                    .update(["status": "draft"])
+                    .eq("id", value: eventId)
+                    .execute()
+
+                await MainActor.run {
+
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("ReloadEventsDashboard"),
+                        object: nil
+                    )
+
+                    let alert = UIAlertController(
+                        title: "Draft Saved",
+                        message: "Your event has been saved as draft.",
+                        preferredStyle: .alert
+                    )
+
+                    alert.addAction(UIAlertAction(title: "OK", style: .default) { _ in
+                        self.navigationController?.dismiss(animated: true)
+                    })
+
+                    self.present(alert, animated: true)
+                }
+
+            } catch {
+                print("❌ Draft save failed:", error)
+            }
+        }
+    }
+
 
     // -------------------------------------------------------------
     // MARK: Helpers

@@ -4,7 +4,8 @@ import UIKit
 import Supabase
 
 // MARK: - MODEL
-struct CartItem: Equatable {
+struct CartItem: Codable, Equatable {
+
     var id: String?
     var serviceId: String?
     var serviceName: String
@@ -14,8 +15,26 @@ struct CartItem: Equatable {
     var unit: String
     var quantity: Int
     var sourceType: String
+    var cartSessionId: String?   // ✅ ADD
+    var eventId: String?         // ✅ ADD
+    var userId: String?          // ✅ ADD
 
     var lineTotal: Double { rate * Double(quantity) }
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case serviceId = "service_id"
+        case serviceName = "service_name"
+        case subserviceId = "subservice_id"
+        case subserviceName = "subservice_name"
+        case rate
+        case unit
+        case quantity
+        case sourceType = "source_type"
+        case cartSessionId = "cart_session_id"
+        case eventId = "event_id"
+        case userId = "user_id"
+    }
 
     static func ==(lhs: CartItem, rhs: CartItem) -> Bool {
         return lhs.subserviceId == rhs.subserviceId
@@ -85,16 +104,40 @@ final class CartManager {
                 let records = try await SupabaseManager.shared.fetchCartItems(
                     userId: uid,
                     eventId: eId,
-                    cartSessionId: currentSessionId()
+                    cartSessionId: nil   // ✅ always load by event_id
                 )
 
-                let mapped = records.map { r in
-                    CartItem(
+                let mapped = records.map { r -> CartItem in
+
+                    // ✅ RAW VALUES FROM DB
+                    let rawServiceName = (r.serviceName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                    let rawSubserviceName = (r.subserviceName ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+
+                    // ✅ SMART FALLBACK LOGIC (CRITICAL 🔥)
+                    let finalServiceName: String
+                    if !rawServiceName.isEmpty {
+                        finalServiceName = rawServiceName
+                    } else if !rawSubserviceName.isEmpty {
+                        finalServiceName = rawSubserviceName   // fallback to subservice name
+                    } else {
+                        finalServiceName = "Service"
+                    }
+
+                    let finalSubserviceName: String
+                    if !rawSubserviceName.isEmpty {
+                        finalSubserviceName = rawSubserviceName
+                    } else {
+                        finalSubserviceName = finalServiceName
+                    }
+
+                    print("🟢 LOAD CART ITEM → service:", finalServiceName, "sub:", finalSubserviceName)
+
+                    return CartItem(
                         id: r.id,
                         serviceId: r.serviceId,
-                        serviceName: r.serviceName ?? "",
+                        serviceName: finalServiceName,
                         subserviceId: r.subserviceId ?? UUID().uuidString,
-                        subserviceName: r.subserviceName ?? "",
+                        subserviceName: finalSubserviceName,
                         rate: r.rate ?? 0,
                         unit: r.unit ?? "",
                         quantity: r.quantity ?? 0,
@@ -102,7 +145,9 @@ final class CartManager {
                     )
                 }
 
-                DispatchQueue.main.async { self.items = mapped }
+                DispatchQueue.main.async {
+                    self.items = mapped
+                }
 
             } catch {
                 print("❌ Cart load failed:", error)
@@ -114,17 +159,30 @@ final class CartManager {
     /// Call this when you receive an OutsourceItem from OutsourceFormView.
     /// This guarantees serviceName/subserviceName are wired correctly
     func addOutsource(item: OutsourceItem, quantity: Int = 1) {
-        // Use a generated subserviceId for ad-hoc outsource items
+
         let subId = UUID().uuidString
-        let svcName = item.serviceName.trimmingCharacters(in: .whitespacesAndNewlines)
-        let subName = item.subserviceName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // ✅ SAFE SERVICE NAME
+        let safeServiceName = item.serviceName
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty
+            ? "Outsource Service"
+            : item.serviceName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // ✅ SAFE SUBSERVICE NAME
+        let safeSubserviceName = item.subserviceName
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty
+            ? safeServiceName
+            : item.subserviceName.trimmingCharacters(in: .whitespacesAndNewlines)
+
         let rate = item.estimatedBudget ?? 0.0
-        // keep serviceId nil so DB stores the typed service_name (not a reference to a generic "Outsource" service)
+
         addItem(
             serviceId: nil,
-            serviceName: svcName,
+            serviceName: safeServiceName,
             subserviceId: subId,
-            subserviceName: subName,
+            subserviceName: safeSubserviceName,
             rate: rate,
             unit: "unit",
             quantity: quantity,
@@ -144,31 +202,41 @@ final class CartManager {
         metadata: [String: String]? = nil,
         sourceType: String
     ) {
-        print("🟢 addItem → \(subserviceName) [subserviceId: \(subserviceId)]")
 
-        // Local merge: if same subserviceId exists, increase quantity
-        if let idx = items.firstIndex(where: { $0.subserviceId == subserviceId }) {
-            // mutate existing item quantity (in-place) — didSet won't trigger, so call notify()
+        // ✅ NORMALIZE NAMES (CRITICAL FIX 🔥)
+        let safeServiceName = serviceName
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty ? "Service" : serviceName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let safeSubserviceName = subserviceName
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .isEmpty ? safeServiceName : subserviceName.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        print("🟢 addItem → \(safeSubserviceName) [subserviceId: \(subserviceId)]")
+
+        // ✅ Local merge
+        if let idx = items.firstIndex(where: {
+            $0.subserviceId == subserviceId ||
+            ($0.serviceName == safeServiceName && $0.subserviceName == safeSubserviceName)
+        }) {
             items[idx].quantity += quantity
             notify()
         } else {
-            // append new item — items.append(...) will trigger didSet -> notify()
             let newItem = CartItem(
                 id: nil,
                 serviceId: serviceId,
-                serviceName: serviceName,
+                serviceName: safeServiceName,
                 subserviceId: subserviceId,
-                subserviceName: subserviceName,
+                subserviceName: safeSubserviceName,
                 rate: rate,
                 unit: unit,
                 quantity: quantity,
                 sourceType: sourceType
             )
             items.append(newItem)
-            // don't call notify() here — didSet has already notified
         }
 
-        // Server merge (async)
+        // ✅ Server merge
         Task {
             do {
                 let uid = try await SupabaseManager.shared.ensureUserId()
@@ -177,10 +245,17 @@ final class CartManager {
                 let serverItems = try await SupabaseManager.shared.fetchCartItems(
                     userId: uid,
                     eventId: eId,
-                    cartSessionId: currentSessionId()
+                    cartSessionId: nil   // ✅ IMPORTANT FIX (don’t filter by session)
                 )
-                // CASE 1 — update existing server row with same subserviceId
-                if let existing = serverItems.first(where: { ($0.subserviceId ?? "") == subserviceId }) {
+
+                // ✅ CASE 1 — update existing item
+                if let existing = serverItems.first(where: {
+                    ($0.subserviceId ?? "") == subserviceId ||
+                    (
+                        ($0.serviceName ?? "").trimmingCharacters(in: .whitespacesAndNewlines) == safeServiceName &&
+                        ($0.subserviceName ?? "").trimmingCharacters(in: .whitespacesAndNewlines) == safeSubserviceName
+                    )
+                }) {
 
                     let newQty = (existing.quantity ?? 0) + quantity
 
@@ -199,15 +274,15 @@ final class CartManager {
                     return
                 }
 
-                // CASE 2 — insert new row
+                // ✅ CASE 2 — insert new row
                 let inserted = try await SupabaseManager.shared.insertCartItem(
                     userId: uid,
                     eventId: eId,
-                    cartSessionId: currentSessionId(),   // ✅ ADD THIS
+                    cartSessionId: self.currentSessionId(),
                     serviceId: serviceId,
-                    serviceName: serviceName,
+                    serviceName: safeServiceName,        // ✅ FIXED
                     subserviceId: subserviceId,
-                    subserviceName: subserviceName,
+                    subserviceName: safeSubserviceName,  // ✅ FIXED
                     rate: rate,
                     unit: unit,
                     quantity: quantity,
@@ -342,7 +417,7 @@ final class CartManager {
                 let serverItems = try await SupabaseManager.shared.fetchCartItems(
                     userId: uid,
                     eventId: eId,
-                    cartSessionId: currentSessionId()
+                    cartSessionId: nil
                 )
 
                 if let server = serverItems.first(where: { ($0.subserviceId ?? "") == subserviceId }) {
@@ -413,6 +488,11 @@ final class CartManager {
             }
         }
     }
+    func setItems(_ items: [CartItem]) {
+        self.items = items
+        notify()
+    }
+
 
     // MARK: - TOTALS
     func totalItems() -> Int { items.reduce(0) { $0 + $1.quantity } }

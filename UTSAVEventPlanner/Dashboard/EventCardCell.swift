@@ -108,22 +108,31 @@ final class EventCardCell: UITableViewCell {
         dateLabel.text = formatDate(record.startDate)
         locationLabel.text = record.location
 
-        // ✅ FIXED STATUS LOGIC
-        let eventDate = parseDate(record.startDate)
-        let today = Calendar.current.startOfDay(for: Date())
-        let eventDay = Calendar.current.startOfDay(for: eventDate)
+        // ✅ PRIORITY 1 — Draft status (from DB)
+        let status = record.status ?? "confirmed"
 
-        if eventDay < today {
-            statusLabel.text = "Completed"
-            statusDot.backgroundColor = .systemGreen
-
-        } else if eventDay == today {
-            statusLabel.text = "Ongoing"
-            statusDot.backgroundColor = .systemOrange
+        if status == "draft" {
+            statusLabel.text = "Draft"
+            statusDot.backgroundColor = .systemGray
 
         } else {
-            statusLabel.text = "Upcoming"
-            statusDot.backgroundColor = .systemBlue
+            // ✅ PRIORITY 2 — Date-based status
+            let eventDate = parseDate(record.startDate)
+            let today = Calendar.current.startOfDay(for: Date())
+            let eventDay = Calendar.current.startOfDay(for: eventDate)
+
+            if eventDay < today {
+                statusLabel.text = "Completed"
+                statusDot.backgroundColor = .systemGreen
+
+            } else if eventDay == today {
+                statusLabel.text = "Ongoing"
+                statusDot.backgroundColor = .systemOrange
+
+            } else {
+                statusLabel.text = "Upcoming"
+                statusDot.backgroundColor = .systemBlue
+            }
         }
 
         // Event type image
@@ -157,4 +166,3 @@ final class EventCardCell: UITableViewCell {
         return input
     }
 }
-

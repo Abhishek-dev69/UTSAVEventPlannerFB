@@ -33,6 +33,7 @@ struct EventRecord: Codable {
     let metadata: [String: String]?
     let createdAt: String?
     let updatedAt: String?
+    let status: String?
 }
 
 // MARK: - MAIN MANAGER
@@ -107,6 +108,53 @@ final class EventSupabaseManager {
         
         return record
     }
+    
+    func fetchCartSessionId(eventId: String) async throws -> String {
+
+        let result = try await client
+            .from("cart_items")
+            .select("cart_session_id")
+            .eq("event_id", value: eventId)
+            .limit(1)
+            .execute()
+
+        struct Row: Decodable {
+            let cart_session_id: String?   // ✅ MUST BE OPTIONAL
+        }
+
+        let rows = try JSONDecoder().decode([Row].self, from: result.data)
+
+        // ✅ If null or not found → generate new session id
+        if let sessionId = rows.first?.cart_session_id,
+           !sessionId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return sessionId
+        }
+
+        let newId = UUID().uuidString
+        print("🆕 Generated new cart_session_id:", newId)
+        return newId
+    }
+    func loadCartItems(eventId: String) async throws {
+
+        let result = try await client
+            .from("cart_items")
+            .select("*")
+            .eq("event_id", value: eventId)
+            .execute()
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let items = try decoder.decode([CartItem].self, from: result.data)
+
+        await MainActor.run {
+            CartManager.shared.setItems(items)
+        }
+
+        print("✅ Draft cart loaded items:", items.count)
+    }
+
+
+
     // MARK: - Fetch All Events for User
     // MARK: - Fetch All Events for User (Used in Payments + Inventory)
     func fetchUserEvents(userId: String) async throws -> [EventRecord] {
