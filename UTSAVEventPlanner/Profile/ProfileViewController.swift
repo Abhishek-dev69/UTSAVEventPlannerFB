@@ -66,12 +66,14 @@ final class ProfileViewController: UIViewController {
             action: #selector(backTapped)
         )
 
-        navigationItem.rightBarButtonItem = UIBarButtonItem(
+        let logoutButton = UIBarButtonItem(
             title: "Logout",
-            style: .done,
+            style: .plain,
             target: self,
             action: #selector(logoutTapped)
         )
+        logoutButton.tintColor = .utsavPurple   // ✅ Purple Logout
+        navigationItem.rightBarButtonItem = logoutButton
     }
 
     @objc private func backTapped() {
@@ -280,7 +282,7 @@ final class ProfileViewController: UIViewController {
         tf.placeholder = placeholder
         tf.textAlignment = .right
         tf.keyboardType = keyboard
-        tf.textColor = .systemBlue
+        tf.textColor = .utsavPurple   // ✅ Purple user data text
 
         label.translatesAutoresizingMaskIntoConstraints = false
         tf.translatesAutoresizingMaskIntoConstraints = false
