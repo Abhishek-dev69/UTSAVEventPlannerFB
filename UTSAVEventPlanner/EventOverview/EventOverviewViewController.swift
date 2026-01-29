@@ -11,15 +11,21 @@ final class EventOverviewViewController: UIViewController {
     private var cartItems: [CartItemRecord] = []
     private var inhouseItems: [CartItemRecord] = []
     private var outsourceItems: [CartItemRecord] = []
-    private var totalAmount: Double = 0.0          // ✅ Cart Total (Client Budget)
-    private var receivedAmount: Double = 0.0       // ✅ Payments received
-    private var totalExpenses: Double = 0.0        // ✅ Expenses (Budget Entries)
+    private var totalAmount: Double = 0.0
+    private var receivedAmount: Double = 0.0
+    private var totalExpenses: Double = 0.0
 
     // Header UI
     private let headerCard = UIView()
     private let headerClientLabel = UILabel()
+
+    private let headerDateIcon = UIImageView()
     private let headerDateLabel = UILabel()
+
+    private let headerLocationIcon = UIImageView()
     private let headerLocationLabel = UILabel()
+
+    private let headerGuestIcon = UIImageView()
     private let headerGuestLabel = UILabel()
 
     // MARK: Init
@@ -42,7 +48,6 @@ final class EventOverviewViewController: UIViewController {
         setupScroll()
         setupHeaderCard()
 
-        // ✅ 1. Load cached overview instantly
         if let cached = EventOverviewStore.shared.load(eventId: event.id) {
             self.cartItems = cached.cartItems
             self.receivedAmount = cached.receivedAmount
@@ -53,7 +58,6 @@ final class EventOverviewViewController: UIViewController {
             buildAllSections()
         }
 
-        // ✅ 2. Sync in background
         Task { await refreshFromServer() }
     }
 
@@ -86,9 +90,6 @@ final class EventOverviewViewController: UIViewController {
     // MARK: - SCROLLVIEW
     private func setupScroll() {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
-        scrollView.delaysContentTouches = false
-        scrollView.canCancelContentTouches = false
-
         view.addSubview(scrollView)
 
         NSLayoutConstraint.activate([
@@ -112,7 +113,7 @@ final class EventOverviewViewController: UIViewController {
         ])
     }
 
-    // MARK: - HEADER CARD
+    // MARK: - HEADER CARD (UPDATED WITH ICONS)
     private func setupHeaderCard() {
         headerCard.backgroundColor = .white
         headerCard.layer.cornerRadius = 14
@@ -124,40 +125,134 @@ final class EventOverviewViewController: UIViewController {
         headerClientLabel.font = .systemFont(ofSize: 18, weight: .semibold)
         headerClientLabel.numberOfLines = 2
 
-        headerDateLabel.font = .systemFont(ofSize: 13)
-        headerDateLabel.textColor = .secondaryLabel
+        func setupIcon(_ icon: UIImageView, name: String) {
+            icon.image = UIImage(systemName: name)
+            icon.tintColor = .secondaryLabel
+            icon.contentMode = .scaleAspectFit
+            icon.translatesAutoresizingMaskIntoConstraints = false
 
-        headerLocationLabel.font = .systemFont(ofSize: 13)
-        headerLocationLabel.textColor = .secondaryLabel
-
-        headerGuestLabel.font = .systemFont(ofSize: 13)
-        headerGuestLabel.textColor = .secondaryLabel
-
-        [headerClientLabel, headerDateLabel, headerLocationLabel, headerGuestLabel].forEach {
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            headerCard.addSubview($0)
+            NSLayoutConstraint.activate([
+                icon.widthAnchor.constraint(equalToConstant: 16),
+                icon.heightAnchor.constraint(equalToConstant: 16)
+            ])
         }
 
+        setupIcon(headerDateIcon, name: "calendar")
+        setupIcon(headerLocationIcon, name: "location.fill")
+        setupIcon(headerGuestIcon, name: "person.2")
+
+        [headerDateLabel, headerLocationLabel, headerGuestLabel].forEach {
+            $0.font = .systemFont(ofSize: 13)
+            $0.textColor = .secondaryLabel
+        }
+
+        let dateRow = UIStackView(arrangedSubviews: [headerDateIcon, headerDateLabel])
+        dateRow.axis = .horizontal
+        dateRow.spacing = 6
+
+        let locationRow = UIStackView(arrangedSubviews: [headerLocationIcon, headerLocationLabel])
+        locationRow.axis = .horizontal
+        locationRow.spacing = 6
+
+        let guestRow = UIStackView(arrangedSubviews: [headerGuestIcon, headerGuestLabel])
+        guestRow.axis = .horizontal
+        guestRow.spacing = 6
+
+        let infoStack = UIStackView(arrangedSubviews: [
+            headerClientLabel,
+            dateRow,
+            locationRow,
+            guestRow
+        ])
+        infoStack.axis = .vertical
+        infoStack.spacing = 8
+        infoStack.translatesAutoresizingMaskIntoConstraints = false
+
+        headerCard.addSubview(infoStack)
+
         NSLayoutConstraint.activate([
-            headerClientLabel.topAnchor.constraint(equalTo: headerCard.topAnchor, constant: 16),
-            headerClientLabel.leadingAnchor.constraint(equalTo: headerCard.leadingAnchor, constant: 16),
-            headerClientLabel.trailingAnchor.constraint(equalTo: headerCard.trailingAnchor, constant: -16),
-
-            headerDateLabel.topAnchor.constraint(equalTo: headerClientLabel.bottomAnchor, constant: 10),
-            headerDateLabel.leadingAnchor.constraint(equalTo: headerCard.leadingAnchor, constant: 16),
-
-            headerLocationLabel.topAnchor.constraint(equalTo: headerDateLabel.bottomAnchor, constant: 10),
-            headerLocationLabel.leadingAnchor.constraint(equalTo: headerCard.leadingAnchor, constant: 16),
-
-            headerGuestLabel.topAnchor.constraint(equalTo: headerLocationLabel.bottomAnchor, constant: 10),
-            headerGuestLabel.leadingAnchor.constraint(equalTo: headerCard.leadingAnchor, constant: 16),
-            headerGuestLabel.bottomAnchor.constraint(equalTo: headerCard.bottomAnchor, constant: -16)
+            infoStack.topAnchor.constraint(equalTo: headerCard.topAnchor, constant: 16),
+            infoStack.leadingAnchor.constraint(equalTo: headerCard.leadingAnchor, constant: 16),
+            infoStack.trailingAnchor.constraint(equalTo: headerCard.trailingAnchor, constant: -16),
+            infoStack.bottomAnchor.constraint(equalTo: headerCard.bottomAnchor, constant: -16)
         ])
 
         contentStack.addArrangedSubview(headerCard)
     }
 
-    // MARK: - LOAD ALL DATA
+    // MARK: - CART COMPUTATION
+    private func sourceType(for item: CartItemRecord) -> String {
+        if let s = item.sourceType, !s.isEmpty { return s.lowercased() }
+        return "in_house"
+    }
+
+    private func lineTotal(for item: CartItemRecord) -> Double {
+        item.lineTotal ?? ((item.rate ?? 0) * Double(item.quantity ?? 0))
+    }
+
+    private func computeFromCart() {
+        inhouseItems = cartItems.filter { sourceType(for: $0) != "outsource" }
+        outsourceItems = cartItems.filter { sourceType(for: $0) == "outsource" }
+        totalAmount = cartItems.reduce(0) { $0 + lineTotal(for: $1) }
+    }
+
+    // MARK: - HEADER CONTENT (UPDATED)
+    private func updateHeaderContent() {
+        let client = event.clientName.trimmingCharacters(in: .whitespacesAndNewlines)
+        headerClientLabel.text = !client.isEmpty ? client : event.eventName
+
+        headerDateLabel.text = composedDateString(startISO: event.startDate, endISO: event.endDate)
+
+        let loc = event.location.trimmingCharacters(in: .whitespacesAndNewlines)
+        headerLocationLabel.text = !loc.isEmpty ? loc : "—"
+
+        headerGuestLabel.text = event.guestCount > 0 ? "\(event.guestCount)" : "—"
+    }
+
+    // ✅ DATE FORMAT CHANGED TO dd/MM/yyyy
+    private func composedDateString(startISO: String, endISO: String) -> String {
+
+        func parseDate(_ value: String) -> Date? {
+            // 1️⃣ Try ISO8601
+            let isoFormatter = ISO8601DateFormatter()
+            if let date = isoFormatter.date(from: value) {
+                return date
+            }
+
+            // 2️⃣ Try simple yyyy-MM-dd (your current format)
+            let simpleFormatter = DateFormatter()
+            simpleFormatter.dateFormat = "yyyy-MM-dd"
+            simpleFormatter.locale = Locale(identifier: "en_US_POSIX")
+            if let date = simpleFormatter.date(from: value) {
+                return date
+            }
+
+            // 3️⃣ Try full timestamp format
+            let fullFormatter = DateFormatter()
+            fullFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
+            fullFormatter.locale = Locale(identifier: "en_US_POSIX")
+            return fullFormatter.date(from: value)
+        }
+
+        let outputFormatter = DateFormatter()
+        outputFormatter.dateFormat = "dd/MM/yyyy"
+
+        guard let startDate = parseDate(startISO) else {
+            return "Date not set"
+        }
+
+        if let endDate = parseDate(endISO) {
+            if Calendar.current.isDate(startDate, inSameDayAs: endDate) {
+                return outputFormatter.string(from: startDate)
+            } else {
+                return "\(outputFormatter.string(from: startDate)) - \(outputFormatter.string(from: endDate))"
+            }
+        }
+
+        return outputFormatter.string(from: startDate)
+    }
+
+    // MARK: - LOAD SERVER DATA (UNCHANGED)
     @MainActor
     private func refreshFromServer() async {
         do {
@@ -175,47 +270,24 @@ final class EventOverviewViewController: UIViewController {
                 totalExpenses: spent
             )
 
-            // ✅ Save to cache
             EventOverviewStore.shared.save(overview)
 
-            await MainActor.run {
-                self.cartItems = cart
-                self.receivedAmount = received
-                self.totalExpenses = spent
+            self.cartItems = cart
+            self.receivedAmount = received
+            self.totalExpenses = spent
 
-                self.computeFromCart()
-                self.updateHeaderContent()
-                self.buildAllSections()
-            }
+            computeFromCart()
+            updateHeaderContent()
+            buildAllSections()
 
         } catch {
-            print("⚠️ Overview sync failed (offline?):", error)
-            // ❌ Keep cached UI
+            print("⚠️ Overview sync failed:", error)
         }
     }
 
-    // MARK: - CART COMPUTATION
-    private func sourceType(for item: CartItemRecord) -> String {
-        if let s = item.sourceType, !s.isEmpty { return s.lowercased() }
-        return "in_house"
-    }
-
-    private func lineTotal(for item: CartItemRecord) -> Double {
-        item.lineTotal ?? ((item.rate ?? 0) * Double(item.quantity ?? 0))
-    }
-
-    private func computeFromCart() {
-        inhouseItems = cartItems.filter { sourceType(for: $0) != "outsource" }
-        outsourceItems = cartItems.filter { sourceType(for: $0) == "outsource" }
-
-        // ✅ CLIENT BUDGET = CART TOTAL
-        totalAmount = cartItems.reduce(0) { $0 + lineTotal(for: $1) }
-    }
-
-    // MARK: - BUILD UI SECTIONS
+    // MARK: - UI SECTIONS (UNCHANGED)
     private func buildAllSections() {
         contentStack.arrangedSubviews.dropFirst().forEach { $0.removeFromSuperview() }
-
         addClientRequirements()
         addBudgetCheckIn()
         addPaymentStatus()
@@ -241,12 +313,9 @@ final class EventOverviewViewController: UIViewController {
         contentStack.addArrangedSubview(card)
     }
 
-    // ✅ FIXED BUDGET CHECK-IN LOGIC
     private func addBudgetCheckIn() {
-        let cartTotal = totalAmount          // ✅ Client Budget
-        let spent = totalExpenses            // ✅ Expenses
-        let subtitle = "Spent ₹\(formatMoney(spent)) of ₹\(formatMoney(cartTotal))"
-        let progress: Float = cartTotal > 0 ? Float(spent / cartTotal) : 0
+        let subtitle = "Spent ₹\(formatMoney(totalExpenses)) of ₹\(formatMoney(totalAmount))"
+        let progress: Float = totalAmount > 0 ? Float(totalExpenses / totalAmount) : 0
 
         let card = EventSectionCard(
             iconName: "indianrupeesign.circle",
@@ -255,7 +324,6 @@ final class EventOverviewViewController: UIViewController {
             progress: progress
         ) { [weak self] in
             guard let self else { return }
-
             EventDataManager.shared.currentEventId = self.event.id
             let vc = BudgetDetailViewController()
             self.navigationController?.pushViewController(vc, animated: true)
@@ -264,7 +332,6 @@ final class EventOverviewViewController: UIViewController {
         contentStack.addArrangedSubview(card)
     }
 
-    // ✅ PAYMENT STATUS (CORRECT LOGIC)
     private func addPaymentStatus() {
         let percent = totalAmount > 0 ? (receivedAmount / totalAmount) : 0
         let subtitle = "Received ₹\(formatMoney(receivedAmount)) of ₹\(formatMoney(totalAmount)) (\(Int(percent * 100))%)"
@@ -313,38 +380,6 @@ final class EventOverviewViewController: UIViewController {
         f.numberStyle = .decimal
         f.maximumFractionDigits = 0
         return f.string(from: NSNumber(value: value)) ?? "0"
-    }
-
-    // MARK: - HEADER CONTENT
-    private func updateHeaderContent() {
-        let client = event.clientName.trimmingCharacters(in: .whitespacesAndNewlines)
-        headerClientLabel.text = !client.isEmpty ? client : event.eventName
-
-        headerDateLabel.text = composedDateString(startISO: event.startDate, endISO: event.endDate)
-
-        let loc = event.location.trimmingCharacters(in: .whitespacesAndNewlines)
-        headerLocationLabel.text = !loc.isEmpty ? "Location: \(loc)" : "Location: —"
-
-        headerGuestLabel.text = event.guestCount > 0 ? "Guests: \(event.guestCount)" : "Guests: —"
-    }
-
-    private func composedDateString(startISO: String, endISO: String) -> String {
-        let iso = ISO8601DateFormatter()
-        let df = DateFormatter()
-        df.dateStyle = .medium
-        df.timeStyle = .short
-
-        func parse(_ s: String) -> Date? {
-            iso.date(from: s)
-        }
-
-        if let s = parse(startISO), let e = parse(endISO) {
-            return Calendar.current.isDate(s, inSameDayAs: e)
-                ? df.string(from: s)
-                : "\(df.string(from: s)) - \(df.string(from: e))"
-        }
-
-        return startISO.isEmpty ? "Date not set" : startISO
     }
 }
 
