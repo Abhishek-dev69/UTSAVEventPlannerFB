@@ -140,11 +140,14 @@ extension InventoryEventsListViewController: UITableViewDataSource, UITableViewD
         let allocated = InventoryManager.shared.allocated(for: event.id)
         let received = InventoryManager.shared.received(for: event.id)
         let lost = InventoryManager.shared.lost(for: event.id)
+        let notReceived = InventoryManager.shared.notReceived(for: event.id)
+
 
         cell.configure(
             event: event,
             allocated: allocated,
             received: received,
+            notReceived: notReceived,   // ✅ NEW
             lost: lost
         )
 

@@ -12,6 +12,8 @@ final class InventoryManager {
     private var lostCache: [String: Int] = [:]
 
     private var inProgress: Set<String> = []
+    private var pendingCache: [String: Int] = [:]
+
 
     // MARK: - Cached getters
     func allocated(for eventId: String) -> Int {
@@ -25,6 +27,10 @@ final class InventoryManager {
     func lost(for eventId: String) -> Int {
         queue.sync { lostCache[eventId] ?? 0 }
     }
+    func notReceived(for eventId: String) -> Int {
+        queue.sync { pendingCache[eventId] ?? 0 }
+    }
+
 
     // MARK: - Load counts
     @MainActor
@@ -50,12 +56,15 @@ final class InventoryManager {
             // 3️⃣ Received = Allocated - Pending - Lost
             let pendingRows = try await InventoryDataManager.shared.fetchPendingPostEventRows(eventId: eventId)
             let pending = pendingRows.reduce(0) { $0 + $1.postQty }
+
             let received = max(allocated - pending - lost, 0)
+            let notReceived = pending
 
             queue.async(flags: .barrier) {
                 self.allocatedCache[eventId] = allocated
                 self.receivedCache[eventId] = received
                 self.lostCache[eventId] = lost
+                self.pendingCache[eventId] = notReceived   // ✅ NEW
                 self.inProgress.remove(eventId)
             }
 
