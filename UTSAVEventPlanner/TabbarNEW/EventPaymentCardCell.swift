@@ -35,32 +35,51 @@ final class EventPaymentCardCell: UITableViewCell {
         return iv
     }()
 
-    // middle: total & due
-    private let totalLabel: UILabel = {
+    // MARK: - Total Section
+    private let totalTitleLabel: UILabel = {
         let l = UILabel()
         l.translatesAutoresizingMaskIntoConstraints = false
-        l.font = UIFont.preferredFont(forTextStyle: .subheadline)
+        l.font = UIFont.systemFont(ofSize: 13, weight: .medium)
+        l.textColor = .secondaryLabel
+        l.text = "Total"
+        return l
+    }()
+
+    private let totalAmountLabel: UILabel = {
+        let l = UILabel()
+        l.translatesAutoresizingMaskIntoConstraints = false
+        l.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
         l.textColor = .label
         return l
     }()
 
-    private let remainingLabel: UILabel = {
+    // MARK: - Due Section
+    private let dueTitleLabel: UILabel = {
         let l = UILabel()
         l.translatesAutoresizingMaskIntoConstraints = false
-        l.font = UIFont.preferredFont(forTextStyle: .subheadline)
-        l.textColor = .label
+        l.font = UIFont.systemFont(ofSize: 13, weight: .medium)
+        l.textColor = .secondaryLabel
+        l.text = "Due"
         l.textAlignment = .right
         return l
     }()
 
-    // MARK: - Progress View (FIXED COLOR)
+    private let dueAmountLabel: UILabel = {
+        let l = UILabel()
+        l.translatesAutoresizingMaskIntoConstraints = false
+        l.font = UIFont.systemFont(ofSize: 17, weight: .semibold)
+        l.textColor = .systemRed // ✅ Due amount in red
+        l.textAlignment = .right
+        return l
+    }()
+
+    // MARK: - Progress View
     private let progressView: UIProgressView = {
         let p = UIProgressView(progressViewStyle: .bar)
         p.translatesAutoresizingMaskIntoConstraints = false
         p.layer.cornerRadius = 3
         p.clipsToBounds = true
 
-        // ✅ UTSAV PURPLE
         p.progressTintColor = UIColor(
             red: 139/255,
             green: 59/255,
@@ -68,18 +87,16 @@ final class EventPaymentCardCell: UITableViewCell {
             alpha: 1
         )
 
-        // subtle track
         p.trackTintColor = UIColor(
             red: 139/255,
             green: 59/255,
             blue: 240/255,
             alpha: 0.15
         )
-
         return p
     }()
 
-    // inside stacks
+    // stacks
     private let topRow = UIStackView()
     private let totalsRow = UIStackView()
     private let mainStack = UIStackView()
@@ -95,46 +112,49 @@ final class EventPaymentCardCell: UITableViewCell {
         setupViews()
     }
 
-    // MARK: - Setup
+    // MARK: - Setup UI
     private func setupViews() {
         backgroundColor = .clear
         selectionStyle = .none
 
-        // build stacks
         topRow.axis = .horizontal
         topRow.alignment = .top
-        topRow.distribution = .fill
         topRow.spacing = 8
         topRow.translatesAutoresizingMaskIntoConstraints = false
 
         totalsRow.axis = .horizontal
         totalsRow.alignment = .center
-        totalsRow.distribution = .fill
         totalsRow.spacing = 8
         totalsRow.translatesAutoresizingMaskIntoConstraints = false
 
         mainStack.axis = .vertical
-        mainStack.alignment = .fill
-        mainStack.distribution = .fill
-        mainStack.spacing = 10
+        mainStack.spacing = 12
         mainStack.translatesAutoresizingMaskIntoConstraints = false
 
         contentView.addSubview(cardView)
         cardView.addSubview(mainStack)
 
-        // topRow
+        // top row
         topRow.addArrangedSubview(titleLabel)
         topRow.addArrangedSubview(chevronView)
+
         chevronView.setContentHuggingPriority(.required, for: .horizontal)
-        chevronView.setContentCompressionResistancePriority(.required, for: .horizontal)
         chevronView.widthAnchor.constraint(equalToConstant: 18).isActive = true
         chevronView.heightAnchor.constraint(equalToConstant: 20).isActive = true
 
-        // totals row
-        let spacer = UIView()
-        totalsRow.addArrangedSubview(totalLabel)
-        totalsRow.addArrangedSubview(spacer)
-        totalsRow.addArrangedSubview(remainingLabel)
+        // totals row (native iOS style)
+        let totalStack = UIStackView(arrangedSubviews: [totalTitleLabel, totalAmountLabel])
+        totalStack.axis = .vertical
+        totalStack.spacing = 2
+
+        let dueStack = UIStackView(arrangedSubviews: [dueTitleLabel, dueAmountLabel])
+        dueStack.axis = .vertical
+        dueStack.spacing = 2
+        dueStack.alignment = .trailing
+
+        totalsRow.addArrangedSubview(totalStack)
+        totalsRow.addArrangedSubview(UIView())
+        totalsRow.addArrangedSubview(dueStack)
 
         // main stack
         mainStack.addArrangedSubview(topRow)
@@ -154,21 +174,14 @@ final class EventPaymentCardCell: UITableViewCell {
 
             titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: chevronView.leadingAnchor, constant: -8)
         ])
-
-        titleLabel.setContentCompressionResistancePriority(.required, for: .vertical)
-        titleLabel.setContentHuggingPriority(.defaultLow, for: .horizontal)
-
-        titleLabel.adjustsFontForContentSizeCategory = true
-        totalLabel.adjustsFontForContentSizeCategory = true
-        remainingLabel.adjustsFontForContentSizeCategory = true
     }
 
     // MARK: - Reuse
     override func prepareForReuse() {
         super.prepareForReuse()
         titleLabel.text = nil
-        totalLabel.text = nil
-        remainingLabel.text = nil
+        totalAmountLabel.text = nil
+        dueAmountLabel.text = nil
         progressView.setProgress(0, animated: false)
     }
 
@@ -178,8 +191,8 @@ final class EventPaymentCardCell: UITableViewCell {
         let rawName = event.eventName.trimmingCharacters(in: .whitespacesAndNewlines)
         titleLabel.text = rawName.isEmpty ? "Untitled Event" : rawName
 
-        totalLabel.text = "Total: ₹\(formatMoney(total ?? 0))"
-        remainingLabel.text = "Due: ₹\(formatMoney(remaining ?? 0))"
+        totalAmountLabel.text = "₹\(formatMoney(total ?? 0))"
+        dueAmountLabel.text = "₹\(formatMoney(remaining ?? 0))"
 
         if let t = total, let r = remaining, t > 0 {
             let received = max(0, t - r)
