@@ -108,6 +108,9 @@ final class VendorDetailViewController: UIViewController {
         avatarImageView.clipsToBounds = true
         avatarImageView.image = UIImage(systemName: "person.crop.circle")
         avatarImageView.tintColor = .secondaryLabel
+        avatarImageView.isUserInteractionEnabled = true
+        let tap = UITapGestureRecognizer(target: self, action: #selector(avatarTapped))
+        avatarImageView.addGestureRecognizer(tap)
 
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
         nameLabel.font = .systemFont(ofSize: 22, weight: .semibold)
@@ -237,6 +240,38 @@ final class VendorDetailViewController: UIViewController {
             addToMyVendorsButton.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, multiplier: 0.75)
         ])
     }
+    @objc private func avatarTapped() {
+        guard let image = avatarImageView.image else { return }
+
+        let vc = UIViewController()
+        vc.view.backgroundColor = .black
+
+        let imageView = UIImageView(image: image)
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        imageView.contentMode = .scaleAspectFit
+        imageView.isUserInteractionEnabled = true
+
+        vc.view.addSubview(imageView)
+
+        NSLayoutConstraint.activate([
+            imageView.leadingAnchor.constraint(equalTo: vc.view.leadingAnchor),
+            imageView.trailingAnchor.constraint(equalTo: vc.view.trailingAnchor),
+            imageView.topAnchor.constraint(equalTo: vc.view.topAnchor),
+            imageView.bottomAnchor.constraint(equalTo: vc.view.bottomAnchor)
+        ])
+
+        // tap anywhere to dismiss
+        let dismissTap = UITapGestureRecognizer(target: self, action: #selector(dismissFullScreenImage))
+        vc.view.addGestureRecognizer(dismissTap)
+
+        vc.modalPresentationStyle = .fullScreen
+        present(vc, animated: true)
+    }
+
+    @objc private func dismissFullScreenImage() {
+        dismiss(animated: true)
+    }
+
 
     private func setupSegmented() {
         segmented.translatesAutoresizingMaskIntoConstraints = false
