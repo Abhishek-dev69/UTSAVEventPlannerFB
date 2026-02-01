@@ -27,7 +27,10 @@ final class EventDetailsViewController: UIViewController {
         .init(title: "Engagement Party", imageName: "event_engagement"),
         .init(title: "Anniversary",      imageName: "event_anniversary"),
         .init(title: "Schools",          imageName: "event_schools"),
-        .init(title: "Holiday Party",    imageName: "event_holiday")
+        .init(title: "Holiday Party",    imageName: "event_holiday"),
+
+        // ✅ NEW
+        .init(title: "Others",           imageName: "event_wedding") // 👈 default image
     ]
 
     // MARK: UI
@@ -59,19 +62,19 @@ final class EventDetailsViewController: UIViewController {
     }()
 
     private let eventName = RoundedTextField(placeholder: "Enter The Event Name")
-    private let clientName = RoundedTextField(placeholder: "Enter the Client Name")
+    private let clientName = RoundedTextField(placeholder: "Enter The Client Name")
     private let locationField: RoundedTextField = {
-        let tf = RoundedTextField(placeholder: "Search for Location")
+        let tf = RoundedTextField(placeholder: "Enter The Event Location")
         tf.setRightIcon(systemName: "paperplane")
         return tf
     }()
     private let guestCountField: RoundedTextField = {
-        let tf = RoundedTextField(placeholder: "Enter the Number of Guests")
+        let tf = RoundedTextField(placeholder: "Enter The Number of Guests")
         tf.keyboardType = .numberPad
         return tf
     }()
     private let budgetField: RoundedTextField = {
-        let tf = RoundedTextField(placeholder: "₹1,00,000")
+        let tf = RoundedTextField(placeholder: "Enter The Budget")
         tf.keyboardType = .numberPad
         return tf
     }()
