@@ -103,7 +103,6 @@
 				3896CFE52EBFA70E0099FE70 /* UTSAVEventPlanner */,
 				3896CFFC2EBFA70F0099FE70 /* UTSAVEventPlannerTests */,
 				3896D0062EBFA70F0099FE70 /* UTSAVEventPlannerUITests */,
-				7801A5C72EC35C1E004EE399 /* Frameworks */,
 				3896CFE42EBFA70E0099FE70 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -116,13 +115,6 @@
 				3896D0032EBFA70F0099FE70 /* UTSAVEventPlannerUITests.xctest */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		7801A5C72EC35C1E004EE399 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

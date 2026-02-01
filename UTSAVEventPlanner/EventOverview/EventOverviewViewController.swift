@@ -74,6 +74,16 @@ final class EventOverviewViewController: UIViewController {
         backItem.tintColor = .black
         navigationItem.leftBarButtonItem = backItem
 
+        // ✅ SHARE PDF BUTTON
+        let shareItem = UIBarButtonItem(
+            image: UIImage(systemName: "square.and.arrow.up"),
+            style: .plain,
+            target: self,
+            action: #selector(didTapShare)
+        )
+        shareItem.tintColor = .black
+        navigationItem.rightBarButtonItem = shareItem
+
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
         appearance.backgroundColor = .white
@@ -85,6 +95,72 @@ final class EventOverviewViewController: UIViewController {
 
     @objc private func backPressed() {
         navigationController?.popViewController(animated: true)
+    }
+
+    // MARK: - PDF SHARE
+    @objc private func didTapShare() {
+        shareEventPDF()
+    }
+    private func mapToCartItems(_ records: [CartItemRecord]) -> [CartItem] {
+        records.map {
+            CartItem(
+                serviceId: $0.serviceId ?? "",
+                serviceName: $0.serviceName ?? "",
+                subserviceId: $0.subserviceId ?? "",
+                subserviceName: $0.subserviceName ?? "",
+                rate: $0.rate ?? 0,
+                unit: $0.unit ?? "",
+                quantity: $0.quantity ?? 0,
+                sourceType: $0.sourceType ?? "in_house"
+            )
+        }
+    }
+
+    private func shareEventPDF() {
+
+        guard !cartItems.isEmpty else {
+            print("❌ No items to generate PDF")
+            return
+        }
+
+        let mappedItems = mapToCartItems(cartItems)
+
+        let pdfData = QuotationPDFData(
+            eventName: event.eventName,
+            clientName: event.clientName,
+            location: event.location,
+            eventDate: composedDateString(
+                startISO: event.startDate,
+                endISO: event.endDate
+            ),
+            items: mappedItems,
+            subtotal: totalAmount,
+            tax: 0,
+            discount: 0,
+            grandTotal: totalAmount
+        )
+
+        let pdfView = QuotationPDFView(data: pdfData)
+
+        do {
+            let pdfURL = try PDFGenerator.generate(
+                view: pdfView,
+                fileName: "Event_Quotation_\(event.eventName).pdf"
+            )
+
+            let vc = UIActivityViewController(
+                activityItems: [pdfURL],
+                applicationActivities: nil
+            )
+
+            vc.popoverPresentationController?.barButtonItem =
+                navigationItem.rightBarButtonItem
+
+            present(vc, animated: true)
+
+        } catch {
+            print("❌ PDF generation failed:", error)
+        }
     }
 
     // MARK: - SCROLLVIEW
@@ -113,7 +189,7 @@ final class EventOverviewViewController: UIViewController {
         ])
     }
 
-    // MARK: - HEADER CARD (UPDATED WITH ICONS)
+    // MARK: - HEADER CARD
     private func setupHeaderCard() {
         headerCard.backgroundColor = .white
         headerCard.layer.cornerRadius = 14
@@ -196,63 +272,32 @@ final class EventOverviewViewController: UIViewController {
         totalAmount = cartItems.reduce(0) { $0 + lineTotal(for: $1) }
     }
 
-    // MARK: - HEADER CONTENT (UPDATED)
+    // MARK: - HEADER CONTENT
     private func updateHeaderContent() {
         let client = event.clientName.trimmingCharacters(in: .whitespacesAndNewlines)
         headerClientLabel.text = !client.isEmpty ? client : event.eventName
-
         headerDateLabel.text = composedDateString(startISO: event.startDate, endISO: event.endDate)
 
         let loc = event.location.trimmingCharacters(in: .whitespacesAndNewlines)
         headerLocationLabel.text = !loc.isEmpty ? loc : "—"
-
         headerGuestLabel.text = event.guestCount > 0 ? "\(event.guestCount)" : "—"
     }
 
-    // ✅ DATE FORMAT CHANGED TO dd/MM/yyyy
+    // MARK: - DATE FORMAT
     private func composedDateString(startISO: String, endISO: String) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        let out = DateFormatter()
+        out.dateFormat = "dd/MM/yyyy"
 
-        func parseDate(_ value: String) -> Date? {
-            // 1️⃣ Try ISO8601
-            let isoFormatter = ISO8601DateFormatter()
-            if let date = isoFormatter.date(from: value) {
-                return date
-            }
-
-            // 2️⃣ Try simple yyyy-MM-dd (your current format)
-            let simpleFormatter = DateFormatter()
-            simpleFormatter.dateFormat = "yyyy-MM-dd"
-            simpleFormatter.locale = Locale(identifier: "en_US_POSIX")
-            if let date = simpleFormatter.date(from: value) {
-                return date
-            }
-
-            // 3️⃣ Try full timestamp format
-            let fullFormatter = DateFormatter()
-            fullFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSZ"
-            fullFormatter.locale = Locale(identifier: "en_US_POSIX")
-            return fullFormatter.date(from: value)
+        guard let s = f.date(from: startISO) else { return "Date not set" }
+        if let e = f.date(from: endISO), !Calendar.current.isDate(s, inSameDayAs: e) {
+            return "\(out.string(from: s)) - \(out.string(from: e))"
         }
-
-        let outputFormatter = DateFormatter()
-        outputFormatter.dateFormat = "dd/MM/yyyy"
-
-        guard let startDate = parseDate(startISO) else {
-            return "Date not set"
-        }
-
-        if let endDate = parseDate(endISO) {
-            if Calendar.current.isDate(startDate, inSameDayAs: endDate) {
-                return outputFormatter.string(from: startDate)
-            } else {
-                return "\(outputFormatter.string(from: startDate)) - \(outputFormatter.string(from: endDate))"
-            }
-        }
-
-        return outputFormatter.string(from: startDate)
+        return out.string(from: s)
     }
 
-    // MARK: - LOAD SERVER DATA (UNCHANGED)
+    // MARK: - SERVER DATA
     @MainActor
     private func refreshFromServer() async {
         do {
@@ -285,7 +330,7 @@ final class EventOverviewViewController: UIViewController {
         }
     }
 
-    // MARK: - UI SECTIONS (UNCHANGED)
+    // MARK: - UI SECTIONS
     private func buildAllSections() {
         contentStack.arrangedSubviews.dropFirst().forEach { $0.removeFromSuperview() }
         addClientRequirements()
@@ -296,7 +341,6 @@ final class EventOverviewViewController: UIViewController {
 
     private func addClientRequirements() {
         let subtitle = "\(inhouseItems.count) in-house · \(outsourceItems.count) outsourced"
-
         let card = EventSectionCard(
             iconName: "checklist",
             title: "Client Requirements",
@@ -309,7 +353,6 @@ final class EventOverviewViewController: UIViewController {
                 animated: true
             )
         }
-
         contentStack.addArrangedSubview(card)
     }
 
@@ -325,10 +368,8 @@ final class EventOverviewViewController: UIViewController {
         ) { [weak self] in
             guard let self else { return }
             EventDataManager.shared.currentEventId = self.event.id
-            let vc = BudgetDetailViewController()
-            self.navigationController?.pushViewController(vc, animated: true)
+            self.navigationController?.pushViewController(BudgetDetailViewController(), animated: true)
         }
-
         contentStack.addArrangedSubview(card)
     }
 
@@ -348,7 +389,6 @@ final class EventOverviewViewController: UIViewController {
                 animated: true
             )
         }
-
         contentStack.addArrangedSubview(card)
     }
 
@@ -365,14 +405,12 @@ final class EventOverviewViewController: UIViewController {
                 animated: true
             )
         }
-
         contentStack.addArrangedSubview(card)
     }
 
     private func computeProgressForRequirements() -> Float {
         let total = max(1, cartItems.count)
-        let done = Double(inhouseItems.count + outsourceItems.count)
-        return Float(done / Double(total))
+        return Float(cartItems.count) / Float(total)
     }
 
     private func formatMoney(_ value: Double) -> String {
