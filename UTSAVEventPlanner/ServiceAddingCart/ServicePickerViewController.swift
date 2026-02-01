@@ -16,6 +16,12 @@ final class ServicePickerViewController: UIViewController, CartObserver {
     // Outsource form container
     private let outsourceContainer = UIView()
     private var outsourceForm: OutsourceFormView?
+    private let utsavPurple = UIColor(
+        red: 136/255,
+        green: 71/255,
+        blue: 246/255,
+        alpha: 1
+    )
 
     // Bottom cart UI
     private let bottomCartView = UIView()
@@ -281,6 +287,13 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         tableView.showsVerticalScrollIndicator = false
         
         tableView.keyboardDismissMode = .onDrag
+        
+        // 🔥 FIX unwanted left spacing
+        tableView.separatorInset = .zero
+        tableView.layoutMargins = .zero
+        tableView.contentInset = .zero
+        tableView.contentInsetAdjustmentBehavior = .never
+
 
         tableView.register(SubserviceInnerCell.self,
                            forCellReuseIdentifier: SubserviceInnerCell.reuseID)
@@ -392,6 +405,11 @@ extension ServicePickerViewController: UITableViewDataSource, UITableViewDelegat
         }
         return header
     }
+    @objc private func openViewAll(_ sender: UIButton) {
+        let svc = filteredServices[sender.tag]
+        let vc = ServiceDetailListViewController(service: svc)
+        navigationController?.pushViewController(vc, animated: true)
+    }
 
     func tableView(_ tableView: UITableView,
                    heightForHeaderInSection section: Int) -> CGFloat {
@@ -404,11 +422,35 @@ extension ServicePickerViewController: UITableViewDataSource, UITableViewDelegat
         let svc = filteredServices[indexPath.section]
 
         if indexPath.row == min(2, svc.subservices.count) {
+
             let cell = UITableViewCell()
             cell.selectionStyle = .none
-            cell.textLabel?.text = "View All →"
-            cell.textLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
-            cell.textLabel?.textColor = .systemPurple
+            cell.backgroundColor = .clear
+            cell.contentView.backgroundColor = .clear
+
+            let viewAllButton = UIButton(type: .system)
+            viewAllButton.setTitle("View All →", for: .normal)
+            viewAllButton.setTitleColor(utsavPurple, for: .normal)
+            viewAllButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
+            viewAllButton.layer.cornerRadius = 16
+            viewAllButton.layer.borderWidth = 1
+            viewAllButton.layer.borderColor = utsavPurple.withAlphaComponent(0.4).cgColor
+            viewAllButton.backgroundColor = .clear
+            viewAllButton.translatesAutoresizingMaskIntoConstraints = false
+
+            cell.contentView.addSubview(viewAllButton)
+
+            NSLayoutConstraint.activate([
+                viewAllButton.centerXAnchor.constraint(equalTo: cell.contentView.centerXAnchor),
+                viewAllButton.topAnchor.constraint(equalTo: cell.contentView.topAnchor, constant: 12),
+                viewAllButton.bottomAnchor.constraint(equalTo: cell.contentView.bottomAnchor, constant: -12),
+                viewAllButton.heightAnchor.constraint(equalToConstant: 32),
+                viewAllButton.widthAnchor.constraint(equalToConstant: 120)
+            ])
+
+            viewAllButton.addTarget(self, action: #selector(openViewAll(_:)), for: .touchUpInside)
+            viewAllButton.tag = indexPath.section
+
             return cell
         }
 

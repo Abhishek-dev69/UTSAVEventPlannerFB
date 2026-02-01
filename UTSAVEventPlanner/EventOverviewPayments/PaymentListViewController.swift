@@ -449,7 +449,7 @@ final class PaymentListViewController: UIViewController {
     private func updateHeaderUI() {
         totalLabel.text = "Total Amount: ₹\(formatMoney(totalAmount))"
         let remaining = max(0, totalAmount - receivedAmount)
-        remainingLabel.text = "Remaining: ₹\(formatMoney(remaining))"
+        remainingLabel.text = "Due: ₹\(formatMoney(remaining))"
         let progress = totalAmount > 0 ? Float(receivedAmount / totalAmount) : 0
         progressView.setProgress(progress, animated: true)
     }

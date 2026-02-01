@@ -8,7 +8,6 @@ final class SubserviceCell: UITableViewCell {
 
     static let reuseID = "SubserviceCellID"
 
-    private let thumb = UIImageView()
     private let titleLabel = UILabel()
     private let priceLabel = UILabel()
 
@@ -18,11 +17,16 @@ final class SubserviceCell: UITableViewCell {
     private let qtyLabel = UILabel()
     private let plusBtn = UIButton(type: .system)
 
-    // NEW REQUIRED — must pass into CartManager.addItem()
-    private var parentServiceId: String = ""
-    private var parentServiceName: String = ""
-    private var subservice: Subservice?
+    private let utsavPurple = UIColor(
+        red: 136/255,
+        green: 71/255,
+        blue: 246/255,
+        alpha: 1
+    )
 
+    private var parentServiceId = ""
+    private var parentServiceName = ""
+    private var subservice: Subservice?
     private var quantity: Int = 0 {
         didSet { updateControls() }
     }
@@ -31,22 +35,15 @@ final class SubserviceCell: UITableViewCell {
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupUI()
+        updateControls()
     }
 
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
+    required init?(coder: NSCoder) { fatalError() }
 
     override func prepareForReuse() {
         super.prepareForReuse()
-
-        addButton.removeTarget(nil, action: nil, for: .allEvents)
-        minusBtn.removeTarget(nil, action: nil, for: .allEvents)
-        plusBtn.removeTarget(nil, action: nil, for: .allEvents)
-
-        addButton.addTarget(self, action: #selector(didTapAdd), for: .touchUpInside)
-        minusBtn.addTarget(self, action: #selector(didTapMinus), for: .touchUpInside)
-        plusBtn.addTarget(self, action: #selector(didTapPlus), for: .touchUpInside)
+        quantity = 0
+        updateControls()
     }
 
     // MARK: - Configure
@@ -62,111 +59,86 @@ final class SubserviceCell: UITableViewCell {
         self.quantity = quantity
 
         titleLabel.text = sub.name
-        priceLabel.text = "₹\(Int(sub.rate)) / \(sub.unit)"
-        qtyLabel.text = "\(quantity)"
-
-        updateControls()
+        priceLabel.text = "₹\(Int(sub.rate))"   // 🔥 removed `/ unit`
     }
 
-    // MARK: - UI Setup
+    // MARK: - UI
     private func setupUI() {
         selectionStyle = .none
+        contentView.backgroundColor = .white
+        contentView.layer.cornerRadius = 16
 
-        // Thumb
-        thumb.translatesAutoresizingMaskIntoConstraints = false
-        thumb.layer.cornerRadius = 8
-        thumb.clipsToBounds = true
-        thumb.contentMode = .scaleAspectFill
-        contentView.addSubview(thumb)
-
-        // Labels
         titleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(titleLabel)
-
         priceLabel.font = .systemFont(ofSize: 13)
         priceLabel.textColor = .secondaryLabel
-        priceLabel.translatesAutoresizingMaskIntoConstraints = false
-        contentView.addSubview(priceLabel)
 
-        // Add button
+        // + ADD button
         addButton.setTitle("+ Add", for: .normal)
-        addButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
-        addButton.layer.cornerRadius = 18
-        addButton.layer.borderWidth = 1.2
-        addButton.layer.borderColor = UIColor.systemPurple.cgColor
-        addButton.setTitleColor(.systemPurple, for: .normal)
-        addButton.translatesAutoresizingMaskIntoConstraints = false
+        addButton.setTitleColor(utsavPurple, for: .normal)
+        addButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
+        addButton.layer.borderColor = utsavPurple.cgColor
+        addButton.layer.borderWidth = 1
+        addButton.layer.cornerRadius = 14
         addButton.addTarget(self, action: #selector(didTapAdd), for: .touchUpInside)
-        contentView.addSubview(addButton)
 
         // Qty controls
         minusBtn.setTitle("-", for: .normal)
         minusBtn.titleLabel?.font = .boldSystemFont(ofSize: 18)
-        minusBtn.translatesAutoresizingMaskIntoConstraints = false
         minusBtn.addTarget(self, action: #selector(didTapMinus), for: .touchUpInside)
 
         plusBtn.setTitle("+", for: .normal)
         plusBtn.titleLabel?.font = .boldSystemFont(ofSize: 18)
-        plusBtn.translatesAutoresizingMaskIntoConstraints = false
         plusBtn.addTarget(self, action: #selector(didTapPlus), for: .touchUpInside)
 
-        qtyLabel.font = .systemFont(ofSize: 15, weight: .semibold)
+        qtyLabel.font = .systemFont(ofSize: 14, weight: .semibold)
         qtyLabel.textAlignment = .center
-        qtyLabel.translatesAutoresizingMaskIntoConstraints = false
-        qtyLabel.widthAnchor.constraint(equalToConstant: 32).isActive = true
+        qtyLabel.widthAnchor.constraint(equalToConstant: 28).isActive = true
 
         qtyStack.axis = .horizontal
-        qtyStack.spacing = 10
+        qtyStack.spacing = 8
         qtyStack.alignment = .center
-        qtyStack.translatesAutoresizingMaskIntoConstraints = false
         qtyStack.addArrangedSubview(minusBtn)
         qtyStack.addArrangedSubview(qtyLabel)
         qtyStack.addArrangedSubview(plusBtn)
-        contentView.addSubview(qtyStack)
 
-        // IMPORTANT: ensure vertical constraints anchor contentView top -> bottom
+        [titleLabel, priceLabel, addButton, qtyStack].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            contentView.addSubview($0)
+        }
+
         NSLayoutConstraint.activate([
-            // thumb pinned to top & bottom so contentView has a vertical intrinsic height
-            thumb.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            thumb.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 12),
-            thumb.widthAnchor.constraint(equalToConstant: 66),
-            thumb.heightAnchor.constraint(equalToConstant: 46),
-            thumb.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -12),
-
-            // title and price anchored to top and to each other
-            titleLabel.leadingAnchor.constraint(equalTo: thumb.trailingAnchor, constant: 12),
-            titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
+            titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 14),
             titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: addButton.leadingAnchor, constant: -12),
 
             priceLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            priceLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 6),
-            // ensure bottom spacing so contentView can determine height
-            priceLabel.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -12),
+            priceLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
+            priceLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -14),
 
-            // add / qty controls pinned to trailing, centered vertically
-            addButton.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
             addButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            addButton.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            addButton.widthAnchor.constraint(equalToConstant: 56),
+            addButton.heightAnchor.constraint(equalToConstant: 28),
 
-            qtyStack.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
-            qtyStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16)
+            qtyStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            qtyStack.centerYAnchor.constraint(equalTo: contentView.centerYAnchor)
         ])
     }
 
-    // MARK: - Update UI
     private func updateControls() {
+        qtyLabel.text = "\(quantity)"
         addButton.isHidden = quantity > 0
         qtyStack.isHidden = quantity == 0
     }
 
     // MARK: - Actions
-
     @objc private func didTapAdd() {
-        guard let sub = subservice, let subId = sub.id else { return }
+        guard let sub = subservice,
+              let vc = parentViewController else { return }
 
         let alert = UIAlertController(
             title: "Add \(sub.name)",
-            message: "Enter quantity",
+            message: "Enter required quantity",
             preferredStyle: .alert
         )
 
@@ -177,7 +149,7 @@ final class SubserviceCell: UITableViewCell {
             $0.text = "1"
         }
 
-        // If negotiable, ask price also
+        // Rate field (only if not fixed)
         if !sub.isFixed {
             alert.addTextField {
                 $0.placeholder = "Price (₹)"
@@ -188,19 +160,20 @@ final class SubserviceCell: UITableViewCell {
 
         alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
 
-        alert.addAction(UIAlertAction(title: "Add", style: .default) { _ in
+        alert.addAction(UIAlertAction(title: "Add", style: .default) { [weak self] _ in
+            guard let self else { return }
+
             let qty = Int(alert.textFields?[0].text ?? "1") ?? 1
             let rate = sub.isFixed
                 ? sub.rate
                 : Double(alert.textFields?[1].text ?? "") ?? sub.rate
 
             self.quantity = qty
-            self.qtyLabel.text = "\(qty)"
 
             CartManager.shared.addItem(
                 serviceId: self.parentServiceId,
                 serviceName: self.parentServiceName,
-                subserviceId: subId,
+                subserviceId: sub.id ?? "",
                 subserviceName: sub.name,
                 rate: rate,
                 unit: sub.unit,
@@ -209,36 +182,27 @@ final class SubserviceCell: UITableViewCell {
             )
         })
 
-        self.parentViewController?.present(alert, animated: true)
-
+        vc.present(alert, animated: true)
     }
 
     @objc private func didTapMinus() {
-        guard let sub = subservice else { return }
-
         quantity = max(0, quantity - 1)
-
         CartManager.shared.setQuantity(
             serviceName: parentServiceName,
-            subserviceName: sub.name,
+            subserviceName: subservice?.name ?? "",
             quantity: quantity
         )
     }
 
     @objc private func didTapPlus() {
-        guard let sub = subservice else { return }
-
         quantity += 1
-
         CartManager.shared.setQuantity(
             serviceName: parentServiceName,
-            subserviceName: sub.name,
+            subserviceName: subservice?.name ?? "",
             quantity: quantity
         )
     }
 }
-
-
 // MARK: - UIView helper to find owning view controller
 fileprivate extension UIView {
     var parentViewController: UIViewController? {

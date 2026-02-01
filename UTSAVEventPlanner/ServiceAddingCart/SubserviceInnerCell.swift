@@ -13,6 +13,12 @@ final class SubserviceInnerCell: UITableViewCell {
     private let addBtn = UIButton(type: .system)
 
     private weak var qtyStack: UIStackView?
+    private let utsavPurple = UIColor(
+            red: 136/255,
+            green: 71/255,
+            blue: 246/255,
+            alpha: 1
+        )
 
     private var parentServiceId: String?
     private var parentService = ""
