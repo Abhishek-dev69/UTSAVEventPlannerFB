@@ -6,30 +6,47 @@ import UIKit
 
 final class ServiceDetailListViewController: UIViewController {
 
+    // MARK: - Data
     private let service: Service
     private var filteredSubservices: [Subservice]
 
+    // MARK: - UI
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
     private let searchField = UISearchBar()
+
+    // 🔥 SAME CART UI AS ServicePickerViewController
+    private let bottomCartView = UIView()
+    private let cartLabel = UILabel()
+    private let cartTotalLabel = UILabel()
+    private let cartIcon = UIImageView(image: UIImage(systemName: "cart.fill"))
 
     init(service: Service) {
         self.service = service
         self.filteredSubservices = service.subservices
         super.init(nibName: nil, bundle: nil)
     }
+
     required init?(coder: NSCoder) { fatalError() }
 
+    // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor(white: 0.97, alpha: 1)
         title = service.name
+
         setupSearch()
         setupTable()
+        setupBottomCart()
+
         CartManager.shared.addObserver(self)
+        updateCartUI()
     }
 
-    deinit { CartManager.shared.removeObserver(self) }
+    deinit {
+        CartManager.shared.removeObserver(self)
+    }
 
+    // MARK: - Search
     private func setupSearch() {
         searchField.placeholder = "Search \(service.name)…"
         searchField.delegate = self
@@ -43,6 +60,7 @@ final class ServiceDetailListViewController: UIViewController {
         ])
     }
 
+    // MARK: - Table
     private func setupTable() {
         tableView.register(SubserviceCell.self, forCellReuseIdentifier: SubserviceCell.reuseID)
         tableView.dataSource = self
@@ -56,8 +74,85 @@ final class ServiceDetailListViewController: UIViewController {
             tableView.topAnchor.constraint(equalTo: searchField.bottomAnchor, constant: 8),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            // 🔥 leave space for cart
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -110)
         ])
+    }
+
+    // MARK: - Bottom Cart (SAME CODE)
+    private func setupBottomCart() {
+        bottomCartView.translatesAutoresizingMaskIntoConstraints = false
+        bottomCartView.backgroundColor = UIColor(
+            red: 136/255,
+            green: 71/255,
+            blue: 246/255,
+            alpha: 1
+        )
+        bottomCartView.layer.cornerRadius = 32
+        view.addSubview(bottomCartView)
+
+        let iconBg = UIView()
+        iconBg.translatesAutoresizingMaskIntoConstraints = false
+        iconBg.backgroundColor = .white
+        iconBg.layer.cornerRadius = 20
+        bottomCartView.addSubview(iconBg)
+
+        cartIcon.tintColor = UIColor(
+            red: 136/255,
+            green: 71/255,
+            blue: 246/255,
+            alpha: 1
+        )
+        cartIcon.translatesAutoresizingMaskIntoConstraints = false
+        iconBg.addSubview(cartIcon)
+
+        cartLabel.font = .systemFont(ofSize: 16, weight: .semibold)
+        cartLabel.textColor = .white
+        cartLabel.translatesAutoresizingMaskIntoConstraints = false
+        bottomCartView.addSubview(cartLabel)
+
+        cartTotalLabel.font = .systemFont(ofSize: 14)
+        cartTotalLabel.textColor = .white
+        cartTotalLabel.translatesAutoresizingMaskIntoConstraints = false
+        bottomCartView.addSubview(cartTotalLabel)
+
+        let tap = UITapGestureRecognizer(target: self, action: #selector(openCart))
+        bottomCartView.addGestureRecognizer(tap)
+
+        NSLayoutConstraint.activate([
+            bottomCartView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            bottomCartView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            bottomCartView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8),
+            bottomCartView.heightAnchor.constraint(equalToConstant: 70),
+
+            iconBg.leadingAnchor.constraint(equalTo: bottomCartView.leadingAnchor, constant: 16),
+            iconBg.centerYAnchor.constraint(equalTo: bottomCartView.centerYAnchor),
+            iconBg.heightAnchor.constraint(equalToConstant: 40),
+            iconBg.widthAnchor.constraint(equalToConstant: 40),
+
+            cartIcon.centerXAnchor.constraint(equalTo: iconBg.centerXAnchor),
+            cartIcon.centerYAnchor.constraint(equalTo: iconBg.centerYAnchor),
+
+            cartLabel.leadingAnchor.constraint(equalTo: iconBg.trailingAnchor, constant: 12),
+            cartLabel.topAnchor.constraint(equalTo: bottomCartView.topAnchor, constant: 14),
+
+            cartTotalLabel.leadingAnchor.constraint(equalTo: cartLabel.leadingAnchor),
+            cartTotalLabel.topAnchor.constraint(equalTo: cartLabel.bottomAnchor, constant: 2)
+        ])
+    }
+
+    private func updateCartUI() {
+        let items = CartManager.shared.totalItems()
+        bottomCartView.isHidden = items == 0
+        cartLabel.text = "\(items) Items Selected"
+        cartTotalLabel.text = "Est. Total: ₹\(Int(CartManager.shared.totalAmount()))"
+    }
+
+    @objc private func openCart() {
+        let vc = EstimateCartViewController()
+        let nav = UINavigationController(rootViewController: vc)
+        nav.modalPresentationStyle = .fullScreen
+        present(nav, animated: true)
     }
 }
 
@@ -73,60 +168,48 @@ extension ServiceDetailListViewController: UITableViewDataSource {
 
         let sub = filteredSubservices[indexPath.row]
 
-        guard let cell = tableView.dequeueReusableCell(
+        let cell = tableView.dequeueReusableCell(
             withIdentifier: SubserviceCell.reuseID,
             for: indexPath
-        ) as? SubserviceCell else {
-            return UITableViewCell()
-        }
+        ) as! SubserviceCell
 
-        // FIX — service.id is optional in your model, unwrap safely
-        guard let serviceId = service.id else {
-            print("❌ ERROR: service.id is nil for service \(service.name)")
-            return cell
-        }
+        guard let serviceId = service.id else { return cell }
 
-        // Load existing quantity from CartManager
-        let existingQty = CartManager.shared.items.first(where: {
+        let qty = CartManager.shared.items.first {
             $0.serviceName == service.name && $0.subserviceName == sub.name
-        })?.quantity ?? 0
+        }?.quantity ?? 0
 
-        // FIXED CONFIGURATION SIGNATURE
         cell.configure(
             parentServiceId: serviceId,
             parentService: service.name,
             sub: sub,
-            quantity: existingQty
+            quantity: qty
         )
 
         return cell
     }
 }
 
+// MARK: - UITableViewDelegate
+extension ServiceDetailListViewController: UITableViewDelegate {}
+
 // MARK: - UISearchBarDelegate
 extension ServiceDetailListViewController: UISearchBarDelegate {
-
     func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
         let term = searchText.trimmed
-
-        if term.isEmpty {
-            filteredSubservices = service.subservices
-        } else {
-            filteredSubservices = service.subservices.filter {
+        filteredSubservices = term.isEmpty
+            ? service.subservices
+            : service.subservices.filter {
                 $0.name.localizedCaseInsensitiveContains(term)
             }
-        }
-
         tableView.reloadData()
     }
 }
 
-// MARK: - TableView Delegate
-extension ServiceDetailListViewController: UITableViewDelegate {}
-
-// MARK: - Cart Observer
+// MARK: - CartObserver
 extension ServiceDetailListViewController: CartObserver {
     func cartDidChange() {
+        updateCartUI()
         tableView.reloadData()
     }
 }
@@ -134,6 +217,7 @@ extension ServiceDetailListViewController: CartObserver {
 // MARK: - Helper
 extension String {
     var trimmed: String {
-        self.trimmingCharacters(in: .whitespacesAndNewlines)
+        trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }
+
