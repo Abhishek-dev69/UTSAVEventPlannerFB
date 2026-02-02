@@ -2,15 +2,17 @@ import UIKit
 
 final class InventoryCardCell: UITableViewCell {
 
+    // MARK: - UI
     private let cardView = UIView()
     private let titleLabel = UILabel()
 
-    // MARK: - Labels
+    // MARK: - Title Labels
     private let allocatedTitleLabel = UILabel()
     private let receivedTitleLabel = UILabel()
     private let pendingTitleLabel = UILabel()
     private let lostTitleLabel = UILabel()
 
+    // MARK: - Value Labels
     private let allocatedValueLabel = UILabel()
     private let receivedValueLabel = UILabel()
     private let pendingValueLabel = UILabel()
@@ -21,6 +23,7 @@ final class InventoryCardCell: UITableViewCell {
     private let row1Stack = UIStackView()
     private let row2Stack = UIStackView()
 
+    // MARK: - Init
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
         setupUI()
@@ -30,11 +33,12 @@ final class InventoryCardCell: UITableViewCell {
         fatalError("init(coder:) has not been implemented")
     }
 
+    // MARK: - Setup
     private func setupUI() {
         backgroundColor = .clear
         selectionStyle = .none
 
-        // Card style
+        // Card
         cardView.backgroundColor = .systemBackground
         cardView.layer.cornerRadius = 14
         cardView.layer.shadowOpacity = 0.06
@@ -58,19 +62,44 @@ final class InventoryCardCell: UITableViewCell {
         lostTitleLabel.text = "Lost/Damaged"
 
         // Value labels style
-        [allocatedValueLabel, receivedValueLabel, pendingValueLabel, lostValueLabel].forEach {
-            $0.font = .systemFont(ofSize: 18, weight: .semibold)
-            $0.textColor = .label
-        }
+        allocatedValueLabel.font = .systemFont(ofSize: 18, weight: .semibold)
+        allocatedValueLabel.textColor = .label
 
-        // Column stacks
-        let allocatedStack = makeColumn(title: allocatedTitleLabel, value: allocatedValueLabel, alignment: .leading)
-        let receivedStack = makeColumn(title: receivedTitleLabel, value: receivedValueLabel, alignment: .trailing)
+        receivedValueLabel.font = .systemFont(ofSize: 18, weight: .semibold)
+        receivedValueLabel.textColor = .label
 
-        let pendingStack = makeColumn(title: pendingTitleLabel, value: pendingValueLabel, alignment: .leading)
-        let lostStack = makeColumn(title: lostTitleLabel, value: lostValueLabel, alignment: .trailing)
+        pendingValueLabel.font = .systemFont(ofSize: 18, weight: .semibold)
+        pendingValueLabel.textColor = .systemRed   // 🔴 FIX: Red pending
 
-        // Row stacks
+        lostValueLabel.font = .systemFont(ofSize: 18, weight: .semibold)
+        lostValueLabel.textColor = .label
+
+        // Columns
+        let allocatedStack = makeColumn(
+            title: allocatedTitleLabel,
+            value: allocatedValueLabel,
+            alignment: .leading
+        )
+
+        let receivedStack = makeColumn(
+            title: receivedTitleLabel,
+            value: receivedValueLabel,
+            alignment: .trailing
+        )
+
+        let pendingStack = makeColumn(
+            title: pendingTitleLabel,
+            value: pendingValueLabel,
+            alignment: .leading
+        )
+
+        let lostStack = makeColumn(
+            title: lostTitleLabel,
+            value: lostValueLabel,
+            alignment: .trailing
+        )
+
+        // Rows
         row1Stack.axis = .horizontal
         row1Stack.distribution = .fillEqually
         row1Stack.spacing = 20
@@ -87,7 +116,6 @@ final class InventoryCardCell: UITableViewCell {
         mainStack.axis = .vertical
         mainStack.spacing = 12
         mainStack.translatesAutoresizingMaskIntoConstraints = false
-
         mainStack.addArrangedSubview(titleLabel)
         mainStack.addArrangedSubview(row1Stack)
         mainStack.addArrangedSubview(row2Stack)
@@ -108,7 +136,11 @@ final class InventoryCardCell: UITableViewCell {
         ])
     }
 
-    private func makeColumn(title: UILabel, value: UILabel, alignment: UIStackView.Alignment) -> UIStackView {
+    private func makeColumn(
+        title: UILabel,
+        value: UILabel,
+        alignment: UIStackView.Alignment
+    ) -> UIStackView {
         let stack = UIStackView(arrangedSubviews: [title, value])
         stack.axis = .vertical
         stack.spacing = 2
@@ -116,12 +148,18 @@ final class InventoryCardCell: UITableViewCell {
         return stack
     }
 
-    // ✅ Updated configure method
-    func configure(event: EventRecord, allocated: Int, received: Int, notReceived: Int, lost: Int) {
-        titleLabel.text = event.eventName
+    // MARK: - Configure
+    func configure(
+        title: String,
+        allocated: Int,
+        received: Int,
+        pending: Int,
+        lost: Int
+    ) {
+        titleLabel.text = title
         allocatedValueLabel.text = "\(allocated)"
         receivedValueLabel.text = "\(received)"
-        pendingValueLabel.text = "\(notReceived)"   // Pending = Not Received
+        pendingValueLabel.text = "\(pending)"   // 🔴 red
         lostValueLabel.text = "\(lost)"
     }
 }
