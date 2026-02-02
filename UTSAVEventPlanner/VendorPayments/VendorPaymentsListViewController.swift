@@ -1,16 +1,12 @@
 import UIKit
 
-struct VendorPaymentSummary {
-    let vendorId: String
-    let vendorName: String
-    let totalPayable: Double
-    let totalPaid: Double
-}
-
 final class VendorPaymentsListViewController: UIViewController {
 
-    // MARK: - UI
     private let tableView = UITableView(frame: .zero, style: .plain)
+
+    private var allVendors: [VendorPaymentSummary] = []
+    private var filteredVendors: [VendorPaymentSummary] = []
+    private var isSearching = false
 
     private let emptyLabel: UILabel = {
         let l = UILabel()
@@ -21,10 +17,6 @@ final class VendorPaymentsListViewController: UIViewController {
         return l
     }()
 
-    // MARK: - Data
-    private var vendors: [VendorPaymentSummary] = []
-
-    // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor(white: 0.97, alpha: 1)
@@ -33,94 +25,73 @@ final class VendorPaymentsListViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        Task { await loadVendorPayments() }
+        if allVendors.isEmpty {
+            Task { await loadVendorPayments() }
+        }
     }
 
-    // MARK: - Setup
     private func setupTable() {
         tableView.translatesAutoresizingMaskIntoConstraints = false
-        tableView.register(
-            VendorPaymentCardCell.self,
-            forCellReuseIdentifier: "VendorPaymentCardCell"
-        )
-        tableView.dataSource = self
-        tableView.delegate = self
+        tableView.register(VendorPaymentCardCell.self, forCellReuseIdentifier: "VendorPaymentCardCell")
         tableView.separatorStyle = .none
-        tableView.backgroundColor = .clear
-
-        // ✅ REQUIRED for card auto-sizing
         tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 140
-        tableView.contentInset.top = 8
+        tableView.keyboardDismissMode = .onDrag
+        tableView.dataSource = self
+        tableView.delegate = self
+        tableView.backgroundColor = .clear
 
         view.addSubview(tableView)
-
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.topAnchor.constraint(equalTo: view.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
     }
 
-    // MARK: - Data Loading
     private func loadVendorPayments() async {
         do {
             let plannerId = try await SupabaseManager.shared.ensureUserId()
-
-            let items = try await CartManager.shared
-                .fetchAssignedVendorItemsForPlanner(plannerId: plannerId)
-
-            let payments = try await PaymentSupabaseManager.shared
-                .fetchAllVendorPayments()
+            let items = try await CartManager.shared.fetchAssignedVendorItemsForPlanner(plannerId: plannerId)
+            let payments = try await PaymentSupabaseManager.shared.fetchAllVendorPayments()
 
             var map: [String: VendorPaymentSummary] = [:]
 
-            // 1️⃣ TOTAL PAYABLE (from cart items)
             for item in items {
-                guard
-                    let vendorId = item.assignedVendorId,
-                    let vendorName = item.assignedVendorName,
-                    let amount = item.lineTotal
-                else { continue }
+                guard let id = item.assignedVendorId,
+                      let name = item.assignedVendorName,
+                      let amount = item.lineTotal else { continue }
 
-                if let existing = map[vendorId] {
-                    map[vendorId] = VendorPaymentSummary(
-                        vendorId: vendorId,
-                        vendorName: existing.vendorName,
-                        totalPayable: existing.totalPayable + amount,
-                        totalPaid: existing.totalPaid
-                    )
-                } else {
-                    map[vendorId] = VendorPaymentSummary(
-                        vendorId: vendorId,
-                        vendorName: vendorName,
-                        totalPayable: amount,
-                        totalPaid: 0
-                    )
-                }
+                let existing = map[id]
+                map[id] = VendorPaymentSummary(
+                    vendorId: id,
+                    vendorName: name,
+                    totalPayable: (existing?.totalPayable ?? 0) + amount,
+                    totalPaid: existing?.totalPaid ?? 0
+                )
             }
 
-            // 2️⃣ TOTAL PAID
             for pay in payments {
-                guard
-                    let vendorId = pay.vendor_id,
-                    let existing = map[vendorId]
-                else { continue }
+                guard let id = pay.vendor_id,
+                      let existing = map[id] else { continue }
 
-                map[vendorId] = VendorPaymentSummary(
-                    vendorId: vendorId,
+                map[id] = VendorPaymentSummary(
+                    vendorId: id,
                     vendorName: existing.vendorName,
                     totalPayable: existing.totalPayable,
                     totalPaid: existing.totalPaid + pay.amount
                 )
             }
 
-            vendors = Array(map.values)
+            allVendors = Array(map.values)
+            filteredVendors = allVendors
 
             await MainActor.run {
-                tableView.reloadData()
-                tableView.backgroundView = vendors.isEmpty ? emptyLabel : nil
+                UIView.performWithoutAnimation {
+                    tableView.reloadData()
+                }
+                tableView.backgroundView = allVendors.isEmpty ? emptyLabel : nil
             }
 
         } catch {
@@ -129,18 +100,38 @@ final class VendorPaymentsListViewController: UIViewController {
     }
 }
 
+// MARK: - Search
+extension VendorPaymentsListViewController: VendorSearchable {
+
+    func updateVendorSearch(text: String) {
+        let query = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if query.isEmpty {
+            isSearching = false
+            filteredVendors = allVendors
+        } else {
+            isSearching = true
+            filteredVendors = allVendors.filter {
+                $0.vendorName.localizedCaseInsensitiveContains(query)
+            }
+        }
+
+        tableView.reloadData()
+    }
+}
+
 // MARK: - Table
 extension VendorPaymentsListViewController: UITableViewDataSource, UITableViewDelegate {
 
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        vendors.count
+    func tableView(_ t: UITableView, numberOfRowsInSection section: Int) -> Int {
+        (isSearching ? filteredVendors : allVendors).count
     }
 
-    func tableView(_ tableView: UITableView,
-                   cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    func tableView(_ t: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let list = isSearching ? filteredVendors : allVendors
+        let vendor = list[indexPath.row]
 
-        let vendor = vendors[indexPath.row]
-        let cell = tableView.dequeueReusableCell(
+        let cell = t.dequeueReusableCell(
             withIdentifier: "VendorPaymentCardCell",
             for: indexPath
         ) as! VendorPaymentCardCell
@@ -154,14 +145,10 @@ extension VendorPaymentsListViewController: UITableViewDataSource, UITableViewDe
         return cell
     }
 
-    func tableView(_ tableView: UITableView,
-                   didSelectRowAt indexPath: IndexPath) {
+    func tableView(_ t: UITableView, didSelectRowAt indexPath: IndexPath) {
+        t.deselectRow(at: indexPath, animated: true)
 
-        tableView.deselectRow(at: indexPath, animated: true)
-
-        let vendor = vendors[indexPath.row]
-
-        // ✅ CRITICAL FIX: pass totalPayable
+        let vendor = (isSearching ? filteredVendors : allVendors)[indexPath.row]
         let vc = VendorPaymentDetailViewController(
             vendorId: vendor.vendorId,
             vendorName: vendor.vendorName,

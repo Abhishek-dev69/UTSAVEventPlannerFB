@@ -145,7 +145,7 @@ final class EventOverviewViewController: UIViewController {
         do {
             let pdfURL = try PDFGenerator.generate(
                 view: pdfView,
-                fileName: "Event_Quotation_\(event.eventName).pdf"
+                fileName: "Requirements of \(event.eventName).pdf"
             )
 
             let vc = UIActivityViewController(

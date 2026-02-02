@@ -3,17 +3,15 @@ import UIKit
 final class PaymentsEventsListViewController: UIViewController {
 
     private let tableView = UITableView(frame: .zero, style: .plain)
-    private var events: [EventRecord] = []
 
-    // store per-event totals (eventId -> (total, remaining))
+    // MARK: - Data
+    private var allEvents: [EventRecord] = []
+    private var filteredEvents: [EventRecord] = []
+    private var isSearching = false
+
+    // store per-event totals
     private var eventPayments: [String: (total: Double, remaining: Double)] = [:]
 
-    // MARK: - 🔥 CACHE CONTROL
-    private var hasLoadedOnce = false
-    private var lastFetchTime: Date?
-    private let refreshCooldown: TimeInterval = 60 // seconds
-
-    // Empty state label
     private let emptyLabel: UILabel = {
         let l = UILabel()
         l.text = "No events found.\nCreate an event to start adding payments."
@@ -27,11 +25,10 @@ final class PaymentsEventsListViewController: UIViewController {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-
         view.backgroundColor = .clear
-        navigationItem.title = "All Events Payments Track"
-
         setupTable()
+        setupKeyboardDismissTap()
+
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(paymentDidChange),
@@ -39,88 +36,53 @@ final class PaymentsEventsListViewController: UIViewController {
             object: nil
         )
 
-        // ✅ First load must hit DB
         Task { await refreshEvents(force: true) }
     }
-    
+
     deinit {
         NotificationCenter.default.removeObserver(self)
     }
+
     @objc private func paymentDidChange() {
-        Task {
-            // 🔥 Force recompute even if cached
-            await refreshEvents(force: true)
-        }
+        Task { await refreshEvents(force: true) }
     }
 
-    // MARK: - Public refresh API
-    // Called by PaymentsRootController or pull-to-refresh
+    // MARK: - Refresh
     func refreshEvents(force: Bool = false) async {
-
-        // ✅ Prevent unnecessary DB calls
-        if !force,
-           hasLoadedOnce,
-           let last = lastFetchTime,
-           Date().timeIntervalSince(last) < refreshCooldown {
-            return
-        }
-
         do {
             let fetched = try await EventSupabaseManager.shared.fetchAllEventsForUser()
-
-            events = fetched
-
-            // compute per-event totals concurrently
+            allEvents = fetched
+            filteredEvents = fetched
             await computeEventSummaries()
-
-            hasLoadedOnce = true
-            lastFetchTime = Date()
 
             await MainActor.run {
                 tableView.reloadData()
                 updateEmptyState()
-                tableView.refreshControl?.endRefreshing()
             }
         } catch {
-            print("❌ PaymentsEventsListViewController.refreshEvents error:", error)
-            await MainActor.run {
-                tableView.refreshControl?.endRefreshing()
-                updateEmptyState()
-            }
+            print("❌ Payments refresh error:", error)
         }
     }
 
-    // MARK: - Compute totals
-    @MainActor
+    // MARK: - Totals
     private func computeEventSummaries() async {
         var map: [String: (Double, Double)] = [:]
 
         await withTaskGroup(of: (String, Double, Double).self) { group in
-            for event in events {
+            for event in allEvents {
                 group.addTask {
-                    var totalAmount: Double = 0.0
-                    do {
-                        let cart = try await EventDataManager.shared.fetchCartItems(eventId: event.id)
-                        totalAmount = cart.reduce(0.0) { acc, c in
-                            if let lt = c.lineTotal { return acc + lt }
-                            let r = c.rate ?? 0
-                            let q = Double(c.quantity ?? 0)
-                            return acc + (r * q)
-                        }
-                    } catch {
-                        totalAmount = 0.0
-                    }
+                    var total = 0.0
+                    var received = 0.0
 
-                    var receivedAmount: Double = 0.0
-                    do {
-                        let payments = try await PaymentSupabaseManager.shared.fetchPayments(eventId: event.id)
-                        receivedAmount = payments.reduce(0.0) { $0 + $1.amount }
-                    } catch {
-                        receivedAmount = 0.0
-                    }
+                    let cart = try? await EventDataManager.shared.fetchCartItems(eventId: event.id)
+                    total = cart?.reduce(0) {
+                        $0 + (($1.lineTotal) ?? (Double($1.quantity ?? 0) * ($1.rate ?? 0)))
+                    } ?? 0
 
-                    let remaining = max(0.0, totalAmount - receivedAmount)
-                    return (event.id, totalAmount, remaining)
+                    let payments = try? await PaymentSupabaseManager.shared.fetchPayments(eventId: event.id)
+                    received = payments?.reduce(0) { $0 + $1.amount } ?? 0
+
+                    return (event.id, total, max(0, total - received))
                 }
             }
 
@@ -132,86 +94,92 @@ final class PaymentsEventsListViewController: UIViewController {
         eventPayments = map
     }
 
-    // MARK: - Table setup
+    // MARK: - UI
     private func setupTable() {
         tableView.translatesAutoresizingMaskIntoConstraints = false
         tableView.register(EventPaymentCardCell.self, forCellReuseIdentifier: "EventPaymentCardCell")
         tableView.separatorStyle = .none
-        tableView.contentInset.bottom = 120
-
-
         tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 140
-
+        tableView.keyboardDismissMode = .onDrag
         tableView.dataSource = self
         tableView.delegate = self
         tableView.backgroundColor = .clear
 
-        let rc = UIRefreshControl()
-        rc.addTarget(self, action: #selector(pullToRefresh(_:)), for: .valueChanged)
-        tableView.refreshControl = rc
-
         view.addSubview(tableView)
-
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.topAnchor.constraint(equalTo: view.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
-
-        updateEmptyState()
-    }
-
-    // MARK: - Pull to refresh (FORCED)
-    @objc private func pullToRefresh(_ sender: UIRefreshControl) {
-        Task {
-            await refreshEvents(force: true)
-        }
     }
 
     private func updateEmptyState() {
-        tableView.backgroundView = events.isEmpty ? emptyLabel : nil
+        let source = isSearching ? filteredEvents : allEvents
+        tableView.backgroundView = source.isEmpty ? emptyLabel : nil
+    }
+
+    private func setupKeyboardDismissTap() {
+        let tap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        tap.cancelsTouchesInView = false
+        view.addGestureRecognizer(tap)
+    }
+
+    @objc private func dismissKeyboard() {
+        view.endEditing(true)
     }
 }
 
-// MARK: - Table Delegate & DataSource
+// MARK: - Search
+extension PaymentsEventsListViewController: EventSearchable {
+
+    func updateSearch(text: String) {
+        let query = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if query.isEmpty {
+            isSearching = false
+            filteredEvents = allEvents
+        } else {
+            isSearching = true
+            filteredEvents = allEvents.filter {
+                $0.eventName.localizedCaseInsensitiveContains(query) ||
+                $0.clientName.localizedCaseInsensitiveContains(query)
+            }
+        }
+
+        tableView.reloadData()
+        updateEmptyState()
+    }
+}
+
+// MARK: - Table
 extension PaymentsEventsListViewController: UITableViewDataSource, UITableViewDelegate {
 
     func tableView(_ t: UITableView, numberOfRowsInSection section: Int) -> Int {
-        events.count
-    }
-
-    func tableView(_ t: UITableView, didSelectRowAt indexPath: IndexPath) {
-        t.deselectRow(at: indexPath, animated: true)
-
-        guard indexPath.row < events.count else { return }
-
-        let event = events[indexPath.row]
-        let vc = PaymentListViewController(event: event)
-        vc.hidesBottomBarWhenPushed = true
-        navigationController?.pushViewController(vc, animated: true)
+        (isSearching ? filteredEvents : allEvents).count
     }
 
     func tableView(_ t: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-
-        guard indexPath.row < events.count else {
-            return UITableViewCell()
-        }
+        let list = isSearching ? filteredEvents : allEvents
+        let record = list[indexPath.row]
 
         let cell = t.dequeueReusableCell(
             withIdentifier: "EventPaymentCardCell",
             for: indexPath
         ) as! EventPaymentCardCell
 
-        let record = events[indexPath.row]
-        if let s = eventPayments[record.id] {
-            cell.configure(with: record, total: s.total, remaining: s.remaining)
-        } else {
-            cell.configure(with: record, total: nil, remaining: nil)
-        }
-
+        let summary = eventPayments[record.id]
+        cell.configure(with: record, total: summary?.total, remaining: summary?.remaining)
         return cell
+    }
+
+    func tableView(_ t: UITableView, didSelectRowAt indexPath: IndexPath) {
+        t.deselectRow(at: indexPath, animated: true)
+        let list = isSearching ? filteredEvents : allEvents
+        let vc = PaymentListViewController(event: list[indexPath.row])
+        vc.hidesBottomBarWhenPushed = true
+        navigationController?.pushViewController(vc, animated: true)
     }
 }
 
