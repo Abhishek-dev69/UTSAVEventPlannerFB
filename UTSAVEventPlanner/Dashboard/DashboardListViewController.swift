@@ -69,7 +69,7 @@ final class DashboardListViewController: UIViewController {
     }
 
     private func setupSearchBar() {
-        searchBar.placeholder = "Search event"
+        searchBar.placeholder = "Search events"
         searchBar.searchBarStyle = .minimal
         searchBar.delegate = self
         searchBar.translatesAutoresizingMaskIntoConstraints = false
