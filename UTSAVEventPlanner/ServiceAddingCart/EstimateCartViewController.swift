@@ -335,11 +335,44 @@ final class EstimateCartViewController: UIViewController {
         customAmountField.widthAnchor.constraint(equalToConstant: 90).isActive = true
         customAmountField.addTarget(self, action: #selector(updateSummaryAction), for: .editingChanged)
 
-        let row = UIStackView(arrangedSubviews: [
+        // % label
+        let percentLabel = UILabel(text: "%")
+        percentLabel.textAlignment = .center
+
+        // OR label
+        let orLabel = UILabel(text: "OR")
+        orLabel.textAlignment = .center
+        orLabel.textColor = .secondaryLabel
+
+        // ₹ label
+        let rupeeLabel = UILabel(text: "₹")
+        rupeeLabel.textAlignment = .center
+
+        let leftStack = UIStackView(arrangedSubviews: [
             partialPercentField,
-            UILabel(text: "% or ₹"),
+            percentLabel
+        ])
+        leftStack.axis = .horizontal
+        leftStack.spacing = 6
+        leftStack.alignment = .center
+
+        let rightStack = UIStackView(arrangedSubviews: [
+            rupeeLabel,
             customAmountField
         ])
+        rightStack.axis = .horizontal
+        rightStack.spacing = 6
+        rightStack.alignment = .center
+
+        let row = UIStackView(arrangedSubviews: [
+            leftStack,
+            orLabel,
+            rightStack
+        ])
+        row.axis = .horizontal
+        row.spacing = 12
+        row.alignment = .center
+        row.distribution = .equalCentering
         row.axis = .horizontal
         row.spacing = 8
         row.alignment = .center
@@ -390,7 +423,8 @@ final class EstimateCartViewController: UIViewController {
 
         saveDraftBtn.setTitle("Save Draft", for: .normal)
         saveDraftBtn.layer.cornerRadius = 20
-        saveDraftBtn.backgroundColor = UIColor(white: 0.9, alpha: 1)
+        saveDraftBtn.backgroundColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
+        saveDraftBtn.setTitleColor(.white, for: .normal)
         saveDraftBtn.addTarget(self, action: #selector(saveDraftTapped), for: .touchUpInside)
 
         

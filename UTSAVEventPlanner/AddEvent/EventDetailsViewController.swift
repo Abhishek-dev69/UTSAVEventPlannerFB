@@ -15,22 +15,18 @@ struct EventDetails {
 
 final class EventDetailsViewController: UIViewController {
 
-    // MARK: Selected Event Type (from EventType flow / picker)
     var selectedEventType: EventTypeItem?
 
-    // Local event type list (same items as EventTypeViewController)
     private let eventTypes: [EventTypeItem] = [
-        .init(title: "Wedding",          imageName: "event_wedding"),
-        .init(title: "Birthday Party",   imageName: "event_birthday"),
-        .init(title: "Corporate Event",  imageName: "event_corporate"),
-        .init(title: "Baby Shower",      imageName: "event_babyshower"),
+        .init(title: "Wedding", imageName: "event_wedding"),
+        .init(title: "Birthday Party", imageName: "event_birthday"),
+        .init(title: "Corporate Event", imageName: "event_corporate"),
+        .init(title: "Baby Shower", imageName: "event_babyshower"),
         .init(title: "Engagement Party", imageName: "event_engagement"),
-        .init(title: "Anniversary",      imageName: "event_anniversary"),
-        .init(title: "Schools",          imageName: "event_schools"),
-        .init(title: "Holiday Party",    imageName: "event_holiday"),
-
-        // ✅ NEW
-        .init(title: "Others",           imageName: "event_wedding") // 👈 default image
+        .init(title: "Anniversary", imageName: "event_anniversary"),
+        .init(title: "Schools", imageName: "event_schools"),
+        .init(title: "Holiday Party", imageName: "event_holiday"),
+        .init(title: "Others", imageName: "event_wedding")
     ]
 
     // MARK: UI
@@ -46,70 +42,55 @@ final class EventDetailsViewController: UIViewController {
         cfg.cornerStyle = .large
         cfg.contentInsets = .init(top: 16, leading: 24, bottom: 16, trailing: 24)
         let b = UIButton(configuration: cfg)
-        b.translatesAutoresizingMaskIntoConstraints = false
         b.layer.cornerRadius = 28
         b.layer.masksToBounds = true
+        b.translatesAutoresizingMaskIntoConstraints = false
         return b
     }()
 
-    // MARK: Fields
-    // NEW: Event Type field (picker)
+    // MARK: Fields (iOS-native inline style)
     private let eventTypeField: RoundedTextField = {
-        let tf = RoundedTextField(placeholder: "Select Event Type")
+        let tf = RoundedTextField(placeholder: "Event Type")
         tf.setRightIcon(systemName: "chevron.down")
-        tf.translatesAutoresizingMaskIntoConstraints = false
         return tf
     }()
 
-    private let eventName = RoundedTextField(placeholder: "Enter The Event Name")
-    private let clientName = RoundedTextField(placeholder: "Enter The Client Name")
+    private let eventName = RoundedTextField(placeholder: "Event Name")
+    private let clientName = RoundedTextField(placeholder: "Client Name")
+
     private let locationField: RoundedTextField = {
-        let tf = RoundedTextField(placeholder: "Enter The Event Location")
+        let tf = RoundedTextField(placeholder: "Location")
         tf.setRightIcon(systemName: "paperplane")
         return tf
     }()
-    private let guestCountField: RoundedTextField = {
-        let tf = RoundedTextField(placeholder: "Enter The Number of Guests")
-        tf.keyboardType = .numberPad
-        return tf
-    }()
-    private let budgetField: RoundedTextField = {
-        let tf = RoundedTextField(placeholder: "Enter The Budget")
-        tf.keyboardType = .numberPad
-        return tf
-    }()
+
     private let startDateField: RoundedTextField = {
-        let tf = RoundedTextField(placeholder: "Select Date")
+        let tf = RoundedTextField(placeholder: "Start Date")
         tf.setRightIcon(systemName: "calendar")
         return tf
     }()
+
     private let endDateField: RoundedTextField = {
-        let tf = RoundedTextField(placeholder: "Select Date")
+        let tf = RoundedTextField(placeholder: "End Date")
         tf.setRightIcon(systemName: "calendar")
         return tf
     }()
 
-    // MARK: Date Pickers (native wheels)
-    private let startPicker: UIDatePicker = {
-        let p = UIDatePicker()
-        p.datePickerMode = .date
-        p.minimumDate = Date()
-        if #available(iOS 13.4, *) {
-            p.preferredDatePickerStyle = .wheels
-        }
-        return p
-    }()
-    private let endPicker: UIDatePicker = {
-        let p = UIDatePicker()
-        p.datePickerMode = .date
-        p.minimumDate = Date()
-        if #available(iOS 13.4, *) {
-            p.preferredDatePickerStyle = .wheels
-        }
-        return p
+    private let guestCountField: RoundedTextField = {
+        let tf = RoundedTextField(placeholder: "Guest Count (optional)")
+        tf.keyboardType = .numberPad
+        return tf
     }()
 
-    // MARK: Event type picker
+    private let budgetField: RoundedTextField = {
+        let tf = RoundedTextField(placeholder: "Budget (optional)")
+        tf.keyboardType = .numberPad
+        return tf
+    }()
+
+    // MARK: Pickers
+    private let startPicker = UIDatePicker()
+    private let endPicker = UIDatePicker()
     private let eventTypePicker = UIPickerView()
 
     private let dateFormatter: DateFormatter = {
@@ -131,7 +112,6 @@ final class EventDetailsViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
-
         navigationItem.title = "Event Details"
         navigationItem.largeTitleDisplayMode = .never
 
@@ -144,75 +124,114 @@ final class EventDetailsViewController: UIViewController {
 
         setupLayout()
         setupDatePickers()
-        setupBudgetFormatting()
         setupKeyboardHandling()
+        setupBudgetFormatting()
         hookRightIconTaps()
-        setupFieldPlaceholdersForExistingDates()
         setupEventTypePicker()
+        setupFieldPlaceholdersForExistingDates()
 
         continueButton.addTarget(self, action: #selector(didTapContinue), for: .touchUpInside)
     }
 
-    deinit {
-        NotificationCenter.default.removeObserver(self)
-    }
-
-    // MARK: Layout
+    // MARK: Layout (FIXED)
     private func setupLayout() {
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.translatesAutoresizingMaskIntoConstraints = false
-        formStack.translatesAutoresizingMaskIntoConstraints = false
-
         formStack.axis = .vertical
-        formStack.spacing = 22
-
+        formStack.spacing = 16
+        
+        // Add fields
+        formStack.addArrangedSubview(eventTypeField)
+        formStack.addArrangedSubview(eventName)
+        formStack.addArrangedSubview(clientName)
+        formStack.addArrangedSubview(locationField)
+        
+        // Date section
+        formStack.addArrangedSubview(makeDateSection())
+        
+        formStack.addArrangedSubview(guestCountField)
+        formStack.addArrangedSubview(budgetField)
+        
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
         contentView.addSubview(formStack)
         view.addSubview(continueButton)
-
+        
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.translatesAutoresizingMaskIntoConstraints = false
+        formStack.translatesAutoresizingMaskIntoConstraints = false
+        
         NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            scrollView.bottomAnchor.constraint(equalTo: continueButton.topAnchor, constant: -20),
-
+            scrollView.bottomAnchor.constraint(equalTo: continueButton.topAnchor, constant: -12),
+            
             contentView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
-            contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
             contentView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
             contentView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
             contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
-
-            formStack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
+            contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
+            
+            formStack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
             formStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             formStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            formStack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -40),
-
+            formStack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            
             continueButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
             continueButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             continueButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -12),
             continueButton.heightAnchor.constraint(equalToConstant: 56)
         ])
+        
+        // ✅ HEIGHT CONSTRAINTS (OUTSIDE activate)
+        [eventTypeField,
+         eventName,
+         clientName,
+         locationField,
+         guestCountField,
+         budgetField].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            $0.heightAnchor.constraint(equalToConstant: 60).isActive = true
+        }
+    }
 
-        // Add fields in desired order: Event Type first
-        formStack.addArrangedSubview(labeled("Event Type", eventTypeField))
-        formStack.addArrangedSubview(labeled("Event Name", eventName))
-        formStack.addArrangedSubview(labeled("Client Name", clientName))
-        formStack.addArrangedSubview(labeled("Location", locationField))
-        // ✅ Dates FIRST (important)
-        let dateRow = UIStackView()
-        dateRow.axis = .horizontal
-        dateRow.spacing = 16
-        dateRow.distribution = .fillEqually
-        dateRow.addArrangedSubview(labeled("Start Date", startDateField))
-        dateRow.addArrangedSubview(labeled("End Date", endDateField))
+    private func makeDateSection() -> UIStackView {
+        let title = UILabel()
+        title.text = "Event Dates"
+        title.font = .systemFont(ofSize: 14, weight: .semibold)
+        title.textColor = .secondaryLabel
 
-        formStack.addArrangedSubview(dateRow)
+        let startContainer = UIView()
+        startContainer.heightAnchor.constraint(equalToConstant: 60).isActive = true
+        startContainer.addSubview(startDateField)
+        startDateField.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            startDateField.topAnchor.constraint(equalTo: startContainer.topAnchor),
+            startDateField.leadingAnchor.constraint(equalTo: startContainer.leadingAnchor),
+            startDateField.trailingAnchor.constraint(equalTo: startContainer.trailingAnchor),
+            startDateField.bottomAnchor.constraint(equalTo: startContainer.bottomAnchor)
+        ])
 
-        // ➖ Optional fields LAST
-        formStack.addArrangedSubview(labeled("Guest Count (optional)", guestCountField))
-        formStack.addArrangedSubview(labeled("Budget (optional)", budgetField))
+        let endContainer = UIView()
+        endContainer.heightAnchor.constraint(equalToConstant: 60).isActive = true
+        endContainer.addSubview(endDateField)
+        endDateField.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            endDateField.topAnchor.constraint(equalTo: endContainer.topAnchor),
+            endDateField.leadingAnchor.constraint(equalTo: endContainer.leadingAnchor),
+            endDateField.trailingAnchor.constraint(equalTo: endContainer.trailingAnchor),
+            endDateField.bottomAnchor.constraint(equalTo: endContainer.bottomAnchor)
+        ])
 
+        let row = UIStackView(arrangedSubviews: [startContainer, endContainer])
+        row.axis = .horizontal
+        row.spacing = 8            // 🔥 tighter
+        row.distribution = .fillEqually
+
+        let stack = UIStackView(arrangedSubviews: [title, row])
+        stack.axis = .vertical
+        stack.spacing = 6
+
+        return stack
     }
 
     private func sectionLabel(_ text: String) -> UILabel {
