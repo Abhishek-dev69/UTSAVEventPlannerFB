@@ -20,19 +20,27 @@ final class InventoryEventsListViewController: UIViewController {
         return l
     }()
 
+    // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
 
         view.backgroundColor = UIColor(white: 0.97, alpha: 1)
-        navigationItem.title = "Event Inventory Tracks"
+        navigationItem.title = "Inventory"
 
         setupSearch()
         setupTable()
         setupKeyboardDismissTap()
 
+        // ✅ FIX 1: listen to the CORRECT notification
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(inventoryCountsUpdated(_:)),
+            selector: #selector(inventoryUpdated(_:)),
+            name: .inventoryUpdated,
+            object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(inventoryUpdated(_:)),
             name: .inventoryCountsUpdated,
             object: nil
         )
@@ -59,14 +67,15 @@ final class InventoryEventsListViewController: UIViewController {
         do {
             events = try await EventSupabaseManager.shared.fetchAllEventsForUser()
 
+            // load counts for all events
+            for event in events {
+                await InventoryManager.shared.loadCounts(forEventId: event.id)
+            }
+
             await MainActor.run {
                 tableView.reloadData()
                 updateEmptyState()
                 tableView.refreshControl?.endRefreshing()
-            }
-
-            for event in events {
-                Task { await InventoryManager.shared.loadCounts(forEventId: event.id) }
             }
 
         } catch {
@@ -77,16 +86,29 @@ final class InventoryEventsListViewController: UIViewController {
             }
         }
     }
-    private func setupKeyboardDismissTap() {
-        let tap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
-        tap.cancelsTouchesInView = false // 👈 VERY IMPORTANT
-        view.addGestureRecognizer(tap)
-    }
 
-    @objc private func dismissKeyboard() {
-        searchController.searchBar.resignFirstResponder()
-    }
+    // MARK: - Notification handler
+    @objc private func inventoryUpdated(_ note: Notification) {
+        guard let eventId = note.userInfo?["eventId"] as? String else {
+            // fallback: reload everything safely
+            Task { await refreshEvents() }
+            return
+        }
 
+        Task {
+            // ✅ FIX 2: wait for counts to finish loading
+            await InventoryManager.shared.loadCounts(forEventId: eventId)
+
+            guard let index = events.firstIndex(where: { $0.id == eventId }) else { return }
+
+            await MainActor.run {
+                tableView.reloadRows(
+                    at: [IndexPath(row: index, section: 0)],
+                    with: .none
+                )
+            }
+        }
+    }
 
     // MARK: - UI
     private func setupTable() {
@@ -98,9 +120,7 @@ final class InventoryEventsListViewController: UIViewController {
         tableView.dataSource = self
         tableView.delegate = self
         tableView.backgroundColor = .clear
-        
         tableView.keyboardDismissMode = .onDrag
-
 
         let rc = UIRefreshControl()
         rc.addTarget(self, action: #selector(pullToRefresh(_:)), for: .valueChanged)
@@ -124,18 +144,16 @@ final class InventoryEventsListViewController: UIViewController {
         Task { await refreshEvents() }
     }
 
-    // MARK: - Notification
-    @objc private func inventoryCountsUpdated(_ note: Notification) {
-        guard let eventId = note.userInfo?["eventId"] as? String else { return }
+    private func setupKeyboardDismissTap() {
+        let tap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        tap.cancelsTouchesInView = false
+        view.addGestureRecognizer(tap)
+    }
 
-        if let index = events.firstIndex(where: { $0.id == eventId }) {
-            Task { @MainActor in
-                tableView.reloadRows(at: [IndexPath(row: index, section: 0)], with: .none)
-            }
-        }
+    @objc private func dismissKeyboard() {
+        searchController.searchBar.resignFirstResponder()
     }
 }
-
 // MARK: - Search Delegate
 extension InventoryEventsListViewController: UISearchResultsUpdating {
     func updateSearchResults(for searchController: UISearchController) {
@@ -156,7 +174,6 @@ extension InventoryEventsListViewController: UISearchResultsUpdating {
         updateEmptyState()
     }
 }
-
 
 // MARK: - TableView
 extension InventoryEventsListViewController: UITableViewDataSource, UITableViewDelegate {

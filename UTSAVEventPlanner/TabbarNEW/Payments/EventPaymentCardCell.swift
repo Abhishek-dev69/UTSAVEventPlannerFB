@@ -191,12 +191,16 @@ final class EventPaymentCardCell: UITableViewCell {
         let rawName = event.eventName.trimmingCharacters(in: .whitespacesAndNewlines)
         titleLabel.text = rawName.isEmpty ? "Untitled Event" : rawName
 
-        totalAmountLabel.text = "₹\(formatMoney(total ?? 0))"
-        dueAmountLabel.text = "₹\(formatMoney(remaining ?? 0))"
+        let totalValue = total ?? 0
+        let dueValue = remaining ?? 0
 
-        if let t = total, let r = remaining, t > 0 {
-            let received = max(0, t - r)
-            let progress = Float(min(1, received / t))
+        totalAmountLabel.text = "₹\(formatMoney(totalValue))"
+        dueAmountLabel.text = "₹\(formatMoney(dueValue))"
+        dueAmountLabel.textColor = (dueValue == 0) ? .systemGreen : .systemRed
+
+        if totalValue > 0 {
+            let received = max(0, totalValue - dueValue)
+            let progress = Float(min(1, received / totalValue))
             progressView.setProgress(progress, animated: true)
         } else {
             progressView.setProgress(0, animated: false)

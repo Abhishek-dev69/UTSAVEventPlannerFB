@@ -1,59 +1,72 @@
-// InventoryCheckboxCell.swift
-// Checkbox row for Post-Event with source subtitle label (planner/vendor)
-
 import UIKit
 
 final class InventoryCheckboxCell: UITableViewCell {
 
+    // MARK: - UI
     private let card = UIView()
     private let badgeLabel = UILabel()
     private let nameLabel = UILabel()
-    private let subtitleLabel = UILabel() // shows "My Inventory" / "Vendor Inventory"
+    private let subtitleLabel = UILabel()
     private let quantityLabel = UILabel()
     private let checkbox = UIButton(type: .system)
 
-    var onChecked: ((Bool) -> Void)?
+    // MARK: - Callback (no state here)
+    var onChecked: (() -> Void)?
 
-    private var isChecked = false {
-        didSet {
-            checkbox.tintColor = isChecked ? .systemPurple : .systemGray
-            checkbox.setImage(UIImage(systemName: isChecked ? "checkmark.square.fill" : "square"), for: .normal)
-            onChecked?(isChecked)
-        }
-    }
-
+    // MARK: - Init
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
         super.init(style: style, reuseIdentifier: reuseIdentifier)
+
         backgroundColor = .clear
         contentView.backgroundColor = .clear
         selectionStyle = .none
 
+        setupCard()
+        setupViews()
+        setupConstraints()
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    // MARK: - Setup
+    private func setupCard() {
         card.backgroundColor = .white
         card.layer.cornerRadius = 10
         card.layer.shadowOpacity = 0.06
-        card.layer.shadowOffset = .init(width: 0, height: 2)
+        card.layer.shadowOffset = CGSize(width: 0, height: 2)
         card.layer.shadowRadius = 4
         card.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(card)
+    }
 
+    private func setupViews() {
         checkbox.tintColor = .systemGray
-        checkbox.addTarget(self, action: #selector(toggle), for: .touchUpInside)
+        checkbox.setImage(UIImage(systemName: "square"), for: .normal)
+        checkbox.addTarget(self, action: #selector(checkboxTapped), for: .touchUpInside)
 
         badgeLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         badgeLabel.textColor = .white
         badgeLabel.textAlignment = .center
         badgeLabel.layer.cornerRadius = 18
         badgeLabel.clipsToBounds = true
-        badgeLabel.translatesAutoresizingMaskIntoConstraints = false
 
         nameLabel.font = .systemFont(ofSize: 16, weight: .semibold)
-        subtitleLabel.font = .systemFont(ofSize: 12, weight: .regular)
+
+        subtitleLabel.font = .systemFont(ofSize: 12)
         subtitleLabel.textColor = .systemGray
+
         quantityLabel.font = .systemFont(ofSize: 14)
         quantityLabel.textColor = .gray
 
-        contentView.addSubview(card)
-        [badgeLabel, nameLabel, subtitleLabel, quantityLabel, checkbox].forEach { card.addSubview($0); $0.translatesAutoresizingMaskIntoConstraints = false }
+        [badgeLabel, nameLabel, subtitleLabel, quantityLabel, checkbox].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            card.addSubview($0)
+        }
+    }
 
+    private func setupConstraints() {
         NSLayoutConstraint.activate([
             card.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
             card.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
@@ -74,8 +87,8 @@ final class InventoryCheckboxCell: UITableViewCell {
             quantityLabel.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
             quantityLabel.topAnchor.constraint(equalTo: subtitleLabel.bottomAnchor, constant: 6),
 
-            checkbox.centerYAnchor.constraint(equalTo: card.centerYAnchor),
             checkbox.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -12),
+            checkbox.centerYAnchor.constraint(equalTo: card.centerYAnchor),
             checkbox.widthAnchor.constraint(equalToConstant: 28),
             checkbox.heightAnchor.constraint(equalToConstant: 28),
 
@@ -83,35 +96,37 @@ final class InventoryCheckboxCell: UITableViewCell {
         ])
     }
 
-    @objc private func toggle() {
-        isChecked.toggle()
+    // MARK: - Action
+    @objc private func checkboxTapped() {
+        // ✅ DO NOT toggle UI
+        // ✅ DO NOT reload table
+        // ✅ DO NOT post notifications
+        onChecked?()
     }
 
-    /// Configure cell with sourceType included.
+    // MARK: - Configure
     func configure(name: String, quantity: Int, sourceType: String?) {
         nameLabel.text = name
         quantityLabel.text = "Qty: \(quantity)"
-        isChecked = false
+
+        // Always neutral checkbox state
+        checkbox.tintColor = .systemGray
+        checkbox.setImage(UIImage(systemName: "square"), for: .normal)
 
         let lower = (sourceType ?? "planner").lowercased()
         subtitleLabel.text = (lower == "vendor") ? "Vendor Inventory" : "My Inventory"
 
-        // initials
-        let short = name
+        let initials = name
             .split(separator: " ")
             .prefix(2)
             .map { String($0.prefix(1)) }
             .joined()
             .uppercased()
-        badgeLabel.text = short.isEmpty ? "?" : short
 
-        // badge color
-        if lower == "vendor" {
-            badgeLabel.backgroundColor = UIColor(red: 34/255, green: 139/255, blue: 230/255, alpha: 1)
-        } else {
-            badgeLabel.backgroundColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
-        }
+        badgeLabel.text = initials.isEmpty ? "?" : initials
+
+        badgeLabel.backgroundColor = (lower == "vendor")
+            ? UIColor(red: 34/255, green: 139/255, blue: 230/255, alpha: 1)
+            : UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
     }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }

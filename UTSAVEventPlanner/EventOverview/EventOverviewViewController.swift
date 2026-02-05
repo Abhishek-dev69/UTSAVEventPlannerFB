@@ -345,7 +345,7 @@ final class EventOverviewViewController: UIViewController {
             iconName: "checklist",
             title: "Client Requirements",
             subtitle: subtitle,
-            progress: computeProgressForRequirements()
+            progress: nil
         ) { [weak self] in
             guard let self else { return }
             self.navigationController?.pushViewController(
@@ -397,7 +397,7 @@ final class EventOverviewViewController: UIViewController {
             iconName: "shippingbox",
             title: "Inventory Overview",
             subtitle: "Track items & usage",
-            progress: 0
+            progress: nil
         ) { [weak self] in
             guard let self else { return }
             self.navigationController?.pushViewController(
@@ -407,12 +407,6 @@ final class EventOverviewViewController: UIViewController {
         }
         contentStack.addArrangedSubview(card)
     }
-
-    private func computeProgressForRequirements() -> Float {
-        let total = max(1, cartItems.count)
-        return Float(cartItems.count) / Float(total)
-    }
-
     private func formatMoney(_ value: Double) -> String {
         let f = NumberFormatter()
         f.numberStyle = .decimal

@@ -174,6 +174,7 @@ final class AddInventoryItemViewController: UIViewController {
                 )
 
                 onItemAdded?(item)
+                NotificationCenter.default.post(name: .inventoryUpdated, object: nil)
                 dismiss(animated: true)
 
             } catch {
@@ -191,4 +192,7 @@ final class AddInventoryItemViewController: UIViewController {
     @objc private func cancelTapped() {
         dismiss(animated: true)
     }
+}
+extension Notification.Name {
+    static let inventoryUpdated = Notification.Name("inventoryUpdated")
 }

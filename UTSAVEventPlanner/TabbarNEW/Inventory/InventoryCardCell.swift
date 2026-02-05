@@ -157,9 +157,13 @@ final class InventoryCardCell: UITableViewCell {
         lost: Int
     ) {
         titleLabel.text = title
+
         allocatedValueLabel.text = "\(allocated)"
         receivedValueLabel.text = "\(received)"
-        pendingValueLabel.text = "\(pending)"   // 🔴 red
+
+        pendingValueLabel.text = "\(pending)"
+        pendingValueLabel.textColor = (pending == 0) ? .systemGreen : .systemRed
+
         lostValueLabel.text = "\(lost)"
     }
 }

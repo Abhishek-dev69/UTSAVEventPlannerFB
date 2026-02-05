@@ -8,9 +8,10 @@ final class EventSectionCard: UIView {
         iconName: String,
         title: String,
         subtitle: String,
-        progress: Float,
+        progress: Float? = nil,
         onTap: @escaping () -> Void
-    ) {
+    )
+    {
         self.onTap = onTap
         super.init(frame: .zero)
         setupUI(iconName: iconName, title: title, subtitle: subtitle, progress: progress)
@@ -18,7 +19,13 @@ final class EventSectionCard: UIView {
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not implemented") }
 
-    private func setupUI(iconName: String, title: String, subtitle: String, progress: Float) {
+    private func setupUI(
+        iconName: String,
+        title: String,
+        subtitle: String,
+        progress: Float?
+    )
+    {
 
         backgroundColor = .white
         layer.cornerRadius = 18
@@ -65,9 +72,21 @@ final class EventSectionCard: UIView {
         subtitleLabel.textColor = .gray
 
         let progressView = UIProgressView()
-        progressView.progress = progress
         progressView.trackTintColor = .systemGray5
-        progressView.progressTintColor = UIColor(red: 140/255, green: 75/255, blue: 245/255, alpha: 1)
+        progressView.progressTintColor = UIColor(
+            red: 140/255,
+            green: 75/255,
+            blue: 245/255,
+            alpha: 1
+        )
+
+        if let progress {
+            progressView.progress = progress
+            progressView.isHidden = false
+        } else {
+            progressView.isHidden = true
+        }
+
 
         let textStack = UIStackView(arrangedSubviews: [
             titleLabel, subtitleLabel, progressView

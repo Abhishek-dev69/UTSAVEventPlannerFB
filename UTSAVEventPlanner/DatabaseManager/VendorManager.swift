@@ -7,7 +7,6 @@ import Foundation
 import Supabase
 import UIKit
 
-// Replace this with your Supabase project base URL (example: "https://abcd1234.supabase.co")
 private let SUPABASE_BASE_URL = "https://denikpjyrblzbomzamyu.supabase.co"
 
 // ----------------------------
