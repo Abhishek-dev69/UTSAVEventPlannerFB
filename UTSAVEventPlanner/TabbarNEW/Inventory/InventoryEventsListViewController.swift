@@ -89,23 +89,12 @@ final class InventoryEventsListViewController: UIViewController {
 
     // MARK: - Notification handler
     @objc private func inventoryUpdated(_ note: Notification) {
-        guard let eventId = note.userInfo?["eventId"] as? String else {
-            // fallback: reload everything safely
-            Task { await refreshEvents() }
-            return
-        }
-
         Task {
-            // ✅ FIX 2: wait for counts to finish loading
-            await InventoryManager.shared.loadCounts(forEventId: eventId)
-
-            guard let index = events.firstIndex(where: { $0.id == eventId }) else { return }
+            // Re-fetch data (may change row count)
+            await refreshEvents()
 
             await MainActor.run {
-                tableView.reloadRows(
-                    at: [IndexPath(row: index, section: 0)],
-                    with: .none
-                )
+                self.tableView.reloadData()
             }
         }
     }
