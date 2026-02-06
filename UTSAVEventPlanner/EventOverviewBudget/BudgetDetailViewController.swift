@@ -159,7 +159,7 @@ final class BudgetDetailViewController: UIViewController {
     }
 
     private func setupSearch() {
-        searchField.placeholder = "Search expenses..."
+        searchField.placeholder = "Search expenses"
         searchField.borderStyle = .roundedRect
         content.addArrangedSubview(searchField)
     }
