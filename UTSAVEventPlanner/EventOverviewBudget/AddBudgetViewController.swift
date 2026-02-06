@@ -68,7 +68,7 @@ final class AddBudgetViewController: UIViewController {
         configureField(amountField, placeholder: "Amount (₹)")
         amountField.keyboardType = .decimalPad
 
-        configureField(vendorField, placeholder: "Vendor / Expense Title")
+        configureField(vendorField, placeholder: "Expense Title")
         vendorField.text = vendorName
 
         configureField(categoryField, placeholder: "Category (optional)")

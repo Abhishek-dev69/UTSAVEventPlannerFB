@@ -285,19 +285,33 @@ final class EventDetailsViewController: UIViewController {
 
     // MARK: Date pickers + accessory toolbar
     private func setupDatePickers() {
-        // Attach as inputView so the picker is displayed when user taps the text field
+
+        // Picker config (same as RecordClientPayment)
+        startPicker.datePickerMode = .date
+        endPicker.datePickerMode = .date
+
+        if #available(iOS 14.0, *) {
+            startPicker.preferredDatePickerStyle = .wheels
+            endPicker.preferredDatePickerStyle = .wheels
+        }
+
+        startDateField.tintColor = .clear
+        endDateField.tintColor = .clear
+
         startDateField.inputView = startPicker
         endDateField.inputView = endPicker
 
-        // Attach toolbar with Cancel / Done buttons
-        startDateField.inputAccessoryView = makeToolbar(done: #selector(doneStart), cancel: #selector(cancelPicker))
-        endDateField.inputAccessoryView = makeToolbar(done: #selector(doneEnd), cancel: #selector(cancelPicker))
+        startDateField.inputAccessoryView =
+            makeToolbar(done: #selector(doneStart), cancel: #selector(cancelPicker))
+        endDateField.inputAccessoryView =
+            makeToolbar(done: #selector(doneEnd), cancel: #selector(cancelPicker))
 
-        startPicker.addTarget(self, action: #selector(startDateChanged), for: .valueChanged)
-        endPicker.addTarget(self, action: #selector(endDateChanged), for: .valueChanged)
+        // Defaults
+        startPicker.date = Date()
+        endPicker.date = Date()
 
-        startDateField.addTarget(self, action: #selector(startEditingBegan), for: .editingDidBegin)
-        endDateField.addTarget(self, action: #selector(endEditingBegan), for: .editingDidBegin)
+        startDateField.text = dateFormatter.string(from: startPicker.date)
+        endDateField.text = dateFormatter.string(from: endPicker.date)
     }
 
     private func makeToolbar(done: Selector, cancel: Selector) -> UIToolbar {

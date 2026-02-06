@@ -8,7 +8,7 @@ final class InventoryEmptyViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
         setupUI()
     }
 
