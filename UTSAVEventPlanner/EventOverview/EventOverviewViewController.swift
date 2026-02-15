@@ -9,8 +9,6 @@ final class EventOverviewViewController: UIViewController {
 
     // Data
     private var cartItems: [CartItemRecord] = []
-    private var inhouseItems: [CartItemRecord] = []
-    private var outsourceItems: [CartItemRecord] = []
     private var totalAmount: Double = 0.0
     private var receivedAmount: Double = 0.0
     private var totalExpenses: Double = 0.0
@@ -110,8 +108,7 @@ final class EventOverviewViewController: UIViewController {
                 subserviceName: $0.subserviceName ?? "",
                 rate: $0.rate ?? 0,
                 unit: $0.unit ?? "",
-                quantity: $0.quantity ?? 0,
-                sourceType: $0.sourceType ?? "in_house"
+                quantity: $0.quantity ?? 0
             )
         }
     }
@@ -256,22 +253,12 @@ final class EventOverviewViewController: UIViewController {
         contentStack.addArrangedSubview(headerCard)
     }
 
-    // MARK: - CART COMPUTATION
-    private func sourceType(for item: CartItemRecord) -> String {
-        if let s = item.sourceType, !s.isEmpty { return s.lowercased() }
-        return "in_house"
-    }
-
     private func lineTotal(for item: CartItemRecord) -> Double {
         item.lineTotal ?? ((item.rate ?? 0) * Double(item.quantity ?? 0))
     }
-
     private func computeFromCart() {
-        inhouseItems = cartItems.filter { sourceType(for: $0) != "outsource" }
-        outsourceItems = cartItems.filter { sourceType(for: $0) == "outsource" }
         totalAmount = cartItems.reduce(0) { $0 + lineTotal(for: $1) }
     }
-
     // MARK: - HEADER CONTENT
     private func updateHeaderContent() {
         let client = event.clientName.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -340,7 +327,7 @@ final class EventOverviewViewController: UIViewController {
     }
 
     private func addClientRequirements() {
-        let subtitle = "\(inhouseItems.count) in-house · \(outsourceItems.count) outsourced"
+        let subtitle = "\(cartItems.count) services added"
         let card = EventSectionCard(
             iconName: "checklist",
             title: "Client Requirements",
