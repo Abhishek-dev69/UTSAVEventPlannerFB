@@ -7,11 +7,8 @@ import UIKit
 final class ServicePickerViewController: UIViewController, CartObserver {
 
     // MARK: - UI Components
-    private let segmented = UISegmentedControl(items: ["In-House Services", "Outsource Services"])
     private let searchBar = UISearchBar()
     private let tableView = UITableView(frame: .zero, style: .plain)
-
-    private let segmentContainer = UIView()
 
     // Outsource form container
     private let outsourceContainer = UIView()
@@ -33,26 +30,6 @@ final class ServicePickerViewController: UIViewController, CartObserver {
     private var services: [Service] = []           // original
     private var filteredServices: [Service] = []   // used by table
     private var expanded: [Bool] = []
-    
-    private func styleSegments() {
-        segmented.selectedSegmentTintColor = UIColor(
-            red: 136/255,
-            green: 71/255,
-            blue: 246/255,
-            alpha: 1
-        )
-
-        segmented.setTitleTextAttributes(
-            [.foregroundColor: UIColor.white],
-            for: .selected
-        )
-
-        segmented.setTitleTextAttributes(
-            [.foregroundColor: UIColor.gray],
-            for: .normal
-        )
-    }
-
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
@@ -60,18 +37,12 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         view.backgroundColor = UIColor(white: 0.97, alpha: 1)
 
         setupNav()
-        setupSegmentContainer()
         setupSearchBar()          // ✅ NEW
         setupTable()
-        setupOutsourceForm()
         setupBottomCart()
         setupKeyboardDismissGesture()
 
         CartManager.shared.addObserver(self)
-
-        segmented.selectedSegmentIndex = 0
-        segmented.addTarget(self, action: #selector(segmentChanged), for: .valueChanged)
-
         Task {
             _ = try? await SupabaseManager.shared.ensureUserId()
             CartManager.shared.loadFromServer(eventId: EventSession.shared.currentEventId)
@@ -213,8 +184,7 @@ final class ServicePickerViewController: UIViewController, CartObserver {
                     subserviceName: notes.isEmpty ? name : notes,
                     rate: rate,
                     unit: "unit",
-                    quantity: qty,
-                    sourceType: "in_house"
+                    quantity: qty
                 )
             })
 
@@ -236,34 +206,6 @@ final class ServicePickerViewController: UIViewController, CartObserver {
     @objc private func dismissKeyboard() {
         view.endEditing(true)
     }
-
-
-    // MARK: - Segmented Control
-    private func setupSegmentContainer() {
-        segmentContainer.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(segmentContainer)
-
-        segmented.translatesAutoresizingMaskIntoConstraints = false
-        segmented.backgroundColor = UIColor(white: 0.95, alpha: 1)
-        segmented.layer.cornerRadius = 16
-        segmented.clipsToBounds = true
-        segmentContainer.addSubview(segmented)
-        
-        styleSegments()
-
-        NSLayoutConstraint.activate([
-            segmentContainer.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
-            segmentContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            segmentContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            segmentContainer.heightAnchor.constraint(equalToConstant: 50),
-
-            segmented.leadingAnchor.constraint(equalTo: segmentContainer.leadingAnchor, constant: 20),
-            segmented.trailingAnchor.constraint(equalTo: segmentContainer.trailingAnchor, constant: -20),
-            segmented.centerYAnchor.constraint(equalTo: segmentContainer.centerYAnchor),
-            segmented.heightAnchor.constraint(equalToConstant: 36)
-        ])
-    }
-
     // MARK: - 🔍 Search Bar (NEW)
     private func setupSearchBar() {
         searchBar.placeholder = "Search services or sub-services"
@@ -273,7 +215,7 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         view.addSubview(searchBar)
 
         NSLayoutConstraint.activate([
-            searchBar.topAnchor.constraint(equalTo: segmentContainer.bottomAnchor, constant: 6),
+            searchBar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
             searchBar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
             searchBar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12)
         ])
@@ -309,51 +251,6 @@ final class ServicePickerViewController: UIViewController, CartObserver {
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -110)
         ])
     }
-
-    // MARK: - Outsource Form
-    private func setupOutsourceForm() {
-        outsourceContainer.translatesAutoresizingMaskIntoConstraints = false
-        outsourceContainer.isHidden = true
-        outsourceContainer.alpha = 0
-        view.addSubview(outsourceContainer)
-
-        NSLayoutConstraint.activate([
-            outsourceContainer.topAnchor.constraint(equalTo: segmentContainer.bottomAnchor, constant: 10),
-            outsourceContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            outsourceContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            outsourceContainer.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -110)
-        ])
-
-        let form = OutsourceFormView()
-        form.onSubmit = { item in
-            CartManager.shared.addOutsource(item: item, quantity: 1)
-        }
-
-        form.translatesAutoresizingMaskIntoConstraints = false
-        outsourceContainer.addSubview(form)
-
-        NSLayoutConstraint.activate([
-            form.leadingAnchor.constraint(equalTo: outsourceContainer.leadingAnchor),
-            form.trailingAnchor.constraint(equalTo: outsourceContainer.trailingAnchor),
-            form.topAnchor.constraint(equalTo: outsourceContainer.topAnchor)
-        ])
-
-        outsourceForm = form
-    }
-
-    // MARK: - Segment Switch
-    @objc private func segmentChanged() {
-        let isOutsource = segmented.selectedSegmentIndex == 1
-
-        UIView.animate(withDuration: 0.25) {
-            self.tableView.alpha = isOutsource ? 0 : 1
-            self.outsourceContainer.alpha = isOutsource ? 1 : 0
-        } completion: { _ in
-            self.tableView.isHidden = isOutsource
-            self.outsourceContainer.isHidden = !isOutsource
-        }
-    }
-
     // MARK: - Cart Observer
     func cartDidChange() {
         updateCartUI()

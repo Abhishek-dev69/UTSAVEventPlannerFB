@@ -53,9 +53,6 @@ final class EstimateCartViewController: UIViewController {
     private let servicesHeader = AccordionHeaderView(icon: UIImage(systemName: "tray.fill"), title: "Services")
     private let servicesCard = UIStackView()
 
-    private let outsourcedHeader = AccordionHeaderView(icon: UIImage(systemName: "shippingbox.fill"), title: "Outsourced")
-    private let outsourcedCard = UIStackView()
-
     private let summaryCard = CardView()
     private let subtotalLabel = UILabel()
     private let taxField = UITextField()
@@ -82,9 +79,9 @@ final class EstimateCartViewController: UIViewController {
     private let confirmOrderBtn = UIButton(type: .system)
 
     // MARK: Data
-    private var servicesItems: [CartItem] { CartManager.shared.items.filter { $0.sourceType == "in_house" } }
-    private var outsourcedItems: [CartItem] { CartManager.shared.items.filter { $0.sourceType == "outsource" } }
-
+    private var servicesItems: [CartItem] {
+        CartManager.shared.items
+    }
     private var taxPercent: Double { Double(taxField.text ?? "") ?? 0 }
 
     private lazy var currencyFormatter: NumberFormatter = {
@@ -115,7 +112,7 @@ final class EstimateCartViewController: UIViewController {
         title = "Estimate for Approval"
 
         setupScroll()
-        setupSections()
+        setupServicesSection()
         setupSummary()
         setupPayment()
         setupBottomButtons()
@@ -123,8 +120,6 @@ final class EstimateCartViewController: UIViewController {
         setupKeyboardDismissRecognizer()   // 👈 NEW — dismiss keyboard on any tap
 
         CartManager.shared.addObserver(self)
-
-        rebuildCards()
         updateSummary()
     }
 
@@ -151,6 +146,39 @@ final class EstimateCartViewController: UIViewController {
     }
 
     @objc private func endEditingForced() { view.endEditing(true) }
+    private func setupServicesSection() {
+
+        content.addArrangedSubview(servicesHeader)
+
+        let card = addCard(for: servicesCard)
+        content.addArrangedSubview(card)
+
+        servicesHeader.onToggle = { [weak self] open in
+            card.isHidden = !open
+        }
+
+        rebuildServices()
+    }
+    private func rebuildServices() {
+
+        servicesCard.arrangedSubviews.forEach { $0.removeFromSuperview() }
+
+        let items = CartManager.shared.items
+
+        if items.isEmpty {
+            let empty = UILabel(text: "No services added")
+            empty.textColor = .secondaryLabel
+            servicesCard.addArrangedSubview(empty)
+            return
+        }
+
+        for item in items {
+            let card = makeCardItem(item)
+            servicesCard.addArrangedSubview(card)
+        }
+    }
+
+
 
     private func setupKeyboardNotifications() {
         NotificationCenter.default.addObserver(self,
@@ -210,21 +238,7 @@ final class EstimateCartViewController: UIViewController {
 
     // -------------------------------------------------------------
     // MARK: Sections (Accordion)
-    // -------------------------------------------------------------
-    private func setupSections() {
-        content.addArrangedSubview(servicesHeader)
-        let sContainer = addCard(for: servicesCard)
-        content.addArrangedSubview(sContainer)
-
-        servicesHeader.onToggle = { open in sContainer.isHidden = !open }
-
-        content.addArrangedSubview(outsourcedHeader)
-        let oContainer = addCard(for: outsourcedCard)
-        content.addArrangedSubview(oContainer)
-
-        outsourcedHeader.onToggle = { open in oContainer.isHidden = !open }
-    }
-
+    // ------------------------------------------------------------
     private func addCard(for stack: UIStackView) -> CardView {
         let container = CardView()
         container.isHidden = true
@@ -466,24 +480,6 @@ final class EstimateCartViewController: UIViewController {
     // -------------------------------------------------------------
     // MARK: Build Cards
     // -------------------------------------------------------------
-    private func rebuildCards() {
-        servicesCard.arrangedSubviews.forEach { $0.removeFromSuperview() }
-        outsourcedCard.arrangedSubviews.forEach { $0.removeFromSuperview() }
-
-        for item in servicesItems {
-            servicesCard.addArrangedSubview(makeCardItem(item))
-        }
-        if servicesItems.isEmpty {
-            servicesCard.addArrangedSubview(UILabel(text: "No items"))
-        }
-
-        for item in outsourcedItems {
-            outsourcedCard.addArrangedSubview(makeCardItem(item))
-        }
-        if outsourcedItems.isEmpty {
-            outsourcedCard.addArrangedSubview(UILabel(text: "No items"))
-        }
-    }
 
     private func makeCardItem(_ item: CartItem) -> UIView {
         let card = UIView()
@@ -494,7 +490,7 @@ final class EstimateCartViewController: UIViewController {
         card.translatesAutoresizingMaskIntoConstraints = false
 
         // Show serviceName for outsourced items, subserviceName for in-house ones
-        let titleText: String = (item.sourceType == "outsource") ? item.serviceName : item.subserviceName
+        let titleText: String = item.subserviceName
         let title = UILabel(text: titleText)
         title.font = .systemFont(ofSize: 15, weight: .semibold)
 
@@ -730,11 +726,9 @@ final class EstimateCartViewController: UIViewController {
             subserviceName: item.subserviceName,
             rate: newRate,
             unit: item.unit,
-            quantity: item.quantity,
-            sourceType: item.sourceType
+            quantity: item.quantity
         )
 
-        rebuildCards()
         updateSummary()
     }
 
@@ -744,8 +738,6 @@ final class EstimateCartViewController: UIViewController {
 
         // Use canonical setter by subserviceId
         CartManager.shared.setQuantity(subserviceId: item.subserviceId, quantity: qty)
-
-        rebuildCards()
         updateSummary()
     }
 
@@ -923,7 +915,7 @@ final class EstimateCartViewController: UIViewController {
 // -------------------------------------------------------------
 extension EstimateCartViewController: CartObserver {
     func cartDidChange() {
-        rebuildCards()
+        rebuildServices()
         updateSummary()
     }
 }

@@ -164,8 +164,7 @@ final class SubserviceInnerCell: UITableViewCell {
                 subserviceName: sub.name,
                 rate: rate,
                 unit: sub.unit,
-                quantity: qty,
-                sourceType: "in_house"
+                quantity: qty
             )
         })
 

@@ -14,7 +14,6 @@ struct CartItem: Codable, Equatable {
     var rate: Double
     var unit: String
     var quantity: Int
-    var sourceType: String
     var cartSessionId: String?   // ✅ ADD
     var eventId: String?         // ✅ ADD
     var userId: String?          // ✅ ADD
@@ -30,7 +29,6 @@ struct CartItem: Codable, Equatable {
         case rate
         case unit
         case quantity
-        case sourceType = "source_type"
         case cartSessionId = "cart_session_id"
         case eventId = "event_id"
         case userId = "user_id"
@@ -140,8 +138,7 @@ final class CartManager {
                         subserviceName: finalSubserviceName,
                         rate: r.rate ?? 0,
                         unit: r.unit ?? "",
-                        quantity: r.quantity ?? 0,
-                        sourceType: r.sourceType ?? "in_house"
+                        quantity: r.quantity ?? 0
                     )
                 }
 
@@ -158,38 +155,6 @@ final class CartManager {
     // MARK: - Convenience: add outsource item safely (prevents swapped args)
     /// Call this when you receive an OutsourceItem from OutsourceFormView.
     /// This guarantees serviceName/subserviceName are wired correctly
-    func addOutsource(item: OutsourceItem, quantity: Int = 1) {
-
-        let subId = UUID().uuidString
-
-        // ✅ SAFE SERVICE NAME
-        let safeServiceName = item.serviceName
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .isEmpty
-            ? "Outsource Service"
-            : item.serviceName.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        // ✅ SAFE SUBSERVICE NAME
-        let safeSubserviceName = item.subserviceName
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .isEmpty
-            ? safeServiceName
-            : item.subserviceName.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        let rate = item.estimatedBudget ?? 0.0
-
-        addItem(
-            serviceId: nil,
-            serviceName: safeServiceName,
-            subserviceId: subId,
-            subserviceName: safeSubserviceName,
-            rate: rate,
-            unit: "unit",
-            quantity: quantity,
-            sourceType: "outsource"
-        )
-    }
-
     // MARK: - ADD ITEM (canonical: uses subserviceId as unique key)
     func addItem(
         serviceId: String?,
@@ -199,8 +164,7 @@ final class CartManager {
         rate: Double,
         unit: String,
         quantity: Int = 1,
-        metadata: [String: String]? = nil,
-        sourceType: String
+        metadata: [String: String]? = nil
     ) {
 
         // ✅ NORMALIZE NAMES (CRITICAL FIX 🔥)
@@ -230,8 +194,7 @@ final class CartManager {
                 subserviceName: safeSubserviceName,
                 rate: rate,
                 unit: unit,
-                quantity: quantity,
-                sourceType: sourceType
+                quantity: quantity
             )
             items.append(newItem)
         }
@@ -285,8 +248,7 @@ final class CartManager {
                     subserviceName: safeSubserviceName,  // ✅ FIXED
                     rate: rate,
                     unit: unit,
-                    quantity: quantity,
-                    sourceType: sourceType
+                    quantity: quantity
                 )
 
                 DispatchQueue.main.async {
@@ -359,8 +321,7 @@ final class CartManager {
                         subserviceName: local.subserviceName,
                         rate: local.rate,
                         unit: local.unit,
-                        quantity: quantity,
-                        sourceType: local.sourceType
+                        quantity: quantity
                     )
                     DispatchQueue.main.async {
                         if let i = self.items.firstIndex(where: { $0.subserviceId == subserviceId }) {
@@ -380,19 +341,6 @@ final class CartManager {
             }
         }
     }
-    func fetchAllOutsourceItemsForPlanner() async throws -> [CartItemRecord] {
-        let plannerId = try await SupabaseManager.shared.ensureUserId()
-
-        let response = try await SupabaseManager.shared.client
-            .from("cart_items")
-            .select("*")
-            .eq("planner_id", value: plannerId)
-            .eq("service_type", value: "outsource")
-            .execute()
-
-        return try JSONDecoder().decode([CartItemRecord].self, from: response.data)
-    }
-
 
     // Backwards-compatible helper: setQuantity by serviceName+subserviceName — looks up subserviceId
     func setQuantity(serviceName: String, subserviceName: String, quantity: Int) {
