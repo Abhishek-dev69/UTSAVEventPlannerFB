@@ -48,7 +48,6 @@ struct CartItemRecord: Codable {
     let metadata: [String: String]?
     let createdAt: String?
     let updatedAt: String?
-    let sourceType: String?
 
     // ✅ ADD THESE
     let assignmentStatus: String?
@@ -68,7 +67,6 @@ struct CartItemRecord: Codable {
         case metadata
         case createdAt = "created_at"
         case updatedAt = "updated_at"
-        case sourceType = "source_type"
 
         // ✅ MAP DB COLUMNS
         case assignmentStatus = "assignment_status"
@@ -89,7 +87,6 @@ struct CartInsert: Encodable {
     let unit: String?
     let quantity: Int
     let metadata: [String: String]?
-    let sourceType: String
 
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
@@ -103,7 +100,6 @@ struct CartInsert: Encodable {
         case unit
         case quantity
         case metadata
-        case sourceType = "source_type"
     }
 }
 
@@ -414,8 +410,7 @@ final class SupabaseManager {
         rate: Double,
         unit: String?,
         quantity: Int,
-        metadata: [String: String]? = nil,
-        sourceType: String
+        metadata: [String: String]? = nil
     ) async throws -> CartItemRecord {
 
         let uid = try await (userId == nil || userId!.isEmpty)
@@ -453,8 +448,7 @@ final class SupabaseManager {
             rate: rate,
             unit: unit,
             quantity: quantity,
-            metadata: metadata,
-            sourceType: sourceType
+            metadata: metadata
         )
 
         let response = try await client
