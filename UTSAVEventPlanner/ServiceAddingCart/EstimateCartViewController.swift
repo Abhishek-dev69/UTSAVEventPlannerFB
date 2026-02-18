@@ -820,6 +820,10 @@ final class EstimateCartViewController: UIViewController {
             do {
                 guard let eventId = EventSession.shared.currentEventId else { return }
 
+                // ✅ 1. Mark services added (IMPORTANT)
+                try await EventSupabaseManager.shared.markServicesAdded(eventId: eventId)
+
+                // ✅ 2. Update status to draft
                 try await SupabaseManager.shared.client
                     .from("events")
                     .update(["status": "draft"])
@@ -828,6 +832,7 @@ final class EstimateCartViewController: UIViewController {
 
                 await MainActor.run {
 
+                    // Refresh dashboard
                     NotificationCenter.default.post(
                         name: NSNotification.Name("ReloadEventsDashboard"),
                         object: nil
@@ -848,6 +853,16 @@ final class EstimateCartViewController: UIViewController {
 
             } catch {
                 print("❌ Draft save failed:", error)
+
+                await MainActor.run {
+                    let alert = UIAlertController(
+                        title: "Error",
+                        message: error.localizedDescription,
+                        preferredStyle: .alert
+                    )
+                    alert.addAction(UIAlertAction(title: "OK", style: .default))
+                    self.present(alert, animated: true)
+                }
             }
         }
     }
