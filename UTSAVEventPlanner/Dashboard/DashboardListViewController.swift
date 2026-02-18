@@ -446,7 +446,7 @@ extension DashboardListViewController: UITableViewDataSource, UITableViewDelegat
 
         let record = events[indexPath.row]
 
-        // ✅ Set event session
+        // ✅ Set session
         EventSession.shared.currentEventId = record.id
         EventSession.shared.currentEventName = record.eventName
         EventSession.shared.currentClientName = record.clientName
@@ -454,48 +454,56 @@ extension DashboardListViewController: UITableViewDataSource, UITableViewDelegat
         EventSession.shared.currentStartDate = parseDate(record.startDate)
         EventSession.shared.currentEndDate = parseDate(record.endDate)
 
-        // ✅ FIXED STATUS CHECK (safe)
         let status = (record.status ?? "")
             .lowercased()
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
-        print("🟢 Event status:", status)
+        let servicesAdded = record.metadata?["servicesAdded"] == "true"
 
-        // ✅ Draft → Open Cart
-        if status == "draft" {
+        print("📌 Status:", status)
+        print("📌 servicesAdded:", servicesAdded)
+
+        // -------------------------------------
+        // ✅ 1. CONFIRMED → Open Overview
+        // -------------------------------------
+        if status == "confirmed" {
+            let vc = EventOverviewViewController(event: record)
+            vc.hidesBottomBarWhenPushed = true
+            navigationController?.pushViewController(vc, animated: true)
+            return
+        }
+
+        // -------------------------------------
+        // ✅ 2. Draft with services → Open Cart
+        // -------------------------------------
+        if servicesAdded {
             Task {
                 await openDraftCart(eventId: record.id)
             }
             return
         }
 
-        // ✅ Normal confirmed flow
-        let servicesAdded = record.metadata?["servicesAdded"] == "true"
+        // -------------------------------------
+        // ✅ 3. No services → Open Confirmation
+        // -------------------------------------
+        let details = EventDetails(
+            eventName: record.eventName,
+            clientName: record.clientName,
+            location: record.location,
+            guestCount: record.guestCount,
+            budgetInPaise: Int(record.budgetInPaise),
+            startDate: parseDate(record.startDate),
+            endDate: parseDate(record.endDate)
+        )
 
-        if servicesAdded {
-            let vc = EventOverviewViewController(event: record)
-            vc.hidesBottomBarWhenPushed = true
-            navigationController?.pushViewController(vc, animated: true)
-        } else {
-            let details = EventDetails(
-                eventName: record.eventName,
-                clientName: record.clientName,
-                location: record.location,
-                guestCount: record.guestCount,
-                budgetInPaise: Int(record.budgetInPaise),
-                startDate: parseDate(record.startDate),
-                endDate: parseDate(record.endDate)
-            )
-
-            let vc = ConfirmationViewController(
-                details: details,
-                currencyFormatter: dashboardCurrencyFormatter,
-                dateFormatter: dashboardDateFormatter,
-                title: record.eventName
-            )
-            vc.hidesBottomBarWhenPushed = true
-            navigationController?.pushViewController(vc, animated: true)
-        }
+        let vc = ConfirmationViewController(
+            details: details,
+            currencyFormatter: dashboardCurrencyFormatter,
+            dateFormatter: dashboardDateFormatter,
+            title: record.eventName
+        )
+        vc.hidesBottomBarWhenPushed = true
+        navigationController?.pushViewController(vc, animated: true)
     }
 }
 
