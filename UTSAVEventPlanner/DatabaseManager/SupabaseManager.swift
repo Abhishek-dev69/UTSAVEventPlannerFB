@@ -49,7 +49,10 @@ struct CartItemRecord: Codable {
     let createdAt: String?
     let updatedAt: String?
 
-    // ✅ ADD THESE
+    // ✅ ADD THIS
+    let sourceType: String?
+
+    // existing vendor assignment fields
     let assignmentStatus: String?
     let assignedVendorId: String?
     let assignedVendorName: String?
@@ -68,13 +71,14 @@ struct CartItemRecord: Codable {
         case createdAt = "created_at"
         case updatedAt = "updated_at"
 
-        // ✅ MAP DB COLUMNS
+        // ✅ MAP THIS
+        case sourceType = "source_type"
+
         case assignmentStatus = "assignment_status"
         case assignedVendorId = "assigned_vendor_id"
         case assignedVendorName = "assigned_vendor_name"
     }
 }
-
 struct CartInsert: Encodable {
     let userId: String
     let eventId: String?

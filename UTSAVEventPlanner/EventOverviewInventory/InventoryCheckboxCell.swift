@@ -10,7 +10,10 @@ final class InventoryCheckboxCell: UITableViewCell {
     private let quantityLabel = UILabel()
     private let checkbox = UIButton(type: .system)
 
-    // MARK: - Callback (no state here)
+    // MARK: - State
+    private var isChecked: Bool = false
+
+    // MARK: - Callback
     var onChecked: (() -> Void)?
 
     // MARK: - Init
@@ -24,10 +27,25 @@ final class InventoryCheckboxCell: UITableViewCell {
         setupCard()
         setupViews()
         setupConstraints()
+        updateCheckboxUI()
     }
 
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+
+    // MARK: - Reuse Safety
+    override func prepareForReuse() {
+        super.prepareForReuse()
+
+        // Reset state completely
+        isChecked = false
+        updateCheckboxUI()
+
+        checkbox.isUserInteractionEnabled = true
+        checkbox.alpha = 1.0
+
+        onChecked = nil
     }
 
     // MARK: - Setup
@@ -42,8 +60,8 @@ final class InventoryCheckboxCell: UITableViewCell {
     }
 
     private func setupViews() {
+
         checkbox.tintColor = .systemGray
-        checkbox.setImage(UIImage(systemName: "square"), for: .normal)
         checkbox.addTarget(self, action: #selector(checkboxTapped), for: .touchUpInside)
 
         badgeLabel.font = .systemFont(ofSize: 13, weight: .semibold)
@@ -96,22 +114,42 @@ final class InventoryCheckboxCell: UITableViewCell {
         ])
     }
 
+    // MARK: - Public Controls
+
+    func setChecked(_ checked: Bool) {
+        isChecked = checked
+        updateCheckboxUI()
+    }
+
+    func setCheckboxEnabled(_ enabled: Bool) {
+        checkbox.isUserInteractionEnabled = enabled
+        checkbox.alpha = enabled ? 1.0 : 0.6
+    }
+
+    // MARK: - UI Update
+
+    private func updateCheckboxUI() {
+        if isChecked {
+            checkbox.tintColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
+            checkbox.setImage(UIImage(systemName: "checkmark.square.fill"), for: .normal)
+        } else {
+            checkbox.tintColor = .systemGray
+            checkbox.setImage(UIImage(systemName: "square"), for: .normal)
+        }
+    }
+
     // MARK: - Action
+
     @objc private func checkboxTapped() {
-        // ✅ DO NOT toggle UI
-        // ✅ DO NOT reload table
-        // ✅ DO NOT post notifications
         onChecked?()
     }
 
     // MARK: - Configure
+
     func configure(name: String, quantity: Int, sourceType: String?) {
+
         nameLabel.text = name
         quantityLabel.text = "Qty: \(quantity)"
-
-        // Always neutral checkbox state
-        checkbox.tintColor = .systemGray
-        checkbox.setImage(UIImage(systemName: "square"), for: .normal)
 
         let lower = (sourceType ?? "planner").lowercased()
         subtitleLabel.text = (lower == "vendor") ? "Vendor Inventory" : "My Inventory"

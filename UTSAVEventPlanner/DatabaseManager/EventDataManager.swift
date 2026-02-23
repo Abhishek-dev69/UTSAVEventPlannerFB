@@ -78,27 +78,30 @@ final class EventDataManager {
         amount: Double,
         method: String,
         date: String
-    ) async throws -> PaymentRecord
-{
+    ) async throws -> PaymentRecord {
 
-    let payload = PaymentInsert(
-        event_id: eventId,
-        vendor_id: nil,
-        amount: amount,
-        method: method,
-        received_on: date,
-        payer_type: "client"
-    )
+        let plannerId = try await ensureUserId()   
+
+        let payload = PaymentInsert(
+            planner_id: plannerId,
+            event_id: eventId,
+            vendor_id: nil,
+            amount: amount,
+            method: method,
+            received_on: date,
+            payer_type: "client"
+        )
+
         let response = try await client
             .from("event_payments")
             .insert(payload)
             .select("*")
             .execute()
 
-        let inserted = try JSONDecoder().decode([PaymentRecord].self, from: response.data)
-        return inserted.first!
+        return try JSONDecoder()
+            .decode([PaymentRecord].self, from: response.data)
+            .first!
     }
-
 
     // MARK: - 3. Budget Entries
 

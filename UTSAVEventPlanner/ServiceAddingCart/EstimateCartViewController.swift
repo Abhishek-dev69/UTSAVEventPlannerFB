@@ -776,6 +776,10 @@ final class EstimateCartViewController: UIViewController {
                     .update(["status": "confirmed"])
                     .eq("id", value: eventId)
                     .execute()
+                // ✅ Sync cart → inventory ONLY ON CONFIRM
+                try await InventoryDataManager.shared.syncCartToInventory(
+                    eventId: eventId
+                )
 
 
                 await MainActor.run {
