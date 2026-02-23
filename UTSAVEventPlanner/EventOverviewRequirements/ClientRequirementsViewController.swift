@@ -182,7 +182,7 @@ final class ClientRequirementsViewController: UIViewController {
         do {
             let items = try await EventDataManager.shared.fetchCartItems(eventId: event.id)
 
-            await MainActor.run {
+                await MainActor.run {
                 self.cartItems = items
                 self.selectedItemIds.removeAll()
                 self.tableView.reloadData()
