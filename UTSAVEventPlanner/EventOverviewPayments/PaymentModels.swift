@@ -12,6 +12,7 @@ struct PaymentRecord: Codable {
 }
 
 struct PaymentInsert: Encodable {
+    let planner_id: String      
     let event_id: String?
     let vendor_id: String?
     let amount: Double
