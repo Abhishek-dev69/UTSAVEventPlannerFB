@@ -34,7 +34,10 @@ struct InventoryItemRecord: Codable {
         case updatedAt = "updated_at"
     }
 }
-
+struct InventoryCartUpdate: Encodable {
+    let quantity: Int
+    let source_type: String
+}
 struct InventoryInsert: Encodable {
     let event_id: String
     let name: String
@@ -200,7 +203,49 @@ final class InventoryDataManager {
         }
         return first
     }
+    
+    // MARK: - Sync Cart → Inventory
+    func syncCartToInventory(eventId: String) async throws {
 
+        print("🚀 SYNC START:", eventId)
+
+        let cartItems = try await SupabaseManager.shared.fetchCartItems(
+            userId: nil,
+            eventId: eventId,
+            cartSessionId: nil
+        )
+
+        // 🔥 Fetch existing inventory first
+        let existing = try await fetchInventory(eventId: eventId)
+        let existingNames = Set(existing.map { $0.name })
+
+        for cart in cartItems {
+
+            guard let name = cart.subserviceName,
+                  let qty = cart.quantity else { continue }
+
+            // 🔥 Prevent duplicate insert
+            if existingNames.contains(name) {
+                print("⚠️ Already exists, skipping:", name)
+                continue
+            }
+
+            let insertPayload = InventoryInsert(
+                event_id: eventId,
+                name: name,
+                quantity: qty,
+                unit: cart.unit,
+                source_type: "cart"
+            )
+
+            try await client
+                .from("inventory_items")
+                .insert([insertPayload])
+                .execute()
+
+            print("✅ INSERTED:", name)
+        }
+    }
     func updateUsedCount(itemId: String, used: Int) async throws -> InventoryItemRecord {
         let payload = InventoryUsedUpdate(used: used)
 
@@ -229,16 +274,31 @@ final class InventoryDataManager {
 
     // Post-event fetch/create
     func fetchPendingPostEventRows(eventId: String) async throws -> [PostEventRow] {
+
         let response = try await client
             .from("vw_postevent_pending")
             .select("*")
             .eq("event_id", value: eventId)
             .order("post_created_at", ascending: true)
             .execute()
+
         let decoder = JSONDecoder()
         return try decoder.decode([PostEventRow].self, from: response.data)
     }
+    func fetchAllPostEventInventoryItemIds(eventId: String) async throws -> Set<String> {
 
+        let response = try await client
+            .from("inventory_postevent")
+            .select("inventory_item_id")
+            .eq("event_id", value: eventId)
+            .execute()
+
+        let raw = try JSONSerialization.jsonObject(with: response.data) as? [[String: Any]] ?? []
+
+        let ids = raw.compactMap { $0["inventory_item_id"] as? String }
+
+        return Set(ids)
+    }
     func createPostEventRow(inventoryItemId: String, eventId: String, qty: Int = 1) async throws {
         let payload = PostEventInsert(inventory_item_id: inventoryItemId, event_id: eventId, quantity: qty, state: "pending")
         _ = try await client
