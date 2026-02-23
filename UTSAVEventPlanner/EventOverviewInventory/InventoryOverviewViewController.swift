@@ -15,6 +15,8 @@ final class InventoryOverviewViewController: UIViewController {
     
     private let addButton = UIButton(type: .system)
     private var tableBottomConstraint: NSLayoutConstraint!
+    private var selectedInventoryIds: Set<String> = []
+    private var sentInventoryIds: Set<String> = []
     
     // MARK: - Inventory Card State
     private var allocatedCount: Int = 0
@@ -79,22 +81,23 @@ final class InventoryOverviewViewController: UIViewController {
         setupTable()
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(handleInventoryUpdate),
-            name: .inventoryCountsUpdated,
+            selector: #selector(reloadFromCart),
+            name: .inventoryUpdated,
             object: nil
         )
+
+        // ✅ FIXED — Proper execution order
         Task {
             await loadInventory()
             await loadPostEventPending()
             await loadLostRows()
         }
     }
-    @objc private func handleInventoryUpdate() {
-        Task { @MainActor in
-            await reloadAllInventoryData()
+    @objc private func reloadFromCart() {
+        Task {
+            await loadInventory()
         }
     }
-    
     @MainActor
     private func reloadAllInventoryData() async {
         // 1️⃣ reload raw data
@@ -241,7 +244,8 @@ final class InventoryOverviewViewController: UIViewController {
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
         ])
         tableBottomConstraint = tableView.bottomAnchor.constraint(
-            equalTo: view.safeAreaLayoutGuide.bottomAnchor
+            equalTo: bottomButton.topAnchor,
+            constant: -12
         )
         tableBottomConstraint.isActive = true
 
@@ -285,32 +289,104 @@ final class InventoryOverviewViewController: UIViewController {
         if src == "vendor" { vendorItems.append(item) } else { plannerItems.append(item) }
         DispatchQueue.main.async { self.tableView.reloadData() }
     }
+    
+    private func updateSendButton() {
+        let count = selectedInventoryIds.count
+        bottomButton.setTitle("Mark as Sent (\(count))", for: .normal)
+        bottomButton.isHidden = count == 0
+    }
+    @objc private func receivedTapped() {
 
+        print("🟣 Selected IDs:", selectedInventoryIds)
+
+        let combined = plannerItems + vendorItems
+
+        print("🟣 Combined IDs:", combined.map { $0.id })
+
+        let selectedItems = combined.filter { item in
+            selectedInventoryIds.contains(item.id)
+        }
+
+        print("🟣 Selected Items Count:", selectedItems.count)
+
+        guard !selectedItems.isEmpty else {
+            print("❌ No selected items found")
+            return
+        }
+
+        Task {
+            do {
+                for item in selectedItems {
+
+                    print("🚀 Creating post-event row for:", item.name)
+
+                    try await InventoryDataManager.shared.createPostEventRow(
+                        inventoryItemId: item.id,
+                        eventId: event.id,
+                        qty: item.quantity
+                    )
+                }
+
+                print("✅ Inserted post-event rows")
+
+                await loadPostEventPending()
+                await loadLostRows()
+                await loadInventory()
+
+                await MainActor.run {
+                    self.selectedInventoryIds.removeAll()
+                    self.updateSendButton()
+                    self.segmented.selectedSegmentIndex = 1
+                    self.recomputeInventoryCard()
+                    self.tableView.reloadData()
+                }
+
+            } catch {
+                print("❌ Mark as Sent ERROR:", error)
+            }
+        }
+    }
     // Load allocated inventory_items
     private func loadInventory() async {
         do {
             let items = try await InventoryDataManager.shared.fetchInventory(eventId: event.id)
-            plannerItems = items.filter { (($0.sourceType ?? "planner").lowercased() == "planner") || (($0.sourceType ?? "").lowercased() != "vendor") }
-            vendorItems = items.filter { ($0.sourceType ?? "").lowercased() == "vendor" }
-            await MainActor.run { tableView.reloadData() }
+
+            plannerItems = items.filter {
+                ($0.sourceType ?? "").lowercased() == "planner"
+                || ($0.sourceType ?? "").lowercased() == "cart"
+            }
+
+            vendorItems = items.filter {
+                ($0.sourceType ?? "").lowercased() == "vendor"
+            }
+
+            await MainActor.run {
+                tableView.reloadData()
+            }
+
         } catch {
             print("Inventory load failed:", error)
         }
     }
-
     // Load pending post-event rows using the view vw_postevent_pending
     private func loadPostEventPending() async {
         do {
             let rows = try await InventoryDataManager.shared.fetchPendingPostEventRows(eventId: event.id)
+
+            // 🔥 Fetch ALL sent item ids (not just pending)
+            let allSentIds = try await InventoryDataManager.shared
+                .fetchAllPostEventInventoryItemIds(eventId: event.id)
+
             await MainActor.run {
                 self.postEventRows = rows
+                self.sentInventoryIds = allSentIds 
                 self.tableView.reloadData()
             }
+
         } catch {
             print("Failed to load post-event pending:", error)
         }
     }
-
     // Load lost/damaged rows from server
     private func loadLostRows() async {
         do {
@@ -324,11 +400,7 @@ final class InventoryOverviewViewController: UIViewController {
         }
     }
 
-    // Bottom button action: mark selected pending row as received for bulk use (not used by per-row flow)
-    @objc private func receivedTapped() {
-        // kept for compatibility; not required for per-row actions
     }
-}
 
 // MARK: - TableView
 extension InventoryOverviewViewController: UITableViewDataSource, UITableViewDelegate {
@@ -374,32 +446,122 @@ extension InventoryOverviewViewController: UITableViewDataSource, UITableViewDel
     }
 
     func tableView(_ tv: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+
         switch segmented.selectedSegmentIndex {
 
+        // =====================================================
+        // MARK: - ALLOCATED
+        // =====================================================
         case 0:
+
             let combined = plannerItems + vendorItems
             let item = combined[indexPath.row]
-            let cell = tv.dequeueReusableCell(withIdentifier: "InventoryListCell", for: indexPath) as! InventoryListCell
-            cell.configure(name: item.name, quantity: item.quantity, sourceType: item.sourceType)
+
+            let isCartItem = (item.sourceType ?? "").lowercased() == "cart"
+            let alreadySent = sentInventoryIds.contains(item.id)
+
+            if isCartItem {
+
+                let cell = tv.dequeueReusableCell(
+                    withIdentifier: "InventoryCheckboxCell",
+                    for: indexPath
+                ) as! InventoryCheckboxCell
+
+                cell.configure(
+                    name: item.name,
+                    quantity: item.quantity,
+                    sourceType: item.sourceType
+                )
+
+                // ALWAYS reset interaction safely
+                cell.setCheckboxEnabled(true)
+                cell.setChecked(false)
+                cell.onChecked = nil
+
+                if alreadySent {
+                    // Permanently sent
+                    cell.setChecked(true)
+                    cell.setCheckboxEnabled(false)
+                } else {
+
+                    let isSelected = selectedInventoryIds.contains(item.id)
+                    cell.setChecked(isSelected)
+
+                    cell.onChecked = { [weak self] in
+                        guard let self = self else { return }
+
+                        if self.selectedInventoryIds.contains(item.id) {
+                            self.selectedInventoryIds.remove(item.id)
+                        } else {
+                            self.selectedInventoryIds.insert(item.id)
+                        }
+
+                        self.updateSendButton()
+                        tv.reloadRows(at: [indexPath], with: .none)
+                    }
+                }
+
+                return cell
+            }
+
+            // Non-cart → normal list cell
+            let cell = tv.dequeueReusableCell(
+                withIdentifier: "InventoryListCell",
+                for: indexPath
+            ) as! InventoryListCell
+
+            cell.configure(
+                name: item.name,
+                quantity: item.quantity,
+                sourceType: item.sourceType
+            )
+
             return cell
 
-        case 1:
-            let row = postEventRows[indexPath.row]
-            let cell = tv.dequeueReusableCell(withIdentifier: "InventoryCheckboxCell", for: indexPath) as! InventoryCheckboxCell
-            cell.configure(name: row.name, quantity: row.postQty, sourceType: row.sourceType)
 
-            // When checkbox checked -> present actions (quantity selection included)
+        case 1:
+
+            let row = postEventRows[indexPath.row]
+
+            let cell = tv.dequeueReusableCell(
+                withIdentifier: "InventoryCheckboxCell",
+                for: indexPath
+            ) as! InventoryCheckboxCell
+
+            cell.configure(
+                name: row.name,
+                quantity: row.postQty,
+                sourceType: row.sourceType
+            )
+
+            // ALWAYS reset properly
+            cell.setCheckboxEnabled(true)
+            cell.setChecked(false)
+            cell.onChecked = nil
+
             cell.onChecked = { [weak self] in
                 guard let self = self else { return }
                 self.presentPostEventAction(for: row, at: indexPath)
             }
+
             return cell
 
+
         case 2:
+
             let lost = lostDamagedRows[indexPath.row]
-            let cell = tv.dequeueReusableCell(withIdentifier: "InventoryListCell", for: indexPath) as! InventoryListCell
-            // Use name and postQty to show lost qty
-            cell.configure(name: lost.name, quantity: lost.postQty, sourceType: lost.sourceType)
+
+            let cell = tv.dequeueReusableCell(
+                withIdentifier: "InventoryListCell",
+                for: indexPath
+            ) as! InventoryListCell
+
+            cell.configure(
+                name: lost.name,
+                quantity: lost.postQty,
+                sourceType: lost.sourceType
+            )
+
             return cell
 
         default:
@@ -515,14 +677,6 @@ private extension InventoryOverviewViewController {
                 self.reloadInventoryCardCell()
                 self.tableView.reloadData()
             }
-
-            // 4️⃣ Notify EVENT LIST screen only
-            NotificationCenter.default.post(
-                name: .inventoryCountsUpdated,
-                object: nil,
-                userInfo: ["eventId": self.event.id]
-            )
-
         } catch {
             print("Post-event action failed:", error)
 
