@@ -27,8 +27,8 @@ final class ServicePickerViewController: UIViewController, CartObserver {
     private let cartIcon = UIImageView(image: UIImage(systemName: "cart.fill"))
 
     // MARK: - Data
-    private var services: [Service] = []           // original
-    private var filteredServices: [Service] = []   // used by table
+    private var services: [Service] = []           
+    private var filteredServices: [Service] = []
     private var expanded: [Bool] = []
 
     // MARK: - Lifecycle
@@ -37,7 +37,7 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         view.backgroundColor = UIColor(white: 0.97, alpha: 1)
 
         setupNav()
-        setupSearchBar()          // ✅ NEW
+        setupSearchBar()
         setupTable()
         setupBottomCart()
         setupKeyboardDismissGesture()
