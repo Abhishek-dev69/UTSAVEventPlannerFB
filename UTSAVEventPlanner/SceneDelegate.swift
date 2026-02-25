@@ -1,4 +1,7 @@
+
 import UIKit
+internal import Auth
+import Supabase
 
 // ---------------------------------------------------------------
 // MARK: - Inline Splash View Controller
@@ -95,7 +98,7 @@ final class InlineSplashViewController: UIViewController {
 }
 
 // ---------------------------------------------------------------
-// MARK: - SceneDelegate
+// MARK: - SceneDelegate (FIXED)
 // ---------------------------------------------------------------
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
@@ -110,36 +113,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
 
         let window = UIWindow(windowScene: windowScene)
-
-        // ✅ FORCE LIGHT MODE (THIS IS THE FIX)
         window.overrideUserInterfaceStyle = .light
-
         self.window = window
 
         let splashVC = InlineSplashViewController()
 
         splashVC.onAnimationCompleted = { [weak self] in
-            guard self != nil else { return }
-
-            let rootVC: UIViewController
-
-            // ✅ REAL LOGIN CHECK (Supabase session)
-            if SupabaseManager.shared.currentUserIdSync() != nil {
-                rootVC = MainTabBarController.make()
-            } else {
-                rootVC = UINavigationController(
-                    rootViewController: LoginViewController()
-                )
-            }
-
-            UIView.transition(
-                with: window,
-                duration: 0.35,
-                options: .transitionCrossDissolve,
-                animations: {
-                    window.rootViewController = rootVC
-                }
-            )
+            guard let self = self else { return }
+            self.restoreSessionAndSetRoot(window: window)
         }
 
         window.rootViewController = splashVC
@@ -153,6 +134,52 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
     }
 
+    // ---------------------------------------------------------------
+    // MARK: - 🔥 SESSION RESTORATION (THE REAL FIX)
+    // ---------------------------------------------------------------
+    private func restoreSessionAndSetRoot(window: UIWindow) {
+
+        Task {
+            do {
+                // 🔥 Force Supabase to restore saved session
+                let session = try await SupabaseManager.shared.client.auth.session
+
+                print("✅ Session restored for user:", session.user.id)
+
+                await MainActor.run {
+                    UIView.transition(
+                        with: window,
+                        duration: 0.35,
+                        options: .transitionCrossDissolve,
+                        animations: {
+                            window.rootViewController = MainTabBarController.make()
+                        }
+                    )
+                }
+
+            } catch {
+
+                print("❌ No valid session found. Showing Login.")
+
+                await MainActor.run {
+                    UIView.transition(
+                        with: window,
+                        duration: 0.35,
+                        options: .transitionCrossDissolve,
+                        animations: {
+                            window.rootViewController = UINavigationController(
+                                rootViewController: LoginViewController()
+                            )
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------
+    // MARK: - OAuth Handling
+    // ---------------------------------------------------------------
     func scene(
         _ scene: UIScene,
         openURLContexts URLContexts: Set<UIOpenURLContext>
@@ -186,4 +213,3 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         root.present(alert, animated: true)
     }
 }
-
