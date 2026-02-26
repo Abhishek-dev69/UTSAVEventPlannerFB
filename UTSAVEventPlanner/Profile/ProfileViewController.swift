@@ -407,35 +407,61 @@ final class ProfileViewController: UIViewController {
 
     private func loadProfile() async {
 
-        // ✅ 1. SHOW CACHED PROFILE INSTANTLY
-        if ProfileStore.shared.hasCache,
-           let cached = ProfileStore.shared.cachedProfile {
-
-            await MainActor.run {
-                applyProfileToUI(cached)
-            }
-        }
-
-        // ✅ 2. FETCH FROM SERVER IN BACKGROUND
         do {
-            let uid = try await SupabaseManager.shared.ensureUserId()
+            // ✅ 0. Get authenticated user from Supabase
+            let user = try await SupabaseManager.shared.client.auth.session.user
+            let userId = user.id.uuidString
+            let authEmail = user.email
 
-            guard let fresh =
-                try await ProfileSupabaseManager.shared.fetchProfile(for: uid)
-            else { return }
-
-            // ✅ Update cache + disk
-            ProfileStore.shared.set(fresh)
-
+            // ✅ 1. Pre-fill email immediately from Auth session
             await MainActor.run {
-                applyProfileToUI(fresh)
+                self.emailField.text = authEmail
+            }
+
+            // ✅ 2. SHOW CACHED PROFILE INSTANTLY (if exists)
+            if ProfileStore.shared.hasCache,
+               let cached = ProfileStore.shared.cachedProfile {
+
+                await MainActor.run {
+                    self.applyProfileToUI(cached)
+                }
+            }
+
+            // ✅ 3. FETCH FROM SERVER
+            if let fresh = try await ProfileSupabaseManager.shared.fetchProfile(for: userId) {
+
+                // Update cache
+                ProfileStore.shared.set(fresh)
+
+                await MainActor.run {
+                    self.applyProfileToUI(fresh)
+                }
+
+            } else {
+                // ✅ 4. If profile row doesn't exist → create one automatically
+                let newProfile = UserProfileInsert(
+                    id: userId,
+                    full_name: nil,
+                    email: authEmail,
+                    phone: nil,
+                    business_name: nil,
+                    business_address: nil,
+                    profile_image_url: nil
+                )
+
+                let created = try await ProfileSupabaseManager.shared.saveProfile(newProfile)
+
+                ProfileStore.shared.set(created)
+
+                await MainActor.run {
+                    self.applyProfileToUI(created)
+                }
             }
 
         } catch {
-            print("❌ Profile refresh failed:", error)
+            print("❌ Profile load failed:", error)
         }
     }
-    
     @MainActor
     private func applyProfileToUI(_ p: UserProfile) {
 
@@ -457,14 +483,19 @@ final class ProfileViewController: UIViewController {
         }
 
         Task {
-            let (data, _) = try await URLSession.shared.data(from: url)
-            if let img = UIImage(data: data) {
-                self.profileImageView.image = img
-                self.profileImageView.tintColor = nil
+            do {
+                let (data, _) = try await URLSession.shared.data(from: url)
+                if let img = UIImage(data: data) {
+                    await MainActor.run {
+                        self.profileImageView.image = img
+                        self.profileImageView.tintColor = nil
+                    }
+                }
+            } catch {
+                print("Image load failed:", error)
             }
         }
     }
-
 
 
 
