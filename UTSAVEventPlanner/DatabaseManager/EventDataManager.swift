@@ -102,6 +102,19 @@ final class EventDataManager {
             .decode([PaymentRecord].self, from: response.data)
             .first!
     }
+    // MARK: - Fetch Cart Items for Multiple Events
+    func fetchCartItemsForEvents(eventIds: [String]) async throws -> [CartItemRecord] {
+
+        guard !eventIds.isEmpty else { return [] }
+
+        let response = try await client
+            .from("cart_items")
+            .select("*")
+            .in("event_id", values: eventIds)
+            .execute()
+
+        return try JSONDecoder().decode([CartItemRecord].self, from: response.data)
+    }
 
     // MARK: - 3. Budget Entries
 
