@@ -764,55 +764,98 @@ final class EstimateCartViewController: UIViewController {
 
                 guard let sessionId = CartSession.shared.currentSessionId else { return }
 
+                // Link cart items to event
                 try await EventSupabaseManager.shared.linkCartItemsToEvent(
                     eventId: eventId,
                     cartSessionId: sessionId
                 )
 
+                // Mark services added
                 try await EventSupabaseManager.shared.markServicesAdded(eventId: eventId)
-                // ✅ Mark event as confirmed
+
+                // Mark event confirmed
                 try await SupabaseManager.shared.client
                     .from("events")
                     .update(["status": "confirmed"])
                     .eq("id", value: eventId)
                     .execute()
-                // ✅ Sync cart → inventory ONLY ON CONFIRM
+
+                // Sync cart → inventory
                 try await InventoryDataManager.shared.syncCartToInventory(
                     eventId: eventId
                 )
 
-
                 await MainActor.run {
+
                     let scenes = UIApplication.shared.connectedScenes
                         .compactMap { $0 as? UIWindowScene }
 
                     guard let window = scenes.first?.windows.first(where: { $0.isKeyWindow }),
                           let root = window.rootViewController else {
                         self.view.window?.rootViewController?.dismiss(animated: false)
-                        NotificationCenter.default.post(name: NSNotification.Name("ReloadEventsDashboard"), object: nil)
+
+                        // Dashboard reload
+                        NotificationCenter.default.post(
+                            name: Notification.Name("ReloadEventsDashboard"),
+                            object: nil
+                        )
+
+                        // Payments reload
+                        PaymentsEventStore.shared.clear()
+                        NotificationCenter.default.post(
+                            name: Notification.Name("ReloadPaymentsList"),
+                            object: nil
+                        )
+
                         return
                     }
 
+                    // Navigate to dashboard
                     if let tab = root as? UITabBarController {
+
                         tab.dismiss(animated: false)
                         tab.selectedIndex = 0
+
                         if let nav = tab.selectedViewController as? UINavigationController {
                             nav.popToRootViewController(animated: false)
                         }
+
                     } else if let nav = root as? UINavigationController {
+
                         nav.popToRootViewController(animated: false)
                         nav.dismiss(animated: false)
+
                     } else {
+
                         root.dismiss(animated: false)
                     }
 
                     self.presentingViewController?.dismiss(animated: false)
-                    NotificationCenter.default.post(name: NSNotification.Name("ReloadEventsDashboard"), object: nil)
+
+                    // Reload dashboard
+                    NotificationCenter.default.post(
+                        name: Notification.Name("ReloadEventsDashboard"),
+                        object: nil
+                    )
+
+                    // 🔴 IMPORTANT: Clear payments cache
+                    PaymentsEventStore.shared.clear()
+
+                    // Reload payments tab
+                    NotificationCenter.default.post(
+                        name: Notification.Name("ReloadPaymentsList"),
+                        object: nil
+                    )
                 }
 
             } catch {
+
                 await MainActor.run {
-                    let alert = UIAlertController(title: "Error", message: error.localizedDescription, preferredStyle: .alert)
+                    let alert = UIAlertController(
+                        title: "Error",
+                        message: error.localizedDescription,
+                        preferredStyle: .alert
+                    )
                     alert.addAction(UIAlertAction(title: "OK", style: .default))
                     self.present(alert, animated: true)
                 }
