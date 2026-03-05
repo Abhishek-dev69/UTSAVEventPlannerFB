@@ -63,6 +63,23 @@ final class PaymentSupabaseManager {
 
         return try JSONDecoder().decode([PaymentRecord].self, from: response.data)
     }
+    // MARK: - Fetch Payments for Multiple Events (Batch)
+    func fetchPaymentsForEvents(eventIds: [String]) async throws -> [PaymentRecord] {
+
+        guard !eventIds.isEmpty else { return [] }
+
+        let plannerId = try await SupabaseManager.shared.ensureUserId()
+
+        let response = try await client
+            .from("event_payments")
+            .select("*")
+            .in("event_id", values: eventIds)
+            .eq("planner_id", value: plannerId)
+            .eq("payer_type", value: "client")
+            .execute()
+
+        return try JSONDecoder().decode([PaymentRecord].self, from: response.data)
+    }
 
 
     // MARK: - Fetch ALL Vendor Payments
