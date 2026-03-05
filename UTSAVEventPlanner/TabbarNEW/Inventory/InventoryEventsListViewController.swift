@@ -4,6 +4,9 @@ final class InventoryEventsListViewController: UIViewController {
 
     private let tableView = UITableView(frame: .zero, style: .plain)
 
+    // Loading spinner
+    private let spinner = UIActivityIndicatorView(style: .large)
+
     private var events: [EventRecord] = []
     private var filteredEvents: [EventRecord] = []
     private var isSearching = false
@@ -29,19 +32,20 @@ final class InventoryEventsListViewController: UIViewController {
 
         setupSearch()
         setupTable()
+        setupSpinner()
         setupKeyboardDismissTap()
 
-        // ✅ FIX 1: listen to the CORRECT notification
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(inventoryCountsUpdated(_:)),
+            name: .inventoryCountsUpdated,
+            object: nil
+        )
+
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(inventoryUpdated(_:)),
             name: .inventoryUpdated,
-            object: nil
-        )
-        NotificationCenter.default.addObserver(
-            self,
-            selector: #selector(inventoryUpdated(_:)),
-            name: .inventoryCountsUpdated,
             object: nil
         )
 
@@ -50,6 +54,18 @@ final class InventoryEventsListViewController: UIViewController {
 
     deinit {
         NotificationCenter.default.removeObserver(self)
+    }
+
+    // MARK: - Spinner
+    private func setupSpinner() {
+        spinner.translatesAutoresizingMaskIntoConstraints = false
+        spinner.hidesWhenStopped = true
+        view.addSubview(spinner)
+
+        NSLayoutConstraint.activate([
+            spinner.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            spinner.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+        ])
     }
 
     // MARK: - Search
@@ -62,47 +78,90 @@ final class InventoryEventsListViewController: UIViewController {
         definesPresentationContext = true
     }
 
-    // MARK: - Data
+    // MARK: - Refresh Events
     func refreshEvents() async {
+
+        await MainActor.run {
+            spinner.startAnimating()
+        }
+
         do {
+
             events = try await EventSupabaseManager.shared.fetchAllEventsForUser()
 
-            // load counts for all events
-            for event in events {
-                await InventoryManager.shared.loadCounts(forEventId: event.id)
+            filteredEvents = events
+
+            // ⚡ Load inventory counts in parallel
+            await withTaskGroup(of: Void.self) { group in
+
+                for event in events {
+
+                    group.addTask {
+                        await InventoryManager.shared.loadCounts(
+                            forEventId: event.id
+                        )
+                    }
+                }
             }
 
             await MainActor.run {
+
+                spinner.stopAnimating()
+
                 tableView.reloadData()
                 updateEmptyState()
                 tableView.refreshControl?.endRefreshing()
             }
 
         } catch {
-            print("❌ Inventory refresh error:", error)
+
             await MainActor.run {
+
+                spinner.stopAnimating()
                 tableView.refreshControl?.endRefreshing()
                 updateEmptyState()
             }
+
+            print("❌ Inventory refresh error:", error)
         }
     }
 
-    // MARK: - Notification handler
-    @objc private func inventoryUpdated(_ note: Notification) {
-        Task {
-            // Re-fetch data (may change row count)
-            await refreshEvents()
+    // MARK: - Notifications
 
-            await MainActor.run {
-                self.tableView.reloadData()
+    @objc private func inventoryCountsUpdated(_ note: Notification) {
+
+        guard let eventId = note.userInfo?["eventId"] as? String else {
+            return
+        }
+
+        if let index = events.firstIndex(where: { $0.id == eventId }) {
+
+            let indexPath = IndexPath(row: index, section: 0)
+
+            DispatchQueue.main.async {
+                if self.tableView.indexPathsForVisibleRows?.contains(indexPath) == true {
+                    self.tableView.reloadRows(at: [indexPath], with: .none)
+                }
             }
         }
     }
 
-    // MARK: - UI
+    @objc private func inventoryUpdated(_ note: Notification) {
+
+        Task {
+            await refreshEvents()
+        }
+    }
+
+    // MARK: - UI Setup
     private func setupTable() {
+
         tableView.translatesAutoresizingMaskIntoConstraints = false
-        tableView.register(InventoryCardCell.self, forCellReuseIdentifier: "InventoryCardCell")
+        tableView.register(
+            InventoryCardCell.self,
+            forCellReuseIdentifier: "InventoryCardCell"
+        )
+
         tableView.separatorStyle = .none
         tableView.rowHeight = UITableView.automaticDimension
         tableView.estimatedRowHeight = 120
@@ -112,10 +171,11 @@ final class InventoryEventsListViewController: UIViewController {
         tableView.keyboardDismissMode = .onDrag
 
         let rc = UIRefreshControl()
-        rc.addTarget(self, action: #selector(pullToRefresh(_:)), for: .valueChanged)
+        rc.addTarget(self, action: #selector(pullToRefresh), for: .valueChanged)
         tableView.refreshControl = rc
 
         view.addSubview(tableView)
+
         NSLayoutConstraint.activate([
             tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -129,12 +189,16 @@ final class InventoryEventsListViewController: UIViewController {
         tableView.backgroundView = source.isEmpty ? emptyLabel : nil
     }
 
-    @objc private func pullToRefresh(_ sender: UIRefreshControl) {
+    @objc private func pullToRefresh() {
         Task { await refreshEvents() }
     }
 
     private func setupKeyboardDismissTap() {
-        let tap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        let tap = UITapGestureRecognizer(
+            target: self,
+            action: #selector(dismissKeyboard)
+        )
+
         tap.cancelsTouchesInView = false
         view.addGestureRecognizer(tap)
     }
@@ -143,17 +207,25 @@ final class InventoryEventsListViewController: UIViewController {
         searchController.searchBar.resignFirstResponder()
     }
 }
+
 // MARK: - Search Delegate
 extension InventoryEventsListViewController: UISearchResultsUpdating {
+
     func updateSearchResults(for searchController: UISearchController) {
+
         let text = searchController.searchBar.text ?? ""
 
         if text.isEmpty {
+
             isSearching = false
-            filteredEvents.removeAll()
+            filteredEvents = events
+
         } else {
+
             isSearching = true
+
             filteredEvents = events.filter {
+
                 $0.eventName.localizedCaseInsensitiveContains(text) ||
                 $0.clientName.localizedCaseInsensitiveContains(text)
             }
@@ -171,7 +243,10 @@ extension InventoryEventsListViewController: UITableViewDataSource, UITableViewD
         (isSearching ? filteredEvents : events).count
     }
 
-    func tableView(_ t: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+    func tableView(
+        _ t: UITableView,
+        cellForRowAt indexPath: IndexPath
+    ) -> UITableViewCell {
 
         let list = isSearching ? filteredEvents : events
         let event = list[indexPath.row]
@@ -192,12 +267,21 @@ extension InventoryEventsListViewController: UITableViewDataSource, UITableViewD
         return cell
     }
 
-    func tableView(_ t: UITableView, didSelectRowAt indexPath: IndexPath) {
+    func tableView(
+        _ t: UITableView,
+        didSelectRowAt indexPath: IndexPath
+    ) {
+
         t.deselectRow(at: indexPath, animated: true)
+
         let list = isSearching ? filteredEvents : events
-        let vc = InventoryOverviewViewController(event: list[indexPath.row])
+
+        let vc = InventoryOverviewViewController(
+            event: list[indexPath.row]
+        )
+
         vc.hidesBottomBarWhenPushed = true
+
         navigationController?.pushViewController(vc, animated: true)
     }
 }
-

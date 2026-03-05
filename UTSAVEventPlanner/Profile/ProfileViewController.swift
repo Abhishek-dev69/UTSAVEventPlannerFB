@@ -72,7 +72,7 @@ final class ProfileViewController: UIViewController {
             target: self,
             action: #selector(logoutTapped)
         )
-        logoutButton.tintColor = .utsavPurple   // ✅ Purple Logout
+        logoutButton.tintColor = .utsavPurple
         navigationItem.rightBarButtonItem = logoutButton
     }
 
@@ -102,7 +102,7 @@ final class ProfileViewController: UIViewController {
     private func performLogout() {
         // Clear ONLY local app state
         EventSession.shared.currentEventId = nil
-        CartManager.shared.resetLocalCart()   // ✅ FIXED
+        CartManager.shared.resetLocalCart()
         ProfileStore.shared.clear()
 
 
@@ -282,7 +282,7 @@ final class ProfileViewController: UIViewController {
         tf.placeholder = placeholder
         tf.textAlignment = .right
         tf.keyboardType = keyboard
-        tf.textColor = .utsavPurple   // ✅ Purple user data text
+        tf.textColor = .utsavPurple
 
         label.translatesAutoresizingMaskIntoConstraints = false
         tf.translatesAutoresizingMaskIntoConstraints = false
@@ -342,8 +342,6 @@ final class ProfileViewController: UIViewController {
                 let userId = try await SupabaseManager.shared.ensureUserId()
 
                 var uploadedImageURL: String? = currentProfileImageURL
-
-                // ✅ CASE 1: New image selected
                 if didSelectProfileImage,
                    let img = profileImageView.image {
 
@@ -354,7 +352,6 @@ final class ProfileViewController: UIViewController {
                         )
                 }
 
-                // ✅ CASE 2: Image removed
                 if didRemoveProfileImage {
 
                     // 1️⃣ Clear DB column

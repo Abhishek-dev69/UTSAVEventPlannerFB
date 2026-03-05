@@ -135,10 +135,39 @@ final class PaymentsRootController: UIViewController {
 
     // MARK: - Load Events
     private func loadEvents() async {
-        do {
-            let events = try await EventSupabaseManager.shared.fetchAllEventsForUser()
+
+        // 1️⃣ Load cached events first
+        if PaymentsEventStore.shared.hasCache {
+
+            let cached = PaymentsEventStore.shared.cachedEvents
 
             await MainActor.run {
+                hasEvents = !cached.isEmpty
+
+                if hasEvents, clientListVC == nil {
+                    clientListVC = PaymentsEventsListViewController()
+                }
+
+                showCurrentSegment()
+            }
+
+            // 🔴 IMPORTANT: refresh list using cached data
+            if hasEvents {
+                await clientListVC?.refreshEvents()
+            }
+
+            return
+        }
+
+        // 2️⃣ If no cache → call API
+        do {
+
+            let events = try await EventSupabaseManager.shared.fetchAllEventsForUser()
+
+            PaymentsEventStore.shared.set(events)
+
+            await MainActor.run {
+
                 hasEvents = !events.isEmpty
 
                 if hasEvents, clientListVC == nil {
@@ -146,19 +175,20 @@ final class PaymentsRootController: UIViewController {
                 }
 
                 showCurrentSegment()
-
-                if hasEvents {
-                    Task { await clientListVC?.refreshEvents() }
-                }
             }
+
+            if hasEvents {
+                await clientListVC?.refreshEvents()
+            }
+
         } catch {
+
             await MainActor.run {
                 hasEvents = false
                 showCurrentSegment()
             }
         }
     }
-
     // MARK: - Segment Switch
     @objc private func segmentChanged() {
         showCurrentSegment()

@@ -20,25 +20,19 @@ final class ProfileStore {
         cachedProfile != nil
     }
 
-    // MARK: - Disk location
     private var fileURL: URL {
         let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         return dir.appendingPathComponent("user_profile.json")
     }
 
-    // MARK: - Save
     func set(_ profile: UserProfile) {
         cachedProfile = profile
         saveToDisk()
     }
-
-    // MARK: - Clear (logout)
     func clear() {
         cachedProfile = nil
         try? FileManager.default.removeItem(at: fileURL)
     }
-
-    // MARK: - Disk persistence
     private func saveToDisk() {
         guard let profile = cachedProfile else { return }
         do {

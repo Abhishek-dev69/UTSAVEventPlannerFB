@@ -179,6 +179,8 @@ final class RecordClientPaymentViewController: UIViewController {
                     method: method,
                     date: date
                 )
+                
+                PaymentsEventStore.shared.clear()
 
                 NotificationCenter.default.post(
                     name: Notification.Name("ReloadEventOverview"),
