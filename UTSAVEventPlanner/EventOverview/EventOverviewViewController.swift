@@ -1,4 +1,5 @@
 import UIKit
+import SwiftUI
 
 final class EventOverviewViewController: UIViewController {
 
@@ -80,7 +81,14 @@ final class EventOverviewViewController: UIViewController {
             action: #selector(didTapShare)
         )
         shareItem.tintColor = .black
-        navigationItem.rightBarButtonItem = shareItem
+        let downloadItem = UIBarButtonItem(
+            image: UIImage(systemName: "arrow.down.circle"),
+            style: .plain,
+            target: self,
+            action: #selector(didTapDownload)
+        )
+
+        navigationItem.rightBarButtonItems = [shareItem, downloadItem]
 
         let appearance = UINavigationBarAppearance()
         appearance.configureWithOpaqueBackground()
@@ -98,6 +106,136 @@ final class EventOverviewViewController: UIViewController {
     // MARK: - PDF SHARE
     @objc private func didTapShare() {
         shareEventPDF()
+    }
+    @objc private func didTapDownload() {
+
+        let alert = UIAlertController(
+            title: "Download Requirements",
+            message: "Choose format",
+            preferredStyle: .actionSheet
+        )
+
+        alert.addAction(UIAlertAction(title: "Download PDF", style: .default) { _ in
+            self.downloadPDF()
+        })
+
+        alert.addAction(UIAlertAction(title: "Save as Image", style: .default) { _ in
+            self.saveImage()
+        })
+
+        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel))
+
+        present(alert, animated: true)
+    }
+    private func downloadPDF() {
+
+        guard !cartItems.isEmpty else { return }
+
+        let mappedItems = mapToCartItems(cartItems)
+
+        let pdfData = QuotationPDFData(
+            eventName: event.eventName,
+            clientName: event.clientName,
+            location: event.location,
+            eventDate: composedDateString(
+                startISO: event.startDate,
+                endISO: event.endDate
+            ),
+            items: mappedItems,
+            subtotal: totalAmount,
+            tax: 0,
+            discount: 0,
+            grandTotal: totalAmount
+        )
+
+        let pdfView = QuotationPDFView(data: pdfData)
+
+        do {
+
+            let pdfURL = try PDFGenerator.generate(
+                view: pdfView,
+                fileName: "Requirements-\(event.eventName).pdf"
+            )
+
+            saveFileToEventFolder(fileURL: pdfURL)
+            showSavedAlert()
+
+        } catch {
+            print("PDF save failed:", error)
+        }
+    }
+    private func saveImage() {
+
+        guard !cartItems.isEmpty else { return }
+
+        let mappedItems = mapToCartItems(cartItems)
+
+        let pdfData = QuotationPDFData(
+            eventName: event.eventName,
+            clientName: event.clientName,
+            location: event.location,
+            eventDate: composedDateString(
+                startISO: event.startDate,
+                endISO: event.endDate
+            ),
+            items: mappedItems,
+            subtotal: totalAmount,
+            tax: 0,
+            discount: 0,
+            grandTotal: totalAmount
+        )
+
+        let pdfView = QuotationPDFView(data: pdfData)
+
+        let hosting = UIHostingController(rootView: pdfView)
+        let view = hosting.view!
+
+        view.bounds = CGRect(x: 0, y: 0, width: 800, height: 1200)
+        view.backgroundColor = .white
+
+        let renderer = UIGraphicsImageRenderer(size: view.bounds.size)
+
+        let image = renderer.image { _ in
+            view.drawHierarchy(in: view.bounds, afterScreenUpdates: true)
+        }
+
+        UIImageWriteToSavedPhotosAlbum(image, nil, nil, nil)
+
+        showSavedAlert()
+    }
+    private func saveFileToEventFolder(fileURL: URL) {
+
+        let fileManager = FileManager.default
+
+        let documents = fileManager.urls(
+            for: .documentDirectory,
+            in: .userDomainMask
+        )[0]
+
+        let eventsFolder = documents.appendingPathComponent("Events")
+
+        let eventFolder = eventsFolder.appendingPathComponent(event.id)
+
+        try? fileManager.createDirectory(
+            at: eventFolder,
+            withIntermediateDirectories: true
+        )
+
+        let destination = eventFolder.appendingPathComponent(fileURL.lastPathComponent)
+
+        try? fileManager.copyItem(at: fileURL, to: destination)
+    }
+    private func showSavedAlert() {
+
+        let alert = UIAlertController(
+            title: "Saved",
+            message: "File saved successfully",
+            preferredStyle: .alert
+        )
+
+        alert.addAction(UIAlertAction(title: "OK", style: .default))
+
+        present(alert, animated: true)
     }
     private func mapToCartItems(_ records: [CartItemRecord]) -> [CartItem] {
         records.map {
