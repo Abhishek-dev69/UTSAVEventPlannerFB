@@ -1,9 +1,10 @@
 import UIKit
 
-final class MainTabBarController {
+final class MainTabBarController: UITabBarController {
 
     static func make() -> UITabBarController {
-        let tabBar = UITabBarController()
+
+        let tabBar = MainTabBarController()
 
         // Dashboard
         let dashboard = DashboardListViewController()
@@ -67,5 +68,52 @@ final class MainTabBarController {
 
         return tabBar
     }
-}
 
+    // MARK: - Show Hint
+
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+
+        showServicesHint()
+    }
+
+    private func showServicesHint() {
+
+        let alreadySeen = UserDefaults.standard.bool(forKey: "services_hint_seen")
+        if alreadySeen { return }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+
+            guard let items = self.tabBar.items,
+                  items.count > 2 else { return }
+
+            // Services tab index
+            let index = 2
+
+            let tabBarWidth = self.tabBar.frame.width
+            let itemWidth = tabBarWidth / CGFloat(items.count)
+
+            let xPosition = itemWidth * CGFloat(index) + itemWidth / 2
+
+            let hint = TabBarHintView(
+                message: "Add all your services here\n(Chairs, Tables, Decoration etc)"
+            )
+            
+            self.view.addSubview(hint)
+
+            NSLayoutConstraint.activate([
+                hint.bottomAnchor.constraint(
+                    equalTo: self.tabBar.topAnchor,
+                    constant: -12
+                ),
+                hint.centerXAnchor.constraint(
+                    equalTo: self.view.leadingAnchor,
+                    constant: xPosition
+                ),
+                hint.widthAnchor.constraint(lessThanOrEqualToConstant: 220)
+            ])
+
+            UserDefaults.standard.set(true, forKey: "services_hint_seen")
+        }
+    }
+}
