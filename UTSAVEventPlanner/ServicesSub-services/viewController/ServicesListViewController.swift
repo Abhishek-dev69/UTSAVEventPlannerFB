@@ -7,6 +7,11 @@ final class ServicesListViewController: UIViewController {
     private let titleLabel = UILabel()
     private let addButton = UIButton(type: .system)
     private let tableView = UITableView(frame: .zero, style: .plain)
+    // MARK: - Empty State
+    private let emptyStateStack = UIStackView()
+    private let emptyIcon = UIImageView()
+    private let emptyTitle = UILabel()
+    private let emptySubtitle = UILabel()
 
     // MARK: - Data
     private var services: [Service] = []
@@ -19,11 +24,13 @@ final class ServicesListViewController: UIViewController {
         setupHeader()
         setupTableView()
         setupLayout()
+        setupEmptyState()
 
         // ✅ 1. SHOW CACHED SERVICES INSTANTLY (offline-safe)
         if ServicesStore.shared.hasCache {
             self.services = ServicesStore.shared.services
             self.tableView.reloadData()
+            updateEmptyState()
         }
 
         // ✅ 2. SYNC FROM SERVER IN BACKGROUND
@@ -37,6 +44,7 @@ final class ServicesListViewController: UIViewController {
         // 🔁 Always sync UI from cache
         self.services = ServicesStore.shared.services
         self.tableView.reloadData()
+        updateEmptyState()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -97,6 +105,62 @@ final class ServicesListViewController: UIViewController {
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
     }
+    private func setupEmptyState() {
+
+        emptyStateStack.axis = .vertical
+        emptyStateStack.spacing = 12
+        emptyStateStack.alignment = .center
+        emptyStateStack.translatesAutoresizingMaskIntoConstraints = false
+
+        emptyIcon.image = UIImage(systemName: "shippingbox")
+        emptyIcon.tintColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
+        emptyIcon.preferredSymbolConfiguration = UIImage.SymbolConfiguration(pointSize: 40)
+
+        emptyTitle.text = "No Services Yet"
+        emptyTitle.font = .systemFont(ofSize: 20, weight: .semibold)
+        emptyTitle.textColor = .darkGray
+
+        emptySubtitle.text = "Tap + to add services like\nSound System, Decoration, Photography"
+        emptySubtitle.font = .systemFont(ofSize: 15)
+        emptySubtitle.textColor = .gray
+        emptySubtitle.textAlignment = .center
+        emptySubtitle.numberOfLines = 0
+
+        emptyStateStack.addArrangedSubview(emptyIcon)
+        emptyStateStack.addArrangedSubview(emptyTitle)
+        emptyStateStack.addArrangedSubview(emptySubtitle)
+
+        view.addSubview(emptyStateStack)
+
+        NSLayoutConstraint.activate([
+            emptyStateStack.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            emptyStateStack.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: 40)
+        ])
+    }
+    private func updateEmptyState() {
+
+        let isEmpty = services.isEmpty
+
+        emptyStateStack.isHidden = !isEmpty
+        tableView.isHidden = isEmpty
+
+        if isEmpty {
+            startPlusAnimation()
+        } else {
+            addButton.layer.removeAllAnimations()
+        }
+    }
+    private func startPlusAnimation() {
+
+        let pulse = CABasicAnimation(keyPath: "transform.scale")
+        pulse.duration = 0.8
+        pulse.fromValue = 1.0
+        pulse.toValue = 1.25
+        pulse.autoreverses = true
+        pulse.repeatCount = .infinity
+
+        addButton.layer.add(pulse, forKey: "pulse")
+    }
 
     // MARK: - Server Sync (BACKGROUND ONLY)
     private func refreshFromServer() async {
@@ -111,6 +175,7 @@ final class ServicesListViewController: UIViewController {
                 // ✅ Update UI
                 self.services = mapped
                 self.tableView.reloadData()
+                updateEmptyState()
             }
         } catch {
             print("⚠️ Services sync failed (offline?):", error)

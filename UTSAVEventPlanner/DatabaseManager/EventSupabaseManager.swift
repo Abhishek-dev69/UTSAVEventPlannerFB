@@ -60,12 +60,6 @@ final class EventSupabaseManager {
         return session.user.id.uuidString
     }
     
-    // MARK: - INSERT EVENT
-    /// Insert an event.
-    /// - Parameters:
-    ///   - details: EventDetails (your existing struct that holds event fields)
-    ///   - metadata: optional metadata dictionary (use this to pass eventTypeImage / eventTypeTitle etc)
-    /// - Returns: inserted EventRecord
     func insertEvent(details: EventDetails, metadata: [String: String]? = nil) async throws -> EventRecord {
         
         let uid = try await ensureUserId()
@@ -346,8 +340,4 @@ final class EventSupabaseManager {
 
         print("🗑️ Deleted event:", trimmed)
     }
-
-
-    
 }
-
