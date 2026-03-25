@@ -3,10 +3,14 @@ import UIKit
 final class ServicesListViewController: UIViewController {
 
     // MARK: - UI
-    private let headerView = UIView()
+    private let glassHeaderCard = UIView()
+    private let blurView        = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
+    private let tintOverlay     = UIView()
+    private let headerSeparator = UIView()
+
     private let titleLabel = UILabel()
-    private let addButton = UIButton(type: .system)
-    private let tableView = UITableView(frame: .zero, style: .plain)
+    private let addButton  = UIButton(type: .system)
+    private let tableView  = UITableView(frame: .zero, style: .plain)
     // MARK: - Empty State
     private let emptyStateStack = UIStackView()
     private let emptyIcon = UIImageView()
@@ -16,10 +20,14 @@ final class ServicesListViewController: UIViewController {
     // MARK: - Data
     private var services: [Service] = []
 
+    // bg layer
+    private let bgGradientLayer = CAGradientLayer()
+
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
+        applyBrandGradient()
+        view.backgroundColor = .clear
 
         setupHeader()
         setupTableView()
@@ -52,36 +60,91 @@ final class ServicesListViewController: UIViewController {
         navigationController?.setNavigationBarHidden(false, animated: false)
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
+        if let grad = tintOverlay.layer.sublayers?.first as? CAGradientLayer {
+            grad.frame = tintOverlay.bounds
+        }
+    }
+
     // MARK: - Header
     private func setupHeader() {
-        headerView.backgroundColor = UIColor(white: 0.97, alpha: 1)
-        headerView.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(headerView)
+        let purple = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
+
+        glassHeaderCard.translatesAutoresizingMaskIntoConstraints = false
+        glassHeaderCard.clipsToBounds = false
+        glassHeaderCard.layer.shadowColor   = purple.cgColor
+        glassHeaderCard.layer.shadowOpacity = 0.0 // Initially flat
+        glassHeaderCard.layer.shadowRadius  = 12
+        glassHeaderCard.layer.shadowOffset  = CGSize(width: 0, height: 4)
+        view.addSubview(glassHeaderCard)
+
+        blurView.clipsToBounds = true
+        blurView.layer.cornerRadius = 20
+        blurView.layer.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+        blurView.translatesAutoresizingMaskIntoConstraints = false
+        blurView.alpha = 0 // Initially transparent
+        glassHeaderCard.addSubview(blurView)
+
+        tintOverlay.isUserInteractionEnabled = false
+        tintOverlay.layer.cornerRadius = 20
+        tintOverlay.layer.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+        tintOverlay.clipsToBounds = true
+        tintOverlay.translatesAutoresizingMaskIntoConstraints = false
+        tintOverlay.alpha = 0 // Initially transparent
+        let grad = CAGradientLayer()
+        grad.colors = [purple.withAlphaComponent(0.18).cgColor,
+                       purple.withAlphaComponent(0.04).cgColor]
+        grad.startPoint = CGPoint(x: 0.5, y: 0)
+        grad.endPoint   = CGPoint(x: 0.5, y: 1)
+        tintOverlay.layer.insertSublayer(grad, at: 0)
+        glassHeaderCard.addSubview(tintOverlay)
+
+        headerSeparator.backgroundColor = purple.withAlphaComponent(0.25)
+        headerSeparator.alpha = 0
+        headerSeparator.translatesAutoresizingMaskIntoConstraints = false
+        glassHeaderCard.addSubview(headerSeparator)
 
         titleLabel.text = "Services"
         titleLabel.font = .systemFont(ofSize: 22, weight: .bold)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        glassHeaderCard.addSubview(titleLabel)
 
         let plusConfig = UIImage.SymbolConfiguration(pointSize: 20, weight: .bold)
         addButton.setImage(UIImage(systemName: "plus", withConfiguration: plusConfig), for: .normal)
-        addButton.tintColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
+        addButton.tintColor = purple
         addButton.translatesAutoresizingMaskIntoConstraints = false
         addButton.addTarget(self, action: #selector(addServiceTapped), for: .touchUpInside)
+        glassHeaderCard.addSubview(addButton)
 
-        headerView.addSubview(titleLabel)
-        headerView.addSubview(addButton)
-
+        let safeTop = view.safeAreaLayoutGuide.topAnchor
         NSLayoutConstraint.activate([
-            headerView.topAnchor.constraint(equalTo: view.topAnchor),
-            headerView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            headerView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            headerView.heightAnchor.constraint(equalToConstant: 120),
+            glassHeaderCard.topAnchor.constraint(equalTo: view.topAnchor),
+            glassHeaderCard.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            glassHeaderCard.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            glassHeaderCard.bottomAnchor.constraint(equalTo: safeTop, constant: 60),
 
-            titleLabel.bottomAnchor.constraint(equalTo: headerView.bottomAnchor, constant: -16),
-            titleLabel.centerXAnchor.constraint(equalTo: headerView.centerXAnchor),
+            blurView.topAnchor.constraint(equalTo: glassHeaderCard.topAnchor),
+            blurView.leadingAnchor.constraint(equalTo: glassHeaderCard.leadingAnchor),
+            blurView.trailingAnchor.constraint(equalTo: glassHeaderCard.trailingAnchor),
+            blurView.bottomAnchor.constraint(equalTo: glassHeaderCard.bottomAnchor),
+
+            tintOverlay.topAnchor.constraint(equalTo: glassHeaderCard.topAnchor),
+            tintOverlay.leadingAnchor.constraint(equalTo: glassHeaderCard.leadingAnchor),
+            tintOverlay.trailingAnchor.constraint(equalTo: glassHeaderCard.trailingAnchor),
+            tintOverlay.bottomAnchor.constraint(equalTo: glassHeaderCard.bottomAnchor),
+
+            headerSeparator.leadingAnchor.constraint(equalTo: glassHeaderCard.leadingAnchor),
+            headerSeparator.trailingAnchor.constraint(equalTo: glassHeaderCard.trailingAnchor),
+            headerSeparator.bottomAnchor.constraint(equalTo: glassHeaderCard.bottomAnchor),
+            headerSeparator.heightAnchor.constraint(equalToConstant: 0.5),
+
+            titleLabel.bottomAnchor.constraint(equalTo: glassHeaderCard.bottomAnchor, constant: -16),
+            titleLabel.centerXAnchor.constraint(equalTo: glassHeaderCard.centerXAnchor),
 
             addButton.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
-            addButton.trailingAnchor.constraint(equalTo: headerView.trailingAnchor, constant: -20),
+            addButton.trailingAnchor.constraint(equalTo: glassHeaderCard.trailingAnchor, constant: -20),
             addButton.widthAnchor.constraint(equalToConstant: 24),
             addButton.heightAnchor.constraint(equalToConstant: 24)
         ])
@@ -99,7 +162,7 @@ final class ServicesListViewController: UIViewController {
 
     private func setupLayout() {
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: headerView.bottomAnchor, constant: 12),
+            tableView.topAnchor.constraint(equalTo: glassHeaderCard.bottomAnchor, constant: 12),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
@@ -255,6 +318,18 @@ final class ServicesListViewController: UIViewController {
 
 // MARK: - Table Delegate
 extension ServicesListViewController: UITableViewDataSource, UITableViewDelegate {
+    
+    // Glass blur fades in on scroll
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        let offset = scrollView.contentOffset.y
+        let progress = min(max((offset - 10) / 30, 0), 1)
+        UIView.animate(withDuration: 0.1) {
+            self.blurView.alpha = progress
+            self.tintOverlay.alpha = progress
+            self.headerSeparator.alpha = progress
+            self.glassHeaderCard.layer.shadowOpacity = Float(progress * 0.08)
+        }
+    }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         services.count
