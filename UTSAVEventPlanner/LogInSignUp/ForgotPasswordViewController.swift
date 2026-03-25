@@ -16,12 +16,15 @@ final class ForgotPasswordViewController: UIViewController {
     private let edge: CGFloat = 20
     private let fieldH: CGFloat = 52
 
+    private let gradientLayer = CAGradientLayer() // Added for brand gradient
+
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
-
-        setupNavigationItems()
+        applyBrandGradient()
+        view.backgroundColor = .clear // Changed from .systemBackground
+        
+        setupUTSAVNavbar(title: "Reset password") // Replaced setupNavigationItems()
         setupViews()
         layoutViews()
         styleViews()
@@ -31,7 +34,7 @@ final class ForgotPasswordViewController: UIViewController {
 
     // MARK: - Navigation
     private func setupNavigationItems() {
-        navigationItem.title = "Reset password"
+        // navigationItem.title = "Reset password" // now handled by setupUTSAVNavbar
 
         // If this VC is not inside a UINavigationController (presented modally),
         // provide a close/dismiss button on the left so user can close the modal.
@@ -47,6 +50,11 @@ final class ForgotPasswordViewController: UIViewController {
 
     @objc private func closeTapped() {
         dismiss(animated: true)
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
     }
 
     // Convenience factory: call `present(ForgotPasswordViewController.makeModal(), animated: true)`
