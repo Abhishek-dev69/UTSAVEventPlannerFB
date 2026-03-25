@@ -4,6 +4,9 @@ final class PaymentsEventsListViewController: UIViewController {
 
     private let tableView = UITableView(frame: .zero, style: .plain)
 
+    // MARK: - Scroll Reporting
+    var onScroll: ((CGFloat) -> Void)?
+
     // 🔵 Pull-to-refresh control
     private let refreshControl = UIRefreshControl()
 
@@ -242,6 +245,10 @@ extension PaymentsEventsListViewController: EventSearchable {
 
 // MARK: - TableView
 extension PaymentsEventsListViewController: UITableViewDataSource, UITableViewDelegate {
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        onScroll?(scrollView.contentOffset.y)
+    }
 
     func tableView(_ t: UITableView, numberOfRowsInSection section: Int) -> Int {
         (isSearching ? filteredEvents : allEvents).count
