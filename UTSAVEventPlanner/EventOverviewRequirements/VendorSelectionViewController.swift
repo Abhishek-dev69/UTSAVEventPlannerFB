@@ -34,11 +34,11 @@ final class VendorSelectionViewController: UIViewController {
     // MARK: - Init
     required init?(coder: NSCoder) { fatalError() }
 
-    // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Assign Vendor"
-        view.backgroundColor = .systemBackground
+        applyBrandGradient()
+        view.backgroundColor = .clear
+        setupUTSAVNavbar(title: "Assign Vendor")
 
         setupSegment()
         setupSearchBar()
@@ -53,6 +53,11 @@ final class VendorSelectionViewController: UIViewController {
         loadMyVendors()
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
+    }
+
     // MARK: - Setup UI
 
     private func setupSegment() {
@@ -62,7 +67,7 @@ final class VendorSelectionViewController: UIViewController {
         view.addSubview(segmented)
 
         NSLayoutConstraint.activate([
-            segmented.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
+            segmented.topAnchor.constraint(equalTo: view.topAnchor, constant: 100),
             segmented.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             segmented.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             segmented.heightAnchor.constraint(equalToConstant: 34)
@@ -99,6 +104,7 @@ final class VendorSelectionViewController: UIViewController {
         tableView.register(VendorCell.self, forCellReuseIdentifier: "VendorCell")
         tableView.tableFooterView = UIView()
         tableView.rowHeight = 90
+        tableView.backgroundColor = .clear
         view.addSubview(tableView)
 
         NSLayoutConstraint.activate([
@@ -198,7 +204,7 @@ final class VendorSelectionViewController: UIViewController {
 extension VendorSelectionViewController: UITableViewDataSource, UITableViewDelegate {
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        segmented.selectedSegmentIndex == 0
+        return segmented.selectedSegmentIndex == 0
         ? filteredMyVendors.count
         : filteredMarketplaceVendors.count
     }
