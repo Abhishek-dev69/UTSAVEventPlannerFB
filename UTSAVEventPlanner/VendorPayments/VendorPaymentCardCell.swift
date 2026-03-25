@@ -47,7 +47,7 @@ final class VendorPaymentCardCell: UITableViewCell {
         contentView.backgroundColor = .clear
 
         // Card
-        cardView.backgroundColor = .systemBackground
+        cardView.backgroundColor = UIColor(white: 1.0, alpha: 0.85)
         cardView.layer.cornerRadius = 14
         cardView.layer.shadowColor = UIColor.black.cgColor
         cardView.layer.shadowOpacity = 0.06

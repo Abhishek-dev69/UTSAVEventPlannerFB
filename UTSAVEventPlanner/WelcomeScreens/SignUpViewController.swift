@@ -13,6 +13,7 @@ class SignUpViewController: UIViewController, UITextFieldDelegate {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        applyBrandGradient()
         titleLabel.text = "Create your Account"
 
         configurePlaceholdersAndInputTypes()
@@ -21,6 +22,11 @@ class SignUpViewController: UIViewController, UITextFieldDelegate {
         styleNextButton()
         setupKeyboardDismiss()
         setDelegates()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
     }
 
     // MARK: - Placeholders & input types

@@ -34,12 +34,18 @@ final class VendorProposalViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
-        navigationItem.title = "Send Proposal to Vendor"
+        applyBrandGradient()
+        view.backgroundColor = .clear
+        setupUTSAVNavbar(title: "Send Proposal to Vendor")
 
         setupUI()
         configureDatePicker()
         fillData()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
     }
 
     // MARK: - UI Helpers
@@ -72,15 +78,21 @@ final class VendorProposalViewController: UIViewController {
         view.addSubview(stack)
 
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
+            stack.topAnchor.constraint(equalTo: view.topAnchor, constant: 100),
             stack.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             stack.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16)
         ])
 
         // Card
         card.translatesAutoresizingMaskIntoConstraints = false
-        card.backgroundColor = .white
+        card.backgroundColor = .clear
         card.layer.cornerRadius = 12
+        card.clipsToBounds = true
+        
+        let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialLight))
+        blur.frame = card.bounds
+        blur.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        card.insertSubview(blur, at: 0)
         card.layer.shadowColor = UIColor.black.withAlphaComponent(0.08).cgColor
         card.layer.shadowOffset = CGSize(width: 0, height: 4)
         card.layer.shadowRadius = 8
@@ -170,13 +182,7 @@ final class VendorProposalViewController: UIViewController {
         stack.addArrangedSubview(spacer)
 
         // Send button
-        sendButton.setTitle("Send Proposal", for: .normal)
-        sendButton.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
-        sendButton.backgroundColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
-        sendButton.setTitleColor(.white, for: .normal)
-        sendButton.layer.cornerRadius = 24
-        sendButton.translatesAutoresizingMaskIntoConstraints = false
-        sendButton.heightAnchor.constraint(equalToConstant: 52).isActive = true
+        setupUTSAVPrimaryButton(sendButton, title: "Send Proposal")
         sendButton.addTarget(self, action: #selector(sendTapped), for: .touchUpInside)
         stack.addArrangedSubview(sendButton)
 

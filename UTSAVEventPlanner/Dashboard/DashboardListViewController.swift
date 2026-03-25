@@ -5,9 +5,14 @@ final class DashboardListViewController: UIViewController {
     private let tableView = UITableView(frame: .zero, style: .plain)
 
     // MARK: UI Elements
-    private let avatar = UIImageView()
+    private let glassHeaderCard = UIView()          // the floating glass container
+    private let blurView        = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
+    private let tintOverlay     = UIView()          // subtle purple tint over the blur
+    private let headerSeparator = UIView()          // thin line that appears on scroll
+
+    private let avatar     = UIImageView()
     private let titleLabel = UILabel()
-    private let addButton = UIButton(type: .system)
+    private let addButton  = UIButton(type: .system)
 
     // ✅ UPDATED SEGMENTS (added Draft)
     private let segments = UISegmentedControl(items: ["All", "Draft", "Upcoming", "Completed"])
@@ -16,18 +21,31 @@ final class DashboardListViewController: UIViewController {
 
     // Empty State
     private let emptyStateView = UIView()
-    private let emptyIcon = UIImageView()
-    private let emptyLabel = UILabel()
-    private let emptySubLabel = UILabel()
+    private let emptyIcon      = UIImageView()
+    private let emptyLabel     = UILabel()
+    private let emptySubLabel  = UILabel()
 
     private var allEvents: [EventRecord] = []
     private var events: [EventRecord] = []
+
+    // bg layer
+    private let bgGradientLayer = CAGradientLayer()
 
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
+        // Background Gradient (Aesthetic Brand Purple)
+        let brandPurple = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
+        bgGradientLayer.colors = [
+            brandPurple.withAlphaComponent(0.30).cgColor, // Top (Darker Purple)
+            brandPurple.withAlphaComponent(0.08).cgColor  // Bottom (Light Purple)
+        ]
+        bgGradientLayer.startPoint = CGPoint(x: 0.5, y: 0.0)
+        bgGradientLayer.endPoint = CGPoint(x: 0.5, y: 1.0)
+        bgGradientLayer.locations = [0, 1.0]
+        view.layer.insertSublayer(bgGradientLayer, at: 0)
+        view.backgroundColor = .systemBackground
 
         setupHeader()
         setupSegments()
@@ -64,6 +82,16 @@ final class DashboardListViewController: UIViewController {
         navigationController?.navigationBar.isHidden = false
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        bgGradientLayer.frame = view.bounds
+        
+        // Keep the gradient layer sized to the tintOverlay bounds
+        if let grad = tintOverlay.layer.sublayers?.first as? CAGradientLayer {
+            grad.frame = tintOverlay.bounds
+        }
+    }
+
     deinit {
         NotificationCenter.default.removeObserver(self)
     }
@@ -85,8 +113,48 @@ final class DashboardListViewController: UIViewController {
         ])
     }
 
-    // MARK: - Header
+    // MARK: - Header (Glassmorphic)
     private func setupHeader() {
+
+        // ── Glass card container ─────────────────────────────────────
+        glassHeaderCard.translatesAutoresizingMaskIntoConstraints = false
+        glassHeaderCard.clipsToBounds = false
+        view.addSubview(glassHeaderCard)
+
+        // Blur layer (the frosted glass effect)
+        blurView.translatesAutoresizingMaskIntoConstraints = false
+        blurView.clipsToBounds = true
+        // Rounded bottom corners only
+        blurView.layer.cornerRadius = 20
+        blurView.layer.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+        blurView.alpha = 0 // Initially transparent
+        glassHeaderCard.addSubview(blurView)
+
+        // Purple-tinted gradient overlay on top of the blur
+        tintOverlay.translatesAutoresizingMaskIntoConstraints = false
+        tintOverlay.isUserInteractionEnabled = false
+        tintOverlay.layer.cornerRadius = 20
+        tintOverlay.layer.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+        tintOverlay.clipsToBounds = true
+        tintOverlay.alpha = 0 // Initially transparent
+
+        let grad = CAGradientLayer()
+        grad.colors = [
+            UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 0.18).cgColor,
+            UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 0.04).cgColor
+        ]
+        grad.startPoint = CGPoint(x: 0.5, y: 0)
+        grad.endPoint   = CGPoint(x: 0.5, y: 1)
+        tintOverlay.layer.insertSublayer(grad, at: 0)
+        glassHeaderCard.addSubview(tintOverlay)
+
+        // Thin bottom separator (appears on scroll)
+        headerSeparator.translatesAutoresizingMaskIntoConstraints = false
+        headerSeparator.backgroundColor = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 0.25)
+        headerSeparator.alpha = 0
+        glassHeaderCard.addSubview(headerSeparator)
+
+        // ── Content: avatar, title, add button ───────────────────────
         avatar.image = UIImage(systemName: "person.circle")
         avatar.tintColor = .gray
         avatar.layer.cornerRadius = 22
@@ -96,32 +164,64 @@ final class DashboardListViewController: UIViewController {
         avatar.addGestureRecognizer(
             UITapGestureRecognizer(target: self, action: #selector(profileTapped))
         )
+        glassHeaderCard.addSubview(avatar)
 
         titleLabel.text = "Dashboard"
         titleLabel.font = .systemFont(ofSize: 22, weight: .bold)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
+        glassHeaderCard.addSubview(titleLabel)
 
         let plusConfig = UIImage.SymbolConfiguration(pointSize: 20, weight: .bold)
         addButton.setImage(UIImage(systemName: "plus", withConfiguration: plusConfig), for: .normal)
         addButton.tintColor = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
         addButton.translatesAutoresizingMaskIntoConstraints = false
         addButton.addTarget(self, action: #selector(addEventTapped), for: .touchUpInside)
+        glassHeaderCard.addSubview(addButton)
 
-        view.addSubview(avatar)
-        view.addSubview(titleLabel)
-        view.addSubview(addButton)
+        // Shadow on the glass card (visible on scroll)
+        glassHeaderCard.layer.shadowColor   = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1).cgColor
+        glassHeaderCard.layer.shadowOpacity = 0.0 // Initially flat
+        glassHeaderCard.layer.shadowRadius  = 12
+        glassHeaderCard.layer.shadowOffset  = CGSize(width: 0, height: 4)
 
+        // ── Constraints ──────────────────────────────────────────────
+        let safeTop = view.safeAreaLayoutGuide.topAnchor
         NSLayoutConstraint.activate([
-            avatar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
-            avatar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            // Glass card spans full width, from top of view to below add-button
+            glassHeaderCard.topAnchor.constraint(equalTo: view.topAnchor),
+            glassHeaderCard.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            glassHeaderCard.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            glassHeaderCard.bottomAnchor.constraint(equalTo: safeTop, constant: 60),   // safe area + content
+
+            // Blur fills the card
+            blurView.topAnchor.constraint(equalTo: glassHeaderCard.topAnchor),
+            blurView.leadingAnchor.constraint(equalTo: glassHeaderCard.leadingAnchor),
+            blurView.trailingAnchor.constraint(equalTo: glassHeaderCard.trailingAnchor),
+            blurView.bottomAnchor.constraint(equalTo: glassHeaderCard.bottomAnchor),
+
+            // Tint overlay fills the card
+            tintOverlay.topAnchor.constraint(equalTo: glassHeaderCard.topAnchor),
+            tintOverlay.leadingAnchor.constraint(equalTo: glassHeaderCard.leadingAnchor),
+            tintOverlay.trailingAnchor.constraint(equalTo: glassHeaderCard.trailingAnchor),
+            tintOverlay.bottomAnchor.constraint(equalTo: glassHeaderCard.bottomAnchor),
+
+            // Separator at the very bottom edge
+            headerSeparator.leadingAnchor.constraint(equalTo: glassHeaderCard.leadingAnchor),
+            headerSeparator.trailingAnchor.constraint(equalTo: glassHeaderCard.trailingAnchor),
+            headerSeparator.bottomAnchor.constraint(equalTo: glassHeaderCard.bottomAnchor),
+            headerSeparator.heightAnchor.constraint(equalToConstant: 0.5),
+
+            // Avatar, title, add button sit in the safe-area part of the card
+            avatar.leadingAnchor.constraint(equalTo: glassHeaderCard.leadingAnchor, constant: 20),
+            avatar.bottomAnchor.constraint(equalTo: glassHeaderCard.bottomAnchor, constant: -10),
             avatar.widthAnchor.constraint(equalToConstant: 44),
             avatar.heightAnchor.constraint(equalToConstant: 44),
 
             titleLabel.centerYAnchor.constraint(equalTo: avatar.centerYAnchor),
-            titleLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            titleLabel.centerXAnchor.constraint(equalTo: glassHeaderCard.centerXAnchor),
 
             addButton.centerYAnchor.constraint(equalTo: avatar.centerYAnchor),
-            addButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            addButton.trailingAnchor.constraint(equalTo: glassHeaderCard.trailingAnchor, constant: -20),
             addButton.widthAnchor.constraint(equalToConstant: 24),
             addButton.heightAnchor.constraint(equalToConstant: 24)
         ])
@@ -131,15 +231,17 @@ final class DashboardListViewController: UIViewController {
     private func setupSegments() {
         segments.selectedSegmentIndex = 0
         segments.selectedSegmentTintColor = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
+        segments.backgroundColor = UIColor(white: 1.0, alpha: 0.4)
         segments.setTitleTextAttributes([.foregroundColor: UIColor.white], for: .selected)
-        segments.setTitleTextAttributes([.foregroundColor: UIColor.gray], for: .normal)
+        segments.setTitleTextAttributes([.foregroundColor: UIColor(white: 0.2, alpha: 1)], for: .normal)
         segments.translatesAutoresizingMaskIntoConstraints = false
         segments.addTarget(self, action: #selector(segmentedChanged), for: .valueChanged)
 
         view.addSubview(segments)
 
         NSLayoutConstraint.activate([
-            segments.topAnchor.constraint(equalTo: avatar.bottomAnchor, constant: 16),
+            // anchor to the bottom of the glass header card
+            segments.topAnchor.constraint(equalTo: glassHeaderCard.bottomAnchor, constant: 12),
             segments.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             segments.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             segments.heightAnchor.constraint(equalToConstant: 36)
@@ -425,6 +527,19 @@ private func eventStatus(for record: EventRecord) -> EventStatus {
 
 // MARK: - Table Delegates
 extension DashboardListViewController: UITableViewDataSource, UITableViewDelegate {
+
+    // Separator and glass blur fades in as the list scrolls under the glass header
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        let offset = scrollView.contentOffset.y
+        // Start fading in at 10pt scroll, fully visible by 40pt
+        let progress = min(max((offset - 10) / 30, 0), 1)
+        UIView.animate(withDuration: 0.1) {
+            self.blurView.alpha = progress
+            self.tintOverlay.alpha = progress
+            self.headerSeparator.alpha = progress
+            self.glassHeaderCard.layer.shadowOpacity = Float(progress * 0.08)
+        }
+    }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         events.count

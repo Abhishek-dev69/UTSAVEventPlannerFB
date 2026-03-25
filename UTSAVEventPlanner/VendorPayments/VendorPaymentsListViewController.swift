@@ -4,6 +4,9 @@ final class VendorPaymentsListViewController: UIViewController {
 
     private let tableView = UITableView(frame: .zero, style: .plain)
 
+    // MARK: - Scroll Reporting
+    var onScroll: ((CGFloat) -> Void)?
+
     private var allVendors: [VendorPaymentSummary] = []
     private var filteredVendors: [VendorPaymentSummary] = []
     private var isSearching = false
@@ -19,8 +22,14 @@ final class VendorPaymentsListViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
+        applyBrandGradient()
+        view.backgroundColor = .clear
         setupTable()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -48,6 +57,9 @@ final class VendorPaymentsListViewController: UIViewController {
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
+        
+        tableView.contentInset.top = 70
+        tableView.verticalScrollIndicatorInsets.top = 70
     }
 
     private func loadVendorPayments() async {
@@ -122,6 +134,10 @@ extension VendorPaymentsListViewController: VendorSearchable {
 
 // MARK: - Table
 extension VendorPaymentsListViewController: UITableViewDataSource, UITableViewDelegate {
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        onScroll?(scrollView.contentOffset.y)
+    }
 
     func tableView(_ t: UITableView, numberOfRowsInSection section: Int) -> Int {
         (isSearching ? filteredVendors : allVendors).count

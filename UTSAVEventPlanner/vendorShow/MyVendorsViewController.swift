@@ -14,11 +14,16 @@ final class MyVendorsViewController: UIViewController {
     private var vendorRecords: [VendorRecord] = []
     private var filteredRecords: [VendorRecord] = []
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        title = "My Vendors"
-        view.backgroundColor = .systemBackground
+        applyBrandGradient()
+        setupUTSAVNavbar(title: "My Vendors")
 
         setupSearchBar()
         setupTableView()
@@ -51,11 +56,15 @@ final class MyVendorsViewController: UIViewController {
         view.addSubview(tableView)
 
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.topAnchor.constraint(equalTo: view.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
+        
+        // Optimized for UTSAV
+        tableView.contentInset.top = 15
+        tableView.verticalScrollIndicatorInsets.top = 15
     }
 
     // Load vendor records for stored vendor IDs
@@ -188,6 +197,7 @@ final class MyVendorCell: UITableViewCell {
 
     private let cardView = UIView()
     private let nameLabel = UILabel()
+    private let roleLabel = UILabel()
     private let thumbnailImageView = UIImageView()
     private var imageTask: URLSessionDataTask?
 
@@ -209,11 +219,8 @@ final class MyVendorCell: UITableViewCell {
     }
 
     private func setupUI() {
-        selectionStyle = .none
-        backgroundColor = .clear
-
         cardView.translatesAutoresizingMaskIntoConstraints = false
-        cardView.backgroundColor = .white
+        cardView.backgroundColor = UIColor(white: 1.0, alpha: 0.85)
         cardView.layer.cornerRadius = 12
         cardView.layer.shadowColor = UIColor.black.cgColor
         cardView.layer.shadowOpacity = 0.08
@@ -229,11 +236,18 @@ final class MyVendorCell: UITableViewCell {
         thumbnailImageView.backgroundColor = .secondarySystemBackground
 
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
-        nameLabel.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
-        nameLabel.numberOfLines = 2
+        nameLabel.font = UIFont.systemFont(ofSize: 16, weight: .bold)
+        nameLabel.textColor = .black
+        nameLabel.numberOfLines = 1
+
+        roleLabel.translatesAutoresizingMaskIntoConstraints = false
+        roleLabel.font = UIFont.systemFont(ofSize: 13, weight: .medium)
+        roleLabel.textColor = .darkGray
+        roleLabel.numberOfLines = 1
 
         cardView.addSubview(thumbnailImageView)
         cardView.addSubview(nameLabel)
+        cardView.addSubview(roleLabel)
 
         NSLayoutConstraint.activate([
             cardView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
@@ -248,12 +262,17 @@ final class MyVendorCell: UITableViewCell {
 
             nameLabel.leadingAnchor.constraint(equalTo: thumbnailImageView.trailingAnchor, constant: 16),
             nameLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -16),
-            nameLabel.centerYAnchor.constraint(equalTo: cardView.centerYAnchor)
+            nameLabel.bottomAnchor.constraint(equalTo: cardView.centerYAnchor, constant: -2),
+
+            roleLabel.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
+            roleLabel.trailingAnchor.constraint(equalTo: nameLabel.trailingAnchor),
+            roleLabel.topAnchor.constraint(equalTo: cardView.centerYAnchor, constant: 2)
         ])
     }
 
     func configure(with vendor: VendorRecord) {
-        nameLabel.text = vendor.fullName ?? vendor.businessName ?? "Vendor"
+        nameLabel.text = vendor.businessName ?? vendor.fullName ?? "Vendor"
+        roleLabel.text = vendor.role ?? vendor.businessName ?? "Professional"
         thumbnailImageView.image = UIImage(systemName: "person.crop.circle.fill")
         if let urlStr = VendorManager.shared.resolvedAvatarURLString(for: vendor),
            let url = URL(string: urlStr) {

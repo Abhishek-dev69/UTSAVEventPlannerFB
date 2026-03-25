@@ -39,7 +39,7 @@ final class InventoryCardCell: UITableViewCell {
         selectionStyle = .none
 
         // Card
-        cardView.backgroundColor = .systemBackground
+        cardView.backgroundColor = UIColor(white: 1.0, alpha: 0.85)
         cardView.layer.cornerRadius = 14
         cardView.layer.shadowOpacity = 0.06
         cardView.layer.shadowRadius = 8

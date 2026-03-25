@@ -15,6 +15,7 @@ final class PaymentListViewController: UIViewController {
     private let progressView = UIProgressView(progressViewStyle: .default)
     private let transactionsTable = UITableView(frame: .zero, style: .plain)
     private let addPaymentButton = UIButton(type: .system)
+    private let eBillButton = UIButton(type: .system)
 
     private let utsavPurple = UIColor(
         red: 139/255,
@@ -37,9 +38,15 @@ final class PaymentListViewController: UIViewController {
     required init?(coder: NSCoder) { fatalError("Use init(event:)") }
 
     // MARK: - Lifecycle
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
+        applyBrandGradient()
+        view.backgroundColor = .clear
         setupNav()
         setupUI()
         setupTable()
@@ -49,7 +56,7 @@ final class PaymentListViewController: UIViewController {
 
     // MARK: - Navigation
     private func setupNav() {
-        navigationItem.title = event.eventName
+        setupUTSAVNavbar(title: event.eventName)
 
         let back = UIBarButtonItem(
             image: UIImage(systemName: "chevron.left"),
@@ -57,7 +64,6 @@ final class PaymentListViewController: UIViewController {
             target: self,
             action: #selector(backPressed)
         )
-        back.tintColor = .black
         navigationItem.leftBarButtonItem = back
 
         let share = UIBarButtonItem(
@@ -66,7 +72,6 @@ final class PaymentListViewController: UIViewController {
             target: self,
             action: #selector(shareTapped)
         )
-        share.tintColor = .black
         navigationItem.rightBarButtonItem = share
     }
 
@@ -319,9 +324,12 @@ final class PaymentListViewController: UIViewController {
     // MARK: - UI
     private func setupUI() {
 
-        headerCard.backgroundColor = .white
-        headerCard.layer.cornerRadius = 12
-        headerCard.layer.shadowOpacity = 0.05
+        headerCard.backgroundColor = .white.withAlphaComponent(0.85)
+        headerCard.layer.cornerRadius = 16
+        headerCard.layer.shadowColor = UIColor.black.cgColor
+        headerCard.layer.shadowOpacity = 0.08
+        headerCard.layer.shadowRadius = 10
+        headerCard.layer.shadowOffset = CGSize(width: 0, height: 4)
         headerCard.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(headerCard)
 
@@ -347,6 +355,15 @@ final class PaymentListViewController: UIViewController {
         headerCard.addSubview(progressView)
         headerCard.addSubview(remainingLabel)
 
+        eBillButton.setTitle("View E-Bill", for: .normal)
+        eBillButton.setTitleColor(utsavPurple, for: .normal)
+        eBillButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .bold)
+        eBillButton.backgroundColor = utsavPurple.withAlphaComponent(0.12)
+        eBillButton.layer.cornerRadius = 14
+        eBillButton.translatesAutoresizingMaskIntoConstraints = false
+        eBillButton.addTarget(self, action: #selector(eBillTapped), for: .touchUpInside)
+        headerCard.addSubview(eBillButton)
+
         addPaymentButton.setTitle("+ Add Client Payment", for: .normal)
         addPaymentButton.setTitleColor(.white, for: .normal)
         addPaymentButton.backgroundColor = utsavPurple
@@ -356,6 +373,7 @@ final class PaymentListViewController: UIViewController {
         view.addSubview(addPaymentButton)
 
         transactionsTable.translatesAutoresizingMaskIntoConstraints = false
+        transactionsTable.backgroundColor = .clear
         view.addSubview(transactionsTable)
 
         NSLayoutConstraint.activate([
@@ -365,8 +383,7 @@ final class PaymentListViewController: UIViewController {
 
             titleLabel.topAnchor.constraint(equalTo: headerCard.topAnchor, constant: 12),
             titleLabel.leadingAnchor.constraint(equalTo: headerCard.leadingAnchor, constant: 12),
-            titleLabel.trailingAnchor.constraint(equalTo: headerCard.trailingAnchor, constant: -12),
-
+            titleLabel.trailingAnchor.constraint(equalTo: eBillButton.leadingAnchor, constant: -8),
             totalLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
             totalLabel.leadingAnchor.constraint(equalTo: headerCard.leadingAnchor, constant: 12),
 
@@ -378,6 +395,11 @@ final class PaymentListViewController: UIViewController {
             remainingLabel.topAnchor.constraint(equalTo: progressView.bottomAnchor, constant: 8),
             remainingLabel.leadingAnchor.constraint(equalTo: headerCard.leadingAnchor, constant: 12),
             remainingLabel.bottomAnchor.constraint(equalTo: headerCard.bottomAnchor, constant: -12),
+
+            eBillButton.trailingAnchor.constraint(equalTo: headerCard.trailingAnchor, constant: -12),
+            eBillButton.topAnchor.constraint(equalTo: headerCard.topAnchor, constant: 10),
+            eBillButton.widthAnchor.constraint(equalToConstant: 90),
+            eBillButton.heightAnchor.constraint(equalToConstant: 28),
 
             addPaymentButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
             addPaymentButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
@@ -395,7 +417,9 @@ final class PaymentListViewController: UIViewController {
         transactionsTable.dataSource = self
         transactionsTable.delegate = self
         transactionsTable.register(UITableViewCell.self, forCellReuseIdentifier: "txCell")
-        transactionsTable.separatorStyle = .none
+        transactionsTable.separatorStyle = .singleLine
+        transactionsTable.separatorColor = UIColor.black.withAlphaComponent(0.12)
+        transactionsTable.tableFooterView = UIView()
     }
 
     private func setupObservers() {
@@ -462,6 +486,11 @@ final class PaymentListViewController: UIViewController {
     }
 
     // MARK: - Actions
+    @objc private func eBillTapped() {
+        let vc = EBillViewController(event: event)
+        navigationController?.pushViewController(vc, animated: true)
+    }
+
     @objc private func addPaymentTapped() {
         let vc = RecordClientPaymentViewController(event: event)
         let nav = UINavigationController(rootViewController: vc)
@@ -491,6 +520,7 @@ extension PaymentListViewController: UITableViewDataSource, UITableViewDelegate 
         let p = payments[indexPath.row]
         let cell = t.dequeueReusableCell(withIdentifier: "txCell", for: indexPath)
         cell.selectionStyle = .none
+        cell.backgroundColor = .clear
 
         let amt = "₹\(formatMoney(p.amount))"
         let method = p.method.isEmpty ? "Payment" : p.method
@@ -498,7 +528,7 @@ extension PaymentListViewController: UITableViewDataSource, UITableViewDelegate 
 
         let title = NSMutableAttributedString(
             string: amt,
-            attributes: [.font: UIFont.systemFont(ofSize: 16, weight: .semibold)]
+            attributes: [.font: UIFont.systemFont(ofSize: 16, weight: .semibold), .foregroundColor: UIColor.label]
         )
         title.append(NSAttributedString(
             string: "\n\(method)",
@@ -539,4 +569,3 @@ extension PaymentListViewController: UITableViewDataSource, UITableViewDelegate 
         return iso
     }
 }
-

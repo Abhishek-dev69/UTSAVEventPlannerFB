@@ -33,7 +33,7 @@ final class EventTypeViewController: UIViewController {
         l.translatesAutoresizingMaskIntoConstraints = false
         l.text = "Select Your Client Event Type"
         l.font = .systemFont(ofSize: 18, weight: .bold)
-        l.textColor = .label
+        l.textColor = .white
         l.textAlignment = .center
         l.numberOfLines = 0
         l.setContentCompressionResistancePriority(.defaultHigh, for: .vertical)
@@ -88,8 +88,14 @@ final class EventTypeViewController: UIViewController {
         .init(title: "Holiday Party",    imageName: "event_holiday")
     ]
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
+        applyBrandGradient()
         view.backgroundColor = .systemBackground
         buildLayout()
 
@@ -254,10 +260,11 @@ final class EventTypeCell: UICollectionViewCell {
     private let container = UIView()
     private let imageView = UIImageView()
     private let gradientLayer = CAGradientLayer()
+    private let glassBlur = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialLight))
     private let textBackground: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
-        v.backgroundColor = UIColor.black.withAlphaComponent(0.55)
+        v.backgroundColor = .clear
         v.layer.cornerRadius = 8
         v.clipsToBounds = true
         return v
@@ -300,6 +307,15 @@ final class EventTypeCell: UICollectionViewCell {
         gradientLayer.locations = [0.4, 0.8, 1.0]
         imageView.layer.addSublayer(gradientLayer)
 
+        textBackground.insertSubview(glassBlur, at: 0)
+        glassBlur.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            glassBlur.topAnchor.constraint(equalTo: textBackground.topAnchor),
+            glassBlur.leadingAnchor.constraint(equalTo: textBackground.leadingAnchor),
+            glassBlur.trailingAnchor.constraint(equalTo: textBackground.trailingAnchor),
+            glassBlur.bottomAnchor.constraint(equalTo: textBackground.bottomAnchor)
+        ])
+        
         container.addSubview(textBackground)
 
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -310,8 +326,8 @@ final class EventTypeCell: UICollectionViewCell {
 
         container.addSubview(heartBadge)
 
-        selectionBorder.strokeColor = UIColor.systemBlue.cgColor
-        selectionBorder.lineWidth = 2
+        selectionBorder.strokeColor = UIColor.white.cgColor
+        selectionBorder.lineWidth = 3
         selectionBorder.fillColor = UIColor.clear.cgColor
         selectionBorder.isHidden = true
         contentView.layer.addSublayer(selectionBorder)

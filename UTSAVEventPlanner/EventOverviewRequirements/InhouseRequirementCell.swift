@@ -28,8 +28,8 @@ final class InhouseRequirementCell: UITableViewCell {
         backgroundColor = .clear
         selectionStyle = .none
 
-        container.backgroundColor = .white
-        container.layer.cornerRadius = 12
+        container.backgroundColor = .white.withAlphaComponent(0.85)
+        container.layer.cornerRadius = 16
         container.layer.shadowOpacity = 0.08
         container.layer.shadowRadius = 4
         container.layer.shadowOffset = CGSize(width: 0, height: 2)
@@ -96,7 +96,7 @@ final class InhouseRequirementCell: UITableViewCell {
             titleLabel.text = "Service"
         }
 
-        qtyLabel.text = "\(item.quantity ?? 0)"
+        qtyLabel.text = "Qty: \(item.quantity ?? 0)"
 
         // Checkbox state
         if isSelected {

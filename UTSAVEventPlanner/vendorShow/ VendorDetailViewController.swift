@@ -23,6 +23,7 @@ final class VendorDetailViewController: UIViewController {
     private let nameLabel = UILabel()
     private let roleLabel = UILabel()
     private let bioLabel = UILabel()
+    private let headerCard = UIView()
     private let contactStack = UIStackView()
     private let emailButton = UIButton(type: .system)
     private let phoneButton = UIButton(type: .system)
@@ -46,7 +47,10 @@ final class VendorDetailViewController: UIViewController {
     // loading indicator
     private var loadingHud: UIActivityIndicatorView?
 
-    // MARK: - Init
+    // height constraint for dynamic content
+    private var containerHeightConstraint: NSLayoutConstraint!
+
+    private let utsavPurple = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
 
     init(vendorId: String) {
         self.vendorId = vendorId
@@ -57,11 +61,16 @@ final class VendorDetailViewController: UIViewController {
 
     // MARK: - Lifecycle
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
-        title = "Vendor"
-
+        applyBrandGradient()
+        setupUTSAVNavbar(title: "Vendor")
+        
         setupScrollAndHeader()
         setupSegmented()
         setupPortfolioCollection()
@@ -82,49 +91,71 @@ final class VendorDetailViewController: UIViewController {
 
     private func setupScrollAndHeader() {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.backgroundColor = .clear
         contentView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.backgroundColor = .clear
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
 
         NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor), // To fill the screen
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
-            contentView.topAnchor.constraint(equalTo: scrollView.topAnchor),
-            contentView.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor),
-            contentView.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor),
-            contentView.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor),
-
-            // Important: width equal to view so content sizes correctly
-            contentView.widthAnchor.constraint(equalTo: view.widthAnchor)
+            contentView.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor),
+            contentView.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor),
+            contentView.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor),
+            contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
+            contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor)
         ])
+        
+        // Optimized gap for UTSAV brand
+        scrollView.contentInset.top = 20
+        scrollView.verticalScrollIndicatorInsets.top = 20
 
         // Header views
+        // 🔽 Header Card (Glassy)
+        headerCard.translatesAutoresizingMaskIntoConstraints = false
+        headerCard.backgroundColor = .white.withAlphaComponent(0.85)
+        headerCard.layer.cornerRadius = 18
+        headerCard.layer.shadowColor = UIColor.black.cgColor
+        headerCard.layer.shadowOpacity = 0.08
+        headerCard.layer.shadowRadius = 8
+        headerCard.layer.shadowOffset = CGSize(width: 0, height: 4)
+        contentView.addSubview(headerCard)
+
+        NSLayoutConstraint.activate([
+            headerCard.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 10),
+            headerCard.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            headerCard.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16)
+        ])
+
         avatarImageView.translatesAutoresizingMaskIntoConstraints = false
         avatarImageView.contentMode = .scaleAspectFill
-        avatarImageView.layer.cornerRadius = 44
+        avatarImageView.layer.cornerRadius = 35
         avatarImageView.clipsToBounds = true
         avatarImageView.image = UIImage(systemName: "person.crop.circle")
         avatarImageView.tintColor = .secondaryLabel
         avatarImageView.isUserInteractionEnabled = true
-        let tap = UITapGestureRecognizer(target: self, action: #selector(avatarTapped))
-        avatarImageView.addGestureRecognizer(tap)
+        headerCard.addSubview(avatarImageView)
 
+        nameLabel.font = .systemFont(ofSize: 20, weight: .bold)
+        nameLabel.textColor = .black
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
-        nameLabel.font = .systemFont(ofSize: 22, weight: .semibold)
-        nameLabel.numberOfLines = 2
+        headerCard.addSubview(nameLabel)
 
         roleLabel.translatesAutoresizingMaskIntoConstraints = false
-        roleLabel.font = .systemFont(ofSize: 15)
-        roleLabel.textColor = .secondaryLabel
+        roleLabel.font = .systemFont(ofSize: 14, weight: .medium)
+        roleLabel.textColor = .darkGray
         roleLabel.numberOfLines = 1
+        headerCard.addSubview(roleLabel)
 
         bioLabel.translatesAutoresizingMaskIntoConstraints = false
         bioLabel.font = .systemFont(ofSize: 14)
-        bioLabel.textColor = .secondaryLabel
+        bioLabel.textColor = .black
         bioLabel.numberOfLines = 0
+        headerCard.addSubview(bioLabel)
 
         // Contact stack (horizontal: email then phone)
         contactStack.axis = .horizontal
@@ -133,8 +164,8 @@ final class VendorDetailViewController: UIViewController {
         contactStack.distribution = .fill
         contactStack.translatesAutoresizingMaskIntoConstraints = false
 
-        // Requested purple color (#7C3AED)
-        let purpleColor = UIColor(red: 124.0/255.0, green: 58.0/255.0, blue: 237.0/255.0, alpha: 1.0)
+        // Brand purple color
+        let purpleColor = utsavPurple
 
         // Styling helper for compact bordered pill (no big grey background)
         func styleCompactPill(_ b: UIButton,
@@ -181,7 +212,7 @@ final class VendorDetailViewController: UIViewController {
             b.tintColor = .white
             b.setTitleColor(.white, for: .normal)
             b.titleLabel?.font = .systemFont(ofSize: 15, weight: .semibold)
-            b.contentHorizontalAlignment = .leading
+            b.contentHorizontalAlignment = .center
             b.imageView?.contentMode = .scaleAspectFit
             b.layer.cornerRadius = 12
             b.backgroundColor = purpleColor
@@ -194,8 +225,8 @@ final class VendorDetailViewController: UIViewController {
         contactStack.addArrangedSubview(emailButton)
         contactStack.addArrangedSubview(phoneButton)
 
-        [avatarImageView, nameLabel, roleLabel, bioLabel, contactStack, addToMyVendorsButton].forEach {
-            contentView.addSubview($0)
+        [contactStack, addToMyVendorsButton].forEach {
+            headerCard.addSubview($0)
         }
 
         // Layout priority tweaks so phone keeps visible text and email can shrink a bit
@@ -210,34 +241,33 @@ final class VendorDetailViewController: UIViewController {
 
         // Layout constraints
         NSLayoutConstraint.activate([
-            avatarImageView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
-            avatarImageView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            avatarImageView.widthAnchor.constraint(equalToConstant: 88),
-            avatarImageView.heightAnchor.constraint(equalToConstant: 88),
+            avatarImageView.topAnchor.constraint(equalTo: headerCard.topAnchor, constant: 16),
+            avatarImageView.leadingAnchor.constraint(equalTo: headerCard.leadingAnchor, constant: 16),
+            avatarImageView.widthAnchor.constraint(equalToConstant: 70),
+            avatarImageView.heightAnchor.constraint(equalToConstant: 70),
 
-            nameLabel.topAnchor.constraint(equalTo: avatarImageView.topAnchor),
+            nameLabel.topAnchor.constraint(equalTo: avatarImageView.topAnchor, constant: 4),
             nameLabel.leadingAnchor.constraint(equalTo: avatarImageView.trailingAnchor, constant: 16),
-            nameLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            nameLabel.trailingAnchor.constraint(equalTo: headerCard.trailingAnchor, constant: -16),
 
-            roleLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 6),
+            roleLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 4),
             roleLabel.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
             roleLabel.trailingAnchor.constraint(equalTo: nameLabel.trailingAnchor),
 
-            bioLabel.topAnchor.constraint(equalTo: avatarImageView.bottomAnchor, constant: 12),
-            bioLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            bioLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            bioLabel.topAnchor.constraint(equalTo: avatarImageView.bottomAnchor, constant: 16),
+            bioLabel.leadingAnchor.constraint(equalTo: headerCard.leadingAnchor, constant: 16),
+            bioLabel.trailingAnchor.constraint(equalTo: headerCard.trailingAnchor, constant: -16),
 
-            // contact row on same line (email + phone)
-            contactStack.topAnchor.constraint(equalTo: bioLabel.bottomAnchor, constant: 12),
-            contactStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            contactStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            contactStack.topAnchor.constraint(equalTo: bioLabel.bottomAnchor, constant: 16),
+            contactStack.leadingAnchor.constraint(equalTo: headerCard.leadingAnchor, constant: 16),
+            contactStack.trailingAnchor.constraint(equalTo: headerCard.trailingAnchor, constant: -16),
             contactStack.heightAnchor.constraint(greaterThanOrEqualToConstant: 40),
 
-            // Add button below contactStack (intrinsic width)
-            addToMyVendorsButton.topAnchor.constraint(equalTo: contactStack.bottomAnchor, constant: 12),
-            addToMyVendorsButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            addToMyVendorsButton.heightAnchor.constraint(equalToConstant: 44),
-            addToMyVendorsButton.widthAnchor.constraint(lessThanOrEqualTo: contentView.widthAnchor, multiplier: 0.75)
+            addToMyVendorsButton.topAnchor.constraint(equalTo: contactStack.bottomAnchor, constant: 16),
+            addToMyVendorsButton.centerXAnchor.constraint(equalTo: headerCard.centerXAnchor),
+            addToMyVendorsButton.widthAnchor.constraint(equalTo: headerCard.widthAnchor, multiplier: 0.8),
+            addToMyVendorsButton.bottomAnchor.constraint(equalTo: headerCard.bottomAnchor, constant: -16),
+            addToMyVendorsButton.heightAnchor.constraint(equalToConstant: 44)
         ])
     }
     @objc private func avatarTapped() {
@@ -278,40 +308,46 @@ final class VendorDetailViewController: UIViewController {
         segmented.selectedSegmentIndex = 0
         segmented.addTarget(self, action: #selector(segmentChanged(_:)), for: .valueChanged)
 
+        // Style the segment with brand purple
+        segmented.selectedSegmentTintColor = utsavPurple
+        segmented.setTitleTextAttributes([.foregroundColor: UIColor.white], for: .selected)
+        segmented.setTitleTextAttributes([.foregroundColor: utsavPurple], for: .normal)
+        segmented.backgroundColor = utsavPurple.withAlphaComponent(0.08)
+
         // segmented anchored below the add button
         contentView.addSubview(segmented)
         NSLayoutConstraint.activate([
-            segmented.topAnchor.constraint(equalTo: addToMyVendorsButton.bottomAnchor, constant: 16),
-            segmented.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            segmented.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            segmented.heightAnchor.constraint(equalToConstant: 36)
+            segmented.topAnchor.constraint(equalTo: headerCard.bottomAnchor, constant: 16),
+            segmented.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            segmented.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            segmented.heightAnchor.constraint(equalToConstant: 40)
         ])
 
         // container for segment content
         containerView.translatesAutoresizingMaskIntoConstraints = false
         contentView.addSubview(containerView)
+        containerHeightConstraint = containerView.heightAnchor.constraint(equalToConstant: 300)
         NSLayoutConstraint.activate([
             containerView.topAnchor.constraint(equalTo: segmented.bottomAnchor, constant: 12),
             containerView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
             containerView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            containerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20),
-            containerView.heightAnchor.constraint(greaterThanOrEqualToConstant: 300) // allow scrolling
+            containerView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -30),
+            containerHeightConstraint
         ])
     }
 
     private func setupPortfolioCollection() {
         let layout = UICollectionViewFlowLayout()
-        layout.minimumInteritemSpacing = 8
-        layout.minimumLineSpacing = 10
+        let spacing: CGFloat = 2
+        layout.minimumInteritemSpacing = spacing
+        layout.minimumLineSpacing = spacing
 
-        let totalSideMargins: CGFloat = 20 + 20
-        let sectionInsetsLR: CGFloat = 12 + 12
-        let interItem: CGFloat = layout.minimumInteritemSpacing
-        let available = view.bounds.width - totalSideMargins - sectionInsetsLR - interItem
+        let totalSideMargins: CGFloat = 16 + 16
+        let available = view.bounds.width - totalSideMargins - spacing
         let itemWidth = floor(available / 2.0)
 
-        layout.itemSize = CGSize(width: itemWidth, height: itemWidth * 0.90)
-        layout.sectionInset = UIEdgeInsets(top: 8, left: 12, bottom: 12, right: 12)
+        layout.itemSize = CGSize(width: itemWidth, height: itemWidth)
+        layout.sectionInset = UIEdgeInsets(top: 0, left: 16, bottom: 20, right: 16)
 
         portfolioCollection = UICollectionView(frame: .zero, collectionViewLayout: layout)
         portfolioCollection.translatesAutoresizingMaskIntoConstraints = false
@@ -319,7 +355,7 @@ final class VendorDetailViewController: UIViewController {
         portfolioCollection.register(PortfolioCell.self, forCellWithReuseIdentifier: PortfolioCell.reuseIdentifier)
         portfolioCollection.dataSource = self
         portfolioCollection.delegate = self
-        portfolioCollection.alwaysBounceVertical = true
+        portfolioCollection.isScrollEnabled = false // Let main scroll handle it
         portfolioCollection.contentInsetAdjustmentBehavior = .never
 
         containerView.addSubview(portfolioCollection)
@@ -337,6 +373,7 @@ final class VendorDetailViewController: UIViewController {
         servicesTable.dataSource = self
         servicesTable.delegate = self
         servicesTable.tableFooterView = UIView()
+        servicesTable.isScrollEnabled = false // Let main scroll handle it
         servicesTable.rowHeight = UITableView.automaticDimension
         servicesTable.estimatedRowHeight = 72
 
@@ -358,6 +395,22 @@ final class VendorDetailViewController: UIViewController {
     private func switchToSegment(_ idx: Int) {
         portfolioCollection.isHidden = idx != 0
         servicesTable.isHidden = idx != 1
+        updateContainerHeight()
+    }
+
+    private func updateContainerHeight() {
+        view.layoutIfNeeded()
+        let activeIdx = segmented.selectedSegmentIndex
+        let newHeight: CGFloat
+        if activeIdx == 0 {
+            newHeight = portfolioCollection.collectionViewLayout.collectionViewContentSize.height
+        } else {
+            newHeight = servicesTable.contentSize.height
+        }
+        containerHeightConstraint.constant = max(newHeight, 100)
+        UIView.animate(withDuration: 0.2) {
+            self.view.layoutIfNeeded()
+        }
     }
 
     @objc private func emailTapped() {
@@ -391,7 +444,7 @@ final class VendorDetailViewController: UIViewController {
 
     // helper to update button UI
     private func updateAddButtonAppearance(isAdded: Bool) {
-        let purpleColor = UIColor(red: 124/255, green: 58/255, blue: 237/255, alpha: 1.0)
+        let purpleColor = utsavPurple
         if isAdded {
             addToMyVendorsButton.setImage(UIImage(systemName: "checkmark"), for: .normal)
             addToMyVendorsButton.setTitle(" Added", for: .normal)
@@ -461,6 +514,7 @@ final class VendorDetailViewController: UIViewController {
             await MainActor.run {
                 self.portfolioItems = items
                 self.portfolioCollection.reloadData()
+                self.updateContainerHeight()
             }
         } catch {
             await MainActor.run {
@@ -475,6 +529,7 @@ final class VendorDetailViewController: UIViewController {
             await MainActor.run {
                 self.services = svcs
                 self.servicesTable.reloadData()
+                self.updateContainerHeight()
             }
         } catch {
             await MainActor.run {
@@ -486,9 +541,13 @@ final class VendorDetailViewController: UIViewController {
     // MARK: - Populate header
 
     private func populateHeader(with vendor: VendorRecord) {
-        nameLabel.text = vendor.fullName ?? vendor.businessName ?? "Vendor"
-        roleLabel.text = vendor.role ?? vendor.businessName ?? ""
-        bioLabel.text = vendor.bio ?? ""
+        nameLabel.text = vendor.businessName ?? vendor.fullName ?? "Vendor"
+        
+        // Profession
+        let profession = vendor.role?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        roleLabel.text = !profession.isEmpty ? profession : (vendor.businessName ?? "Independent Professional")
+        
+        bioLabel.text = vendor.bio ?? "No description available."
 
         // set email / phone text
         if let mail = vendor.email, !mail.isEmpty {
@@ -643,26 +702,26 @@ private final class PortfolioCell: UICollectionViewCell {
         iv.contentMode = .scaleAspectFill
         iv.clipsToBounds = true
         iv.layer.cornerRadius = 8
-        iv.backgroundColor = .clear
+        iv.backgroundColor = .systemGray6
 
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
-        titleLabel.textColor = .label
-        titleLabel.numberOfLines = 2
+        titleLabel.font = .systemFont(ofSize: 12, weight: .medium)
+        titleLabel.textColor = .black
+        titleLabel.numberOfLines = 1
 
         contentView.addSubview(iv)
         contentView.addSubview(titleLabel)
 
         NSLayoutConstraint.activate([
-            iv.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 4),
-            iv.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 6),
-            iv.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -6),
-            iv.heightAnchor.constraint(equalTo: contentView.heightAnchor, multiplier: 0.78),
+            iv.topAnchor.constraint(equalTo: contentView.topAnchor),
+            iv.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            iv.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            iv.heightAnchor.constraint(equalTo: contentView.heightAnchor, constant: -20),
 
-            titleLabel.topAnchor.constraint(equalTo: iv.bottomAnchor, constant: 6),
-            titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 8),
-            titleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -8),
-            titleLabel.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor, constant: -4)
+            titleLabel.topAnchor.constraint(equalTo: iv.bottomAnchor, constant: 4),
+            titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 4),
+            titleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -4),
+            titleLabel.bottomAnchor.constraint(lessThanOrEqualTo: contentView.bottomAnchor)
         ])
     }
 

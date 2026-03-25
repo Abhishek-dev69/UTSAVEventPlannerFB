@@ -14,6 +14,7 @@ final class OnboardingWelcomeViewController: UIViewController {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        applyBrandGradient()
         styleUI()
 
         NotificationCenter.default.addObserver(
@@ -100,6 +101,11 @@ final class OnboardingWelcomeViewController: UIViewController {
         let nav = UINavigationController(rootViewController: vc)
         nav.modalPresentationStyle = .fullScreen
         present(nav, animated: true)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
     }
 
     // MARK: - Styling

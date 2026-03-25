@@ -9,19 +9,19 @@ final class RoundedTextField: UITextField {
 
         translatesAutoresizingMaskIntoConstraints = false
         borderStyle = .none
-        backgroundColor = .white
-        layer.cornerRadius = 12
+        backgroundColor = .white.withAlphaComponent(0.85)
+        layer.cornerRadius = 14
         layer.masksToBounds = false
 
-        font = .systemFont(ofSize: 15)
-        textColor = .label
+        font = .systemFont(ofSize: 15, weight: .medium)
+        textColor = .black
 
         isUserInteractionEnabled = true
         isEnabled = true
 
         attributedPlaceholder = NSAttributedString(
             string: placeholder,
-            attributes: [.foregroundColor: UIColor.secondaryLabel]
+            attributes: [.foregroundColor: UIColor.black.withAlphaComponent(0.4)]
         )
 
         applyShadow()

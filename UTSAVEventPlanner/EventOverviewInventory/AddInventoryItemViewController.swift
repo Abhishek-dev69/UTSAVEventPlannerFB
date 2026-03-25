@@ -42,13 +42,19 @@ final class AddInventoryItemViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        applyBrandGradient()
+        view.backgroundColor = .clear
         navigationItem.title = "Add Item"
 
         setupUI()
 
         // auto-select from dropdown
         selectedSource = preselectedSource ?? "planner"
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
     }
 
     private func setupUI() {

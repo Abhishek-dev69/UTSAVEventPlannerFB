@@ -74,7 +74,8 @@ final class InventoryOverviewViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
+        applyBrandGradient()
+        view.backgroundColor = .clear
         setupNav()
         setupBottomButton()
         setupSegment()
@@ -139,7 +140,7 @@ final class InventoryOverviewViewController: UIViewController {
 
 
     private func setupNav() {
-        navigationItem.title = event.eventName
+        setupUTSAVNavbar(title: event.eventName)
         navigationItem.largeTitleDisplayMode = .never
 
         let plusConfig = UIImage.SymbolConfiguration(pointSize: 20, weight: .bold)
@@ -147,16 +148,16 @@ final class InventoryOverviewViewController: UIViewController {
             UIImage(systemName: "plus", withConfiguration: plusConfig),
             for: .normal
         )
-        addButton.tintColor = UIColor(
-            red: 138/255,
-            green: 73/255,
-            blue: 246/255,
-            alpha: 1
-        )
+        addButton.tintColor = .black // Branded black for transparent navbar items
 
         addButton.addTarget(self, action: #selector(addItemTapped), for: .touchUpInside)
 
         navigationItem.rightBarButtonItem = UIBarButtonItem(customView: addButton)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
     }
 
 
@@ -220,7 +221,7 @@ final class InventoryOverviewViewController: UIViewController {
         styleSegments()
 
         NSLayoutConstraint.activate([
-            segmented.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 12),
+            segmented.topAnchor.constraint(equalTo: view.topAnchor, constant: 100), // Adjusted for immersive top
             segmented.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             segmented.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             segmented.heightAnchor.constraint(equalToConstant: 36)

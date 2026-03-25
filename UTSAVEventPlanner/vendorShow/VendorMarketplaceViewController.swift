@@ -11,29 +11,144 @@ final class VendorMarketplaceViewController: UIViewController {
     private var vendors: [VendorRecord] = []
     private var filteredVendors: [VendorRecord] = []
 
+    private let glassHeaderCard = UIView()
+    private let blurView        = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
+    private let tintOverlay     = UIView()
+    private let headerSeparator = UIView()
+    private let headerTitleLabel = UILabel()
+
     private let tableView = UITableView(frame: .zero, style: .plain)
     private let searchBar = UISearchBar()
 
     private var imageCache = NSCache<NSString, UIImage>()
 
+    // bg layer
+    private let bgGradientLayer = CAGradientLayer()
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = "Vendors"
-        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
+        
+        // Background Gradient (Aesthetic Brand Purple)
+        let brandPurple = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
+        bgGradientLayer.colors = [
+            brandPurple.withAlphaComponent(0.30).cgColor, // Top (Darker Purple)
+            brandPurple.withAlphaComponent(0.08).cgColor  // Bottom (Light Purple)
+        ]
+        bgGradientLayer.startPoint = CGPoint(x: 0.5, y: 0.0)
+        bgGradientLayer.endPoint = CGPoint(x: 0.5, y: 1.0)
+        bgGradientLayer.locations = [0, 1.0]
+        view.layer.insertSublayer(bgGradientLayer, at: 0)
+        view.backgroundColor = .systemBackground
+        
         let tap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
         tap.cancelsTouchesInView = false
         view.addGestureRecognizer(tap)
 
+        setupGlassHeader()
         setupSearchBar()
         setupTableView()
         loadVendors()
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        navigationController?.setNavigationBarHidden(true, animated: false)
+    }
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        navigationController?.setNavigationBarHidden(false, animated: false)
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        bgGradientLayer.frame = view.bounds
+        if let grad = tintOverlay.layer.sublayers?.first as? CAGradientLayer {
+            grad.frame = tintOverlay.bounds
+        }
+    }
+
+    private func setupGlassHeader() {
+        let purple = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
+
+        glassHeaderCard.translatesAutoresizingMaskIntoConstraints = false
+        glassHeaderCard.clipsToBounds = false
+        glassHeaderCard.layer.shadowColor   = purple.cgColor
+        glassHeaderCard.layer.shadowOpacity = 0.0 // Initially flat
+        glassHeaderCard.layer.shadowRadius  = 12
+        glassHeaderCard.layer.shadowOffset  = CGSize(width: 0, height: 4)
+        view.addSubview(glassHeaderCard)
+
+        blurView.clipsToBounds = true
+        blurView.layer.cornerRadius = 20
+        blurView.layer.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+        blurView.translatesAutoresizingMaskIntoConstraints = false
+        blurView.alpha = 0 // Initially transparent
+        glassHeaderCard.addSubview(blurView)
+
+        tintOverlay.isUserInteractionEnabled = false
+        tintOverlay.layer.cornerRadius = 20
+        tintOverlay.layer.maskedCorners = [.layerMinXMaxYCorner, .layerMaxXMaxYCorner]
+        tintOverlay.clipsToBounds = true
+        tintOverlay.translatesAutoresizingMaskIntoConstraints = false
+        tintOverlay.alpha = 0 // Initially transparent
+        let grad = CAGradientLayer()
+        grad.colors = [purple.withAlphaComponent(0.18).cgColor,
+                       purple.withAlphaComponent(0.04).cgColor]
+        grad.startPoint = CGPoint(x: 0.5, y: 0)
+        grad.endPoint   = CGPoint(x: 0.5, y: 1)
+        tintOverlay.layer.insertSublayer(grad, at: 0)
+        glassHeaderCard.addSubview(tintOverlay)
+
+        headerSeparator.backgroundColor = purple.withAlphaComponent(0.25)
+        headerSeparator.alpha = 0
+        headerSeparator.translatesAutoresizingMaskIntoConstraints = false
+        glassHeaderCard.addSubview(headerSeparator)
+
+        headerTitleLabel.text = "Vendors"
+        headerTitleLabel.font = .systemFont(ofSize: 22, weight: .bold)
+        headerTitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        glassHeaderCard.addSubview(headerTitleLabel)
+
+        let safeTop = view.safeAreaLayoutGuide.topAnchor
+        NSLayoutConstraint.activate([
+            glassHeaderCard.topAnchor.constraint(equalTo: view.topAnchor),
+            glassHeaderCard.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            glassHeaderCard.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            glassHeaderCard.bottomAnchor.constraint(equalTo: safeTop, constant: 52),
+
+            blurView.topAnchor.constraint(equalTo: glassHeaderCard.topAnchor),
+            blurView.leadingAnchor.constraint(equalTo: glassHeaderCard.leadingAnchor),
+            blurView.trailingAnchor.constraint(equalTo: glassHeaderCard.trailingAnchor),
+            blurView.bottomAnchor.constraint(equalTo: glassHeaderCard.bottomAnchor),
+
+            tintOverlay.topAnchor.constraint(equalTo: glassHeaderCard.topAnchor),
+            tintOverlay.leadingAnchor.constraint(equalTo: glassHeaderCard.leadingAnchor),
+            tintOverlay.trailingAnchor.constraint(equalTo: glassHeaderCard.trailingAnchor),
+            tintOverlay.bottomAnchor.constraint(equalTo: glassHeaderCard.bottomAnchor),
+
+            headerSeparator.leadingAnchor.constraint(equalTo: glassHeaderCard.leadingAnchor),
+            headerSeparator.trailingAnchor.constraint(equalTo: glassHeaderCard.trailingAnchor),
+            headerSeparator.bottomAnchor.constraint(equalTo: glassHeaderCard.bottomAnchor),
+            headerSeparator.heightAnchor.constraint(equalToConstant: 0.5),
+
+            headerTitleLabel.bottomAnchor.constraint(equalTo: glassHeaderCard.bottomAnchor, constant: -12),
+            headerTitleLabel.centerXAnchor.constraint(equalTo: glassHeaderCard.centerXAnchor)
+        ])
     }
 
     private func setupSearchBar() {
         searchBar.placeholder = "Search vendors"
         searchBar.delegate = self
         searchBar.searchBarStyle = .minimal
-        searchBar.sizeToFit()
+        searchBar.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(searchBar)
+
+        NSLayoutConstraint.activate([
+            searchBar.topAnchor.constraint(equalTo: glassHeaderCard.bottomAnchor),
+            searchBar.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
+            searchBar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12)
+        ])
     }
     @objc private func dismissKeyboard() {
         view.endEditing(true)
@@ -46,14 +161,13 @@ final class VendorMarketplaceViewController: UIViewController {
         tableView.delegate = self
         tableView.separatorStyle = .none
         tableView.backgroundColor = .clear
-        tableView.tableHeaderView = searchBar
         tableView.rowHeight = 110
         tableView.register(VendorMarketplaceCell.self,
                            forCellReuseIdentifier: VendorMarketplaceCell.reuseIdentifier)
 
         view.addSubview(tableView)
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            tableView.topAnchor.constraint(equalTo: searchBar.bottomAnchor, constant: 4),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
@@ -106,6 +220,19 @@ final class VendorMarketplaceViewController: UIViewController {
 // MARK: - Table DataSource/Delegate
 
 extension VendorMarketplaceViewController: UITableViewDataSource, UITableViewDelegate {
+    
+    // Glass blur fades in on scroll
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        let offset = scrollView.contentOffset.y
+        let progress = min(max((offset - 10) / 30, 0), 1)
+        UIView.animate(withDuration: 0.1) {
+            self.blurView.alpha = progress
+            self.tintOverlay.alpha = progress
+            self.headerSeparator.alpha = progress
+            self.glassHeaderCard.layer.shadowOpacity = Float(progress * 0.08)
+        }
+    }
+    
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int { filteredVendors.count }
 
     func tableView(_ tableView: UITableView,
@@ -202,7 +329,7 @@ final class VendorMarketplaceCell: UITableViewCell {
         backgroundColor = .clear
 
         cardView.translatesAutoresizingMaskIntoConstraints = false
-        cardView.backgroundColor = .white
+        cardView.backgroundColor = UIColor(white: 1.0, alpha: 0.85)
         cardView.layer.cornerRadius = 12
         cardView.layer.shadowColor = UIColor.black.cgColor
         cardView.layer.shadowOpacity = 0.06
