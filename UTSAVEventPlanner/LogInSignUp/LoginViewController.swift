@@ -15,10 +15,11 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
     private var playerLayer: AVPlayerLayer?
 
     private let heroView = UIView()
-    private let heroDim = CAGradientLayer()
+    private let glassBlur = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialLight))
     private let bottomCover = UIView()
     private let brandLabel = UILabel()
     private let videoCenterGuide = UILayoutGuide()
+    private let heroDim = CAGradientLayer()
     private let cardView = UIView()
     private let titleLabel = UILabel()
 
@@ -85,7 +86,7 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
     // MARK: - life cycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .black
+        applyBrandGradient()
         navigationController?.setNavigationBarHidden(true, animated: false)
 
         buildUI()
@@ -105,8 +106,9 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        playerLayer?.frame = heroView.bounds
-        heroDim.frame = heroView.bounds
+        updateGradientFrame()
+        glassBlur.frame = cardView.bounds
+        heroDim.frame = view.bounds
         heroView.bringSubviewToFront(brandLabel)
     }
 
@@ -277,12 +279,17 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         brandLabel.font = .systemFont(ofSize: 44, weight: .bold)
         brandLabel.textAlignment = .center
 
-        bottomCover.backgroundColor = .systemBackground
+        bottomCover.backgroundColor = .clear
         bottomCover.isUserInteractionEnabled = false
 
-        cardView.backgroundColor = .systemBackground
+        cardView.backgroundColor = .clear
         cardView.layer.cornerRadius = corner
         cardView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        cardView.clipsToBounds = true
+        
+        glassBlur.frame = cardView.bounds
+        cardView.insertSubview(glassBlur, at: 0)
+        
         cardView.layer.shadowColor = UIColor.black.cgColor
         cardView.layer.shadowOpacity = 0.12
         cardView.layer.shadowRadius = 12
@@ -360,14 +367,7 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         addPasswordVisibilityToggle(to: confirmPasswordTextField, selector: #selector(toggleConfirmPasswordVisibility(_:)))
         // ----------------------------------------------------------------
 
-        var cont = UIButton.Configuration.filled()
-        cont.title = "Continue"
-        cont.baseBackgroundColor = primaryPurple
-        cont.baseForegroundColor = .white
-        cont.cornerStyle = .large
-        cont.contentInsets = .init(top: 14, leading: 20, bottom: 14, trailing: 20)
-        continueButton.configuration = cont
-        continueButton.layer.cornerRadius = 12
+        setupUTSAVPrimaryButton(continueButton, title: "Continue")
         continueButton.layer.masksToBounds = true
 
         // FORGOT PASSWORD BUTTON - align right and purple color to match primary
