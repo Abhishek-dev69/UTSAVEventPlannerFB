@@ -21,7 +21,7 @@ final class EventCardCell: UITableViewCell {
         selectionStyle = .none
 
         // Container card style
-        container.backgroundColor = .white
+        container.backgroundColor = UIColor(white: 1.0, alpha: 0.85)
         container.layer.cornerRadius = 18
         container.layer.shadowColor = UIColor.black.cgColor
         container.layer.shadowOpacity = 0.08
