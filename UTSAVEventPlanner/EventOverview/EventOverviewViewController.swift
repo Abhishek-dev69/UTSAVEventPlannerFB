@@ -39,10 +39,15 @@ final class EventOverviewViewController: UIViewController {
         navigationController?.setNavigationBarHidden(false, animated: true)
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
+        applyBrandGradient()
         setupNav()
         setupScroll()
         setupHeaderCard()
@@ -60,9 +65,8 @@ final class EventOverviewViewController: UIViewController {
         Task { await refreshFromServer() }
     }
 
-    // MARK: - NAV
     private func setupNav() {
-        navigationItem.title = event.eventName
+        setupUTSAVNavbar(title: event.eventName)
 
         let backItem = UIBarButtonItem(
             image: UIImage(systemName: "chevron.left"),
@@ -70,33 +74,22 @@ final class EventOverviewViewController: UIViewController {
             target: self,
             action: #selector(backPressed)
         )
-        backItem.tintColor = .black
         navigationItem.leftBarButtonItem = backItem
 
-        // ✅ SHARE PDF BUTTON
+        // ✅ RESTORE SHARE/DOWNLOAD
         let shareItem = UIBarButtonItem(
             image: UIImage(systemName: "square.and.arrow.up"),
             style: .plain,
             target: self,
             action: #selector(didTapShare)
         )
-        shareItem.tintColor = .black
         let downloadItem = UIBarButtonItem(
             image: UIImage(systemName: "arrow.down.circle"),
             style: .plain,
             target: self,
             action: #selector(didTapDownload)
         )
-
         navigationItem.rightBarButtonItems = [shareItem, downloadItem]
-
-        let appearance = UINavigationBarAppearance()
-        appearance.configureWithOpaqueBackground()
-        appearance.backgroundColor = .white
-        appearance.titleTextAttributes = [.font: UIFont.systemFont(ofSize: 20, weight: .semibold)]
-
-        navigationController?.navigationBar.standardAppearance = appearance
-        navigationController?.navigationBar.scrollEdgeAppearance = appearance
     }
 
     @objc private func backPressed() {
@@ -301,14 +294,19 @@ final class EventOverviewViewController: UIViewController {
     // MARK: - SCROLLVIEW
     private func setupScroll() {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.backgroundColor = .clear
         view.addSubview(scrollView)
 
         NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
+        
+        // Optimized gap for UTSAV brand
+        scrollView.contentInset.top = 15
+        scrollView.verticalScrollIndicatorInsets.top = 15
 
         contentStack.axis = .vertical
         contentStack.spacing = 18
@@ -316,24 +314,24 @@ final class EventOverviewViewController: UIViewController {
         scrollView.addSubview(contentStack)
 
         NSLayoutConstraint.activate([
-            contentStack.topAnchor.constraint(equalTo: scrollView.topAnchor, constant: 20),
-            contentStack.leadingAnchor.constraint(equalTo: scrollView.leadingAnchor, constant: 16),
-            contentStack.trailingAnchor.constraint(equalTo: scrollView.trailingAnchor, constant: -16),
-            contentStack.bottomAnchor.constraint(equalTo: scrollView.bottomAnchor, constant: -20),
-            contentStack.widthAnchor.constraint(equalTo: scrollView.widthAnchor, constant: -32)
+            contentStack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 0),
+            contentStack.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 16),
+            contentStack.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -16),
+            contentStack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -20),
+            contentStack.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -32)
         ])
     }
 
     // MARK: - HEADER CARD
     private func setupHeaderCard() {
-        headerCard.backgroundColor = .white
-        headerCard.layer.cornerRadius = 14
+        headerCard.backgroundColor = .white.withAlphaComponent(0.85)
+        headerCard.layer.cornerRadius = 18
         headerCard.layer.shadowColor = UIColor.black.cgColor
-        headerCard.layer.shadowOpacity = 0.06
-        headerCard.layer.shadowRadius = 8
+        headerCard.layer.shadowOpacity = 0.08
+        headerCard.layer.shadowRadius = 12
         headerCard.layer.shadowOffset = CGSize(width: 0, height: 6)
 
-        headerClientLabel.font = .systemFont(ofSize: 18, weight: .semibold)
+        headerClientLabel.font = .systemFont(ofSize: 22, weight: .bold)
         headerClientLabel.numberOfLines = 2
 
         func setupIcon(_ icon: UIImageView, name: String) {
@@ -382,10 +380,10 @@ final class EventOverviewViewController: UIViewController {
         headerCard.addSubview(infoStack)
 
         NSLayoutConstraint.activate([
-            infoStack.topAnchor.constraint(equalTo: headerCard.topAnchor, constant: 16),
-            infoStack.leadingAnchor.constraint(equalTo: headerCard.leadingAnchor, constant: 16),
-            infoStack.trailingAnchor.constraint(equalTo: headerCard.trailingAnchor, constant: -16),
-            infoStack.bottomAnchor.constraint(equalTo: headerCard.bottomAnchor, constant: -16)
+            infoStack.topAnchor.constraint(equalTo: headerCard.topAnchor, constant: 24),
+            infoStack.leadingAnchor.constraint(equalTo: headerCard.leadingAnchor, constant: 20),
+            infoStack.trailingAnchor.constraint(equalTo: headerCard.trailingAnchor, constant: -20),
+            infoStack.bottomAnchor.constraint(equalTo: headerCard.bottomAnchor, constant: -24)
         ])
 
         contentStack.addArrangedSubview(headerCard)
