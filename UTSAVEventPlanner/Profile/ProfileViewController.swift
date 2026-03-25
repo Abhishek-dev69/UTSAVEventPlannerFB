@@ -34,12 +34,17 @@ final class ProfileViewController: UIViewController {
     // Button
     private let continueButton = UIButton(type: .system)
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
+    }
+
     // MARK: - Lifecycle
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemGroupedBackground
-
+        applyBrandGradient()
+        
         configureNavigationBar()
         setupScrollViewAndContent()
         setupProfileArea()
@@ -57,7 +62,7 @@ final class ProfileViewController: UIViewController {
 
     private func configureNavigationBar() {
         navigationController?.setNavigationBarHidden(false, animated: false)
-        navigationItem.title = "Your Profile"
+        setupUTSAVNavbar(title: "Your Profile")
 
         navigationItem.leftBarButtonItem = UIBarButtonItem(
             image: UIImage(systemName: "chevron.left"),
@@ -72,7 +77,7 @@ final class ProfileViewController: UIViewController {
             target: self,
             action: #selector(logoutTapped)
         )
-        logoutButton.tintColor = .utsavPurple
+        // logoutButton.tintColor = .white // Removed to inherit black
         navigationItem.rightBarButtonItem = logoutButton
     }
 
@@ -134,14 +139,19 @@ final class ProfileViewController: UIViewController {
 
     private func setupScrollViewAndContent() {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.backgroundColor = .clear
         view.addSubview(scrollView)
 
         NSLayoutConstraint.activate([
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
+        
+        // Optimized gap for brand consistency
+        scrollView.contentInset.top = 15
+        scrollView.verticalScrollIndicatorInsets.top = 15
 
         contentStack.axis = .vertical
         contentStack.spacing = 20
@@ -152,7 +162,7 @@ final class ProfileViewController: UIViewController {
         NSLayoutConstraint.activate([
             contentStack.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 16),
             contentStack.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -16),
-            contentStack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 20),
+            contentStack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 0),
             contentStack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -20),
             contentStack.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -32)
         ])
@@ -201,8 +211,12 @@ final class ProfileViewController: UIViewController {
     }
 
     private func setupPersonalCard() {
-        personalCard.backgroundColor = .systemBackground
-        personalCard.layer.cornerRadius = 14
+        personalCard.backgroundColor = .white.withAlphaComponent(0.85)
+        personalCard.layer.cornerRadius = 18
+        personalCard.layer.shadowColor = UIColor.black.cgColor
+        personalCard.layer.shadowOpacity = 0.08
+        personalCard.layer.shadowRadius = 8
+        personalCard.layer.shadowOffset = CGSize(width: 0, height: 4)
         contentStack.addArrangedSubview(personalCard)
 
         let title = headerLabel("Personal Information")
@@ -233,8 +247,12 @@ final class ProfileViewController: UIViewController {
     }
 
     private func setupBusinessCard() {
-        businessCard.backgroundColor = .systemBackground
-        businessCard.layer.cornerRadius = 14
+        businessCard.backgroundColor = .white.withAlphaComponent(0.85)
+        businessCard.layer.cornerRadius = 18
+        businessCard.layer.shadowColor = UIColor.black.cgColor
+        businessCard.layer.shadowOpacity = 0.08
+        businessCard.layer.shadowRadius = 8
+        businessCard.layer.shadowOffset = CGSize(width: 0, height: 4)
         contentStack.addArrangedSubview(businessCard)
 
         let title = headerLabel("Business / Work Details")
@@ -312,10 +330,7 @@ final class ProfileViewController: UIViewController {
     // MARK: - Save Profile Button
 
     private func setupContinueButton() {
-        continueButton.setTitle("Save Profile", for: .normal)
-        continueButton.backgroundColor = UIColor(red: 139/255, green: 59/255, blue: 240/255, alpha: 1)
-        continueButton.setTitleColor(.white, for: .normal)
-        continueButton.layer.cornerRadius = 22
+        setupUTSAVPrimaryButton(continueButton, title: "Save Profile")
         continueButton.heightAnchor.constraint(equalToConstant: 44).isActive = true
 
         continueButton.addTarget(self, action: #selector(saveProfileTapped), for: .touchUpInside)
