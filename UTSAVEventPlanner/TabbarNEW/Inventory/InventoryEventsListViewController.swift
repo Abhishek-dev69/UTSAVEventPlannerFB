@@ -4,6 +4,9 @@ final class InventoryEventsListViewController: UIViewController {
 
     private let tableView = UITableView(frame: .zero, style: .plain)
 
+    // MARK: - Scroll Reporting
+    var onScroll: ((CGFloat) -> Void)?
+
     // Loading spinner
     private let spinner = UIActivityIndicatorView(style: .large)
 
@@ -26,8 +29,7 @@ final class InventoryEventsListViewController: UIViewController {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-
-        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
+        view.backgroundColor = .clear
         navigationItem.title = "Inventory"
 
         setupSearch()
@@ -238,6 +240,10 @@ extension InventoryEventsListViewController: UISearchResultsUpdating {
 
 // MARK: - TableView
 extension InventoryEventsListViewController: UITableViewDataSource, UITableViewDelegate {
+
+    func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        onScroll?(scrollView.contentOffset.y)
+    }
 
     func tableView(_ t: UITableView, numberOfRowsInSection section: Int) -> Int {
         (isSearching ? filteredEvents : events).count
