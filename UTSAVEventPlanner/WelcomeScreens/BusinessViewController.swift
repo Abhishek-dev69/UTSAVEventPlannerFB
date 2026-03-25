@@ -31,17 +31,24 @@ final class BusinessViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        applyBrandGradient()
+        view.backgroundColor = .clear
 
         configureNavigationBar()
         setupScrollViewAndContent()
         setupProfileArea()
         setupPersonalSection()
         setupBusinessSection()
-        setupContinueButton()
         styleTextFields()
         registerKeyboardNotifications()
         addTapToDismissKeyboard()
+        
+        setupUTSAVPrimaryButton(continueButton, title: "Continue")
+    }
+    
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
     }
 
     deinit {
@@ -51,27 +58,7 @@ final class BusinessViewController: UIViewController {
     // MARK: - Nav Bar
 
     private func configureNavigationBar() {
-        navigationController?.navigationBar.isTranslucent = false
-        navigationController?.navigationBar.tintColor = .label
-
-        if #available(iOS 13.0, *) {
-            let appearance = UINavigationBarAppearance()
-            appearance.configureWithOpaqueBackground()
-            appearance.backgroundColor = .white
-            appearance.titleTextAttributes = [
-                .foregroundColor: UIColor.label,
-                .font: UIFont.systemFont(ofSize: 18, weight: .semibold)
-            ]
-            appearance.shadowColor = .clear
-            navigationController?.navigationBar.standardAppearance = appearance
-            navigationController?.navigationBar.compactAppearance  = appearance
-            navigationController?.navigationBar.scrollEdgeAppearance = appearance
-        } else {
-            navigationController?.navigationBar.barTintColor = .white
-            navigationController?.navigationBar.shadowImage = UIImage()
-        }
-
-        navigationItem.title = "Create your profile"
+        setupUTSAVNavbar(title: "Create your profile")
         navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Skip", style: .plain, target: self, action: #selector(skipTapped))
     }
 
@@ -83,7 +70,7 @@ final class BusinessViewController: UIViewController {
 
         NSLayoutConstraint.activate([
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
         ])
@@ -97,7 +84,7 @@ final class BusinessViewController: UIViewController {
         NSLayoutConstraint.activate([
             contentStack.leadingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.leadingAnchor, constant: 16),
             contentStack.trailingAnchor.constraint(equalTo: scrollView.contentLayoutGuide.trailingAnchor, constant: -16),
-            contentStack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 20),
+            contentStack.topAnchor.constraint(equalTo: scrollView.contentLayoutGuide.topAnchor, constant: 100), // Immersive top
             contentStack.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor, constant: -20),
             contentStack.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor, constant: -32)
         ])
@@ -207,11 +194,11 @@ final class BusinessViewController: UIViewController {
         let fields = [nameTextField, emailTextField, phoneTextField, businessNameTextField, businessAddressTextField]
         fields.forEach { tf in
             tf.borderStyle = .none
-            tf.backgroundColor = .secondarySystemBackground
+            tf.backgroundColor = .clear
             tf.layer.cornerRadius = 10
             tf.layer.masksToBounds = true
             tf.layer.borderWidth = 1
-            tf.layer.borderColor = UIColor.systemGray4.cgColor
+            tf.layer.borderColor = UIColor.black.withAlphaComponent(0.1).cgColor
             tf.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 12, height: 1))
             tf.leftViewMode = .always
             tf.tintColor = .systemBlue
