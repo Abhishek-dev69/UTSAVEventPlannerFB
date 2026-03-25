@@ -7,7 +7,7 @@ final class EventPaymentCardCell: UITableViewCell {
     private let cardView: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
-        v.backgroundColor = .systemBackground
+        v.backgroundColor = UIColor(white: 1.0, alpha: 0.85)
         v.layer.cornerRadius = 14
         v.layer.shadowColor = UIColor.black.cgColor
         v.layer.shadowOpacity = 0.06
