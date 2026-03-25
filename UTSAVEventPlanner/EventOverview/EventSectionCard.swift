@@ -27,7 +27,7 @@ final class EventSectionCard: UIView {
     )
     {
 
-        backgroundColor = .white
+        backgroundColor = UIColor(white: 1.0, alpha: 0.85)
         layer.cornerRadius = 18
         layer.shadowColor = UIColor.black.cgColor
         layer.shadowOpacity = 0.06
