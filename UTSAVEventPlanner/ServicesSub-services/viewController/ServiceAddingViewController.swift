@@ -9,6 +9,8 @@ final class ServiceAddingViewController: UIViewController {
     private let headerTitle = UILabel()
 
     private let purpleCard = UIView()
+    private let cardBlur = UIVisualEffectView(effect: UIBlurEffect(style: .systemMaterial))
+    private let cardTint = UIView()
     private let serviceTitleLabel = UILabel()
     private let serviceTextField = UITextField()
 
@@ -51,7 +53,7 @@ final class ServiceAddingViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        view.backgroundColor = .systemGroupedBackground
+        view.backgroundColor = UIColor(red: 244/255, green: 241/255, blue: 252/255, alpha: 1)
 
         setupUI()
         setupConstraints()
@@ -64,24 +66,23 @@ final class ServiceAddingViewController: UIViewController {
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
 
-        // Recompute the vertical midpoint between subServicesLabel.bottom and saveButton.top,
-        // then update the centerY constraint constant to place the emptyStateLabel there.
-        // Only do this when both frames are available.
+        // Resize gradient layers
+        if let barGrad = topBar.layer.sublayers?.first as? CAGradientLayer {
+            barGrad.frame = topBar.bounds
+        }
+        if let saveGrad = saveButton.layer.sublayers?.first as? CAGradientLayer {
+            saveGrad.frame = saveButton.bounds
+        }
+
         let topY = subServicesLabel.frame.maxY
         let bottomY = saveButton.frame.minY
-
-        // In some layout states bottomY might be <= topY (very small screen or animation), guard:
         guard bottomY > topY else {
             emptyStateCenterYConstraint.constant = 0
             return
         }
-
         let midpoint = (topY + bottomY) / 2.0
-        // convert midpoint (in view coordinates) to a constant relative to view.centerYAnchor
         let centerYSuper = view.bounds.midY
-        let constant = midpoint - centerYSuper
-
-        emptyStateCenterYConstraint.constant = constant
+        emptyStateCenterYConstraint.constant = midpoint - centerYSuper
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -96,173 +97,248 @@ final class ServiceAddingViewController: UIViewController {
 
     // MARK: - Setup UI
     private func setupUI() {
-        // Top bar
+        let purple = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
+        let deepPurple = UIColor(red: 106/255, green: 31/255, blue: 208/255, alpha: 1)
+
+        // ── Top bar ──────────────────────────────────────────────────────────
         topBar.translatesAutoresizingMaskIntoConstraints = false
-        topBar.backgroundColor = .clear
+        topBar.clipsToBounds = false
+
+        // Gradient fill for the top bar
+        let barGrad = CAGradientLayer()
+        barGrad.colors = [deepPurple.cgColor, purple.cgColor]
+        barGrad.startPoint = CGPoint(x: 0, y: 0.5)
+        barGrad.endPoint   = CGPoint(x: 1, y: 0.5)
+        barGrad.cornerRadius = 0
+        topBar.layer.insertSublayer(barGrad, at: 0)
+        topBar.tag = 901   // used in viewDidLayoutSubviews to resize gradient
         view.addSubview(topBar)
 
-        closeButton.setImage(UIImage(systemName: "xmark"), for: .normal)
-        closeButton.tintColor = .label
+        // Close button — white circle
+        let closeCircle = UIView()
+        closeCircle.backgroundColor = UIColor.white.withAlphaComponent(0.18)
+        closeCircle.layer.cornerRadius = 18
+        closeCircle.translatesAutoresizingMaskIntoConstraints = false
+        closeCircle.isUserInteractionEnabled = false
+        topBar.addSubview(closeCircle)
+
+        closeButton.setImage(
+            UIImage(systemName: "xmark", withConfiguration:
+                UIImage.SymbolConfiguration(pointSize: 13, weight: .bold)),
+            for: .normal)
+        closeButton.tintColor = .white
         closeButton.translatesAutoresizingMaskIntoConstraints = false
         closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
-        closeButton.accessibilityLabel = "Close"
         topBar.addSubview(closeButton)
 
         headerTitle.text = "Create Service"
-        headerTitle.font = .systemFont(ofSize: 20, weight: .semibold)
+        headerTitle.font = .systemFont(ofSize: 18, weight: .bold)
+        headerTitle.textColor = .white
         headerTitle.translatesAutoresizingMaskIntoConstraints = false
         headerTitle.textAlignment = .center
-        headerTitle.accessibilityTraits = .header
         topBar.addSubview(headerTitle)
 
-        // Purple card
-        purpleCard.backgroundColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
-        purpleCard.layer.cornerRadius = 12
-        purpleCard.layer.masksToBounds = false
+        // ── Service name card background (glass effect) ─────────────────────
+        purpleCard.backgroundColor = .clear
+        purpleCard.layer.cornerRadius = 20
         purpleCard.translatesAutoresizingMaskIntoConstraints = false
-        purpleCard.layer.shadowColor = UIColor.black.cgColor
-        purpleCard.layer.shadowOpacity = 0.08
-        purpleCard.layer.shadowOffset = CGSize(width: 0, height: 8)
-        purpleCard.layer.shadowRadius = 16
+        purpleCard.layer.borderColor = purple.withAlphaComponent(0.20).cgColor
+        purpleCard.layer.borderWidth  = 1
+        purpleCard.layer.shadowColor  = purple.cgColor
+        purpleCard.layer.shadowOpacity = 0.10
+        purpleCard.layer.shadowRadius  = 14
+        purpleCard.layer.shadowOffset  = CGSize(width: 0, height: 6)
+        purpleCard.isUserInteractionEnabled = false // Background only
         view.addSubview(purpleCard)
 
-        serviceTitleLabel.text = "Service Name"
-        serviceTitleLabel.font = .systemFont(ofSize: 16, weight: .medium)
-        serviceTitleLabel.textColor = .white
-        serviceTitleLabel.translatesAutoresizingMaskIntoConstraints = false
-        purpleCard.addSubview(serviceTitleLabel)
+        // Blur inside card
+        cardBlur.layer.cornerRadius = 20
+        cardBlur.clipsToBounds = true
+        cardBlur.translatesAutoresizingMaskIntoConstraints = false
+        cardBlur.isUserInteractionEnabled = false
+        purpleCard.addSubview(cardBlur)
 
-        // Service text field
-        serviceTextField.placeholder = "Enter service name"
+        // Tint inside card
+        cardTint.backgroundColor = purple.withAlphaComponent(0.08)
+        cardTint.layer.cornerRadius = 20
+        cardTint.clipsToBounds = true
+        cardTint.translatesAutoresizingMaskIntoConstraints = false
+        cardTint.isUserInteractionEnabled = false
+        purpleCard.addSubview(cardTint)
+
+        // ── Service name label (Direct subview of view) ────────────────────
+        serviceTitleLabel.text = "Service Name"
+        serviceTitleLabel.font = .systemFont(ofSize: 12, weight: .semibold)
+        serviceTitleLabel.textColor = purple
+        serviceTitleLabel.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(serviceTitleLabel)
+
+        // ── Service text field (Direct subview of view) ───────────────────
+        let iconView = UIImageView(image: UIImage(systemName: "storefront.fill",
+            withConfiguration: UIImage.SymbolConfiguration(pointSize: 16, weight: .medium)))
+        iconView.tintColor = purple
+        iconView.contentMode = .center
+        iconView.frame = CGRect(x: 0, y: 0, width: 44, height: 52)
+
+        serviceTextField.placeholder = "e.g. Photography, Decoration…"
         serviceTextField.backgroundColor = .white
-        serviceTextField.layer.cornerRadius = 10
-        serviceTextField.font = .systemFont(ofSize: 16)
+        serviceTextField.textColor = .label
+        serviceTextField.layer.cornerRadius = 14
+        serviceTextField.layer.borderColor = purple.withAlphaComponent(0.20).cgColor
+        serviceTextField.layer.borderWidth  = 1
+        serviceTextField.font = .systemFont(ofSize: 16, weight: .medium)
         serviceTextField.translatesAutoresizingMaskIntoConstraints = false
-        serviceTextField.heightAnchor.constraint(equalToConstant: 48).isActive = true
+        serviceTextField.heightAnchor.constraint(equalToConstant: 52).isActive = true
+        serviceTextField.leftView  = iconView
+        serviceTextField.leftViewMode = .always
         serviceTextField.addTarget(self, action: #selector(textFieldChanged), for: .editingChanged)
         serviceTextField.autocapitalizationType = .words
-        serviceTextField.returnKeyType = .done
+        serviceTextField.returnKeyType   = .done
         serviceTextField.clearButtonMode = .whileEditing
-        serviceTextField.textAlignment = .natural
-        serviceTextField.accessibilityLabel = "Service name"
         serviceTextField.isUserInteractionEnabled = true
+        serviceTextField.layer.shadowColor   = purple.cgColor
+        serviceTextField.layer.shadowOpacity = 0.06
+        serviceTextField.layer.shadowRadius  = 8
+        serviceTextField.layer.shadowOffset  = CGSize(width: 0, height: 3)
+        view.addSubview(serviceTextField)
+        view.bringSubviewToFront(serviceTextField)
 
-        let leftPadding = UIView(frame: CGRect(x: 0, y: 0, width: 12, height: 48))
-        serviceTextField.leftView = leftPadding
-        serviceTextField.leftViewMode = .always
-
-        purpleCard.addSubview(serviceTextField)
-
-        // Sub-services label + add button
+        // ── Sub-Services header row ─────────────────────────────────────────
         subServicesLabel.text = "Sub-Services"
-        subServicesLabel.font = .systemFont(ofSize: 18, weight: .semibold)
+        subServicesLabel.font = .systemFont(ofSize: 16, weight: .bold)
+        subServicesLabel.textColor = .label
         subServicesLabel.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(subServicesLabel)
 
-        // Configure addButton as circular and centered plus
+        // Add button — pill shaped
         addButton.translatesAutoresizingMaskIntoConstraints = false
-        addButton.backgroundColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
-        addButton.layer.cornerRadius = 20 // half of width/height (40)
-        addButton.layer.masksToBounds = true
-        addButton.widthAnchor.constraint(equalToConstant: 40).isActive = true
-        addButton.heightAnchor.constraint(equalToConstant: 40).isActive = true
-
-        // Use bold plus symbol sized appropriately
-        let plusConfig = UIImage.SymbolConfiguration(pointSize: 18, weight: .bold)
-        let plusImage = UIImage(systemName: "plus", withConfiguration: plusConfig)
-        addButton.setImage(plusImage, for: .normal)
-        addButton.tintColor = .white
+        addButton.backgroundColor = purple
+        addButton.layer.cornerRadius = 18
+        addButton.widthAnchor.constraint(equalToConstant: 100).isActive = true
+        addButton.heightAnchor.constraint(equalToConstant: 36).isActive = true
+        let plusConfig = UIImage.SymbolConfiguration(pointSize: 12, weight: .bold)
+        addButton.setImage(UIImage(systemName: "plus", withConfiguration: plusConfig), for: .normal)
+        addButton.setTitle(" Add", for: .normal)
+        addButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
+        addButton.tintColor  = .white
+        addButton.setTitleColor(.white, for: .normal)
+        addButton.layer.shadowColor   = purple.cgColor
+        addButton.layer.shadowOpacity = 0.25
+        addButton.layer.shadowRadius  = 8
+        addButton.layer.shadowOffset  = CGSize(width: 0, height: 3)
         addButton.addTarget(self, action: #selector(addTapped), for: .touchUpInside)
-        addButton.accessibilityLabel = "Add sub-service"
         view.addSubview(addButton)
 
-        // Table view
+        // ── Table view ──────────────────────────────────────────────────────
         tableView.translatesAutoresizingMaskIntoConstraints = false
-        tableView.backgroundColor = .clear // show grouped background
-        tableView.layer.cornerRadius = 8
-        tableView.layer.masksToBounds = true
+        tableView.backgroundColor = .clear
+        tableView.separatorStyle = .none
+        tableView.showsVerticalScrollIndicator = false
         view.addSubview(tableView)
 
-        // Empty state label (as a subview of the main view)
+        // ── Empty state ─────────────────────────────────────────────────────
         view.addSubview(emptyStateLabel)
-        // centerX constraint
+        emptyStateLabel.text = "Tap \"Add\" to create your first sub-service"
+        emptyStateLabel.textColor = UIColor.secondaryLabel
         emptyStateLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
-        // centerY constraint — store and update in viewDidLayoutSubviews
         emptyStateCenterYConstraint = emptyStateLabel.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         emptyStateCenterYConstraint.isActive = true
-        // width constraints to avoid overflow
         emptyStateLabel.leadingAnchor.constraint(greaterThanOrEqualTo: view.leadingAnchor, constant: 20).isActive = true
         emptyStateLabel.trailingAnchor.constraint(lessThanOrEqualTo: view.trailingAnchor, constant: -20).isActive = true
 
-        // Save button
+        // ── Save button — gradient full width ───────────────────────────────
         saveButton.setTitle("Save Service", for: .normal)
+        saveButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .bold)
         saveButton.setTitleColor(.white, for: .normal)
-        saveButton.backgroundColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
-        saveButton.layer.cornerRadius = 28
+        saveButton.layer.cornerRadius = 26
+        saveButton.clipsToBounds = false
         saveButton.translatesAutoresizingMaskIntoConstraints = false
         saveButton.addTarget(self, action: #selector(saveTapped), for: .touchUpInside)
-        saveButton.layer.shadowColor = UIColor.black.cgColor
-        saveButton.layer.shadowOpacity = 0.12
-        saveButton.layer.shadowOffset = CGSize(width: 0, height: 8)
-        saveButton.layer.shadowRadius = 16
+
+        let saveGrad = CAGradientLayer()
+        saveGrad.colors  = [purple.cgColor, deepPurple.cgColor]
+        saveGrad.startPoint = CGPoint(x: 0, y: 0.5)
+        saveGrad.endPoint   = CGPoint(x: 1, y: 0.5)
+        saveGrad.cornerRadius = 26
+        saveButton.layer.insertSublayer(saveGrad, at: 0)
+        saveButton.tag = 902  // for sizing in viewDidLayoutSubviews
+
+        saveButton.layer.shadowColor   = purple.cgColor
+        saveButton.layer.shadowOpacity = 0.35
+        saveButton.layer.shadowRadius  = 14
+        saveButton.layer.shadowOffset  = CGSize(width: 0, height: 6)
         view.addSubview(saveButton)
+
+        // Store reference for gradient layer lookup
+        view.tag = 900
     }
 
     // MARK: - Constraints
     private func setupConstraints() {
         NSLayoutConstraint.activate([
-            // Top bar
-            topBar.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            // Top bar — gradient header
+            topBar.topAnchor.constraint(equalTo: view.topAnchor),
             topBar.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             topBar.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            topBar.heightAnchor.constraint(equalToConstant: 56),
+            topBar.heightAnchor.constraint(equalToConstant: 64),
 
             closeButton.leadingAnchor.constraint(equalTo: topBar.leadingAnchor, constant: 16),
-            closeButton.centerYAnchor.constraint(equalTo: topBar.centerYAnchor),
+            closeButton.centerYAnchor.constraint(equalTo: topBar.centerYAnchor, constant: 4),
             closeButton.widthAnchor.constraint(equalToConstant: 36),
             closeButton.heightAnchor.constraint(equalToConstant: 36),
 
             headerTitle.centerXAnchor.constraint(equalTo: topBar.centerXAnchor),
-            headerTitle.centerYAnchor.constraint(equalTo: topBar.centerYAnchor),
+            headerTitle.centerYAnchor.constraint(equalTo: topBar.centerYAnchor, constant: 4),
 
-            // Purple card
-            purpleCard.topAnchor.constraint(equalTo: topBar.bottomAnchor, constant: 12),
+            // Glass card BG
+            purpleCard.topAnchor.constraint(equalTo: topBar.bottomAnchor, constant: 16),
             purpleCard.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             purpleCard.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
-            purpleCard.heightAnchor.constraint(equalToConstant: 160),
+            purpleCard.bottomAnchor.constraint(equalTo: serviceTextField.bottomAnchor, constant: 16),
 
-            // Title set higher inside card and centered horizontally
-            serviceTitleLabel.topAnchor.constraint(equalTo: purpleCard.topAnchor, constant: 20),
-            serviceTitleLabel.centerXAnchor.constraint(equalTo: purpleCard.centerXAnchor),
+            cardBlur.topAnchor.constraint(equalTo: purpleCard.topAnchor),
+            cardBlur.leadingAnchor.constraint(equalTo: purpleCard.leadingAnchor),
+            cardBlur.trailingAnchor.constraint(equalTo: purpleCard.trailingAnchor),
+            cardBlur.bottomAnchor.constraint(equalTo: purpleCard.bottomAnchor),
 
-            // Larger gap between title and text field
-            serviceTextField.topAnchor.constraint(equalTo: serviceTitleLabel.bottomAnchor, constant: 20),
-            serviceTextField.leadingAnchor.constraint(equalTo: purpleCard.leadingAnchor, constant: 16),
-            serviceTextField.trailingAnchor.constraint(equalTo: purpleCard.trailingAnchor, constant: -16),
+            cardTint.topAnchor.constraint(equalTo: purpleCard.topAnchor),
+            cardTint.leadingAnchor.constraint(equalTo: purpleCard.leadingAnchor),
+            cardTint.trailingAnchor.constraint(equalTo: purpleCard.trailingAnchor),
+            cardTint.bottomAnchor.constraint(equalTo: purpleCard.bottomAnchor),
+
+            // Foreground elements
+            serviceTitleLabel.topAnchor.constraint(equalTo: purpleCard.topAnchor, constant: 16),
+            serviceTitleLabel.leadingAnchor.constraint(equalTo: purpleCard.leadingAnchor, constant: 16),
+
+            serviceTextField.topAnchor.constraint(equalTo: serviceTitleLabel.bottomAnchor, constant: 8),
+            serviceTextField.leadingAnchor.constraint(equalTo: purpleCard.leadingAnchor, constant: 12),
+            serviceTextField.trailingAnchor.constraint(equalTo: purpleCard.trailingAnchor, constant: -12),
+            serviceTextField.bottomAnchor.constraint(equalTo: purpleCard.bottomAnchor, constant: -16),
 
             // Sub-services row
-            subServicesLabel.topAnchor.constraint(equalTo: purpleCard.bottomAnchor, constant: 20),
+            subServicesLabel.topAnchor.constraint(equalTo: purpleCard.bottomAnchor, constant: 22),
             subServicesLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
 
             addButton.centerYAnchor.constraint(equalTo: subServicesLabel.centerYAnchor),
-            addButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            addButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             subServicesLabel.trailingAnchor.constraint(lessThanOrEqualTo: addButton.leadingAnchor, constant: -12),
 
             // Table
-            tableView.topAnchor.constraint(equalTo: subServicesLabel.bottomAnchor, constant: 12),
-            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 12),
-            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -12),
+            tableView.topAnchor.constraint(equalTo: subServicesLabel.bottomAnchor, constant: 10),
+            tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
 
-            // Save button
+            // Save button — full width, floating above bottom
             saveButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            saveButton.widthAnchor.constraint(equalToConstant: 300),
+            saveButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            saveButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             saveButton.heightAnchor.constraint(equalToConstant: 54)
         ])
 
-        saveButtonBottomConstraint = saveButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -30)
+        saveButtonBottomConstraint = saveButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -24)
         saveButtonBottomConstraint.isActive = true
 
-        tableView.bottomAnchor.constraint(equalTo: saveButton.topAnchor, constant: -18).isActive = true
+        tableView.bottomAnchor.constraint(equalTo: saveButton.topAnchor, constant: -14).isActive = true
     }
 
     // MARK: - Table Setup
@@ -429,25 +505,93 @@ extension ServiceAddingViewController: UITableViewDelegate, UITableViewDataSourc
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
-        let item = subServices[indexPath.row]
-        var content = cell.defaultContentConfiguration()
-        content.text = "\(item.name) — ₹\(Int(item.rate))"
-        content.imageProperties.maximumSize = CGSize(width: 40, height: 40)
-        content.imageProperties.cornerRadius = 8
-        content.secondaryTextProperties.font = .systemFont(ofSize: 12)
-        cell.contentConfiguration = content
+        cell.contentConfiguration = nil
+        cell.subviews.filter { $0.tag == 777 }.forEach { $0.removeFromSuperview() }
+        cell.backgroundColor = .clear
+        cell.selectionStyle  = .none
 
+        let item   = subServices[indexPath.row]
+        let purple = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
+
+        // Card container
+        let card = UIView()
+        card.tag = 777
+        card.backgroundColor = .white
+        card.layer.cornerRadius = 14
+        card.layer.shadowColor   = purple.cgColor
+        card.layer.shadowOpacity = 0.07
+        card.layer.shadowRadius  = 8
+        card.layer.shadowOffset  = CGSize(width: 0, height: 3)
+        card.translatesAutoresizingMaskIntoConstraints = false
+        cell.contentView.addSubview(card)
+
+        // Purple left strip
+        let strip = UIView()
+        strip.backgroundColor = purple
+        strip.layer.cornerRadius = 3
+        strip.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(strip)
+
+        // Name label
+        let nameLabel = UILabel()
+        nameLabel.text = item.name
+        nameLabel.font = .systemFont(ofSize: 15, weight: .semibold)
+        nameLabel.textColor = .label
+        nameLabel.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(nameLabel)
+
+        // Pill amount badge
+        let amountPill = UIView()
+        amountPill.backgroundColor = purple.withAlphaComponent(0.10)
+        amountPill.layer.cornerRadius = 12
+        amountPill.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(amountPill)
+
+        let amountLabel = UILabel()
+        amountLabel.text = "₹\(Int(item.rate))"
+        amountLabel.font = .systemFont(ofSize: 13, weight: .bold)
+        amountLabel.textColor = purple
+        amountLabel.translatesAutoresizingMaskIntoConstraints = false
+        amountPill.addSubview(amountLabel)
+
+        // Edit button
         let editButton = UIButton(type: .system)
-        // --- UPDATED: Use plain pencil (bold) without circle background ---
-        let pencilConfig = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
+        let pencilConfig = UIImage.SymbolConfiguration(pointSize: 14, weight: .semibold)
         editButton.setImage(UIImage(systemName: "pencil", withConfiguration: pencilConfig), for: .normal)
-        editButton.tintColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
+        editButton.tintColor = purple.withAlphaComponent(0.7)
         editButton.tag = indexPath.row
         editButton.addTarget(self, action: #selector(editButtonTapped(_:)), for: .touchUpInside)
-        editButton.frame = CGRect(x: 0, y: 0, width: 28, height: 28)
-        cell.accessoryView = editButton
+        editButton.translatesAutoresizingMaskIntoConstraints = false
+        card.addSubview(editButton)
 
-        cell.selectionStyle = .none
+        NSLayoutConstraint.activate([
+            card.topAnchor.constraint(equalTo: cell.contentView.topAnchor, constant: 5),
+            card.leadingAnchor.constraint(equalTo: cell.contentView.leadingAnchor),
+            card.trailingAnchor.constraint(equalTo: cell.contentView.trailingAnchor),
+            card.bottomAnchor.constraint(equalTo: cell.contentView.bottomAnchor, constant: -5),
+
+            strip.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 12),
+            strip.centerYAnchor.constraint(equalTo: card.centerYAnchor),
+            strip.widthAnchor.constraint(equalToConstant: 4),
+            strip.heightAnchor.constraint(equalTo: card.heightAnchor, multiplier: 0.55),
+
+            nameLabel.leadingAnchor.constraint(equalTo: strip.trailingAnchor, constant: 12),
+            nameLabel.centerYAnchor.constraint(equalTo: card.centerYAnchor),
+
+            editButton.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -12),
+            editButton.centerYAnchor.constraint(equalTo: card.centerYAnchor),
+            editButton.widthAnchor.constraint(equalToConstant: 30),
+            editButton.heightAnchor.constraint(equalToConstant: 30),
+
+            amountPill.trailingAnchor.constraint(equalTo: editButton.leadingAnchor, constant: -8),
+            amountPill.centerYAnchor.constraint(equalTo: card.centerYAnchor),
+
+            amountLabel.topAnchor.constraint(equalTo: amountPill.topAnchor, constant: 5),
+            amountLabel.bottomAnchor.constraint(equalTo: amountPill.bottomAnchor, constant: -5),
+            amountLabel.leadingAnchor.constraint(equalTo: amountPill.leadingAnchor, constant: 10),
+            amountLabel.trailingAnchor.constraint(equalTo: amountPill.trailingAnchor, constant: -10)
+        ])
+
         return cell
     }
 
