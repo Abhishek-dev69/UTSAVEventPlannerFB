@@ -38,23 +38,29 @@ final class RecordClientPaymentViewController: UIViewController {
     }
     required init?(coder: NSCoder) { fatalError("Use init(event:)") }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
+        applyBrandGradient()
+        view.backgroundColor = .clear
+        
         setupNav()
         setupViews()
         configureDefaults()
     }
 
     private func setupNav() {
-        navigationItem.title = "Record Client Payment"
+        setupUTSAVNavbar(title: "Record Client Payment")
         let close = UIBarButtonItem(
             image: UIImage(systemName: "xmark"),
             style: .plain,
             target: self,
             action: #selector(closeTapped)
         )
-        close.tintColor = .black
         navigationItem.leftBarButtonItem = close
     }
 
@@ -67,51 +73,63 @@ final class RecordClientPaymentViewController: UIViewController {
         view.addSubview(scroll)
 
         NSLayoutConstraint.activate([
-            scroll.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scroll.topAnchor.constraint(equalTo: view.topAnchor),
             scroll.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scroll.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scroll.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
+        
+        scroll.contentInset.top = 20 // Reduced gap
 
         stack.axis = .vertical
-        stack.spacing = 16
+        stack.spacing = 20
         stack.translatesAutoresizingMaskIntoConstraints = false
         scroll.addSubview(stack)
 
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: scroll.topAnchor, constant: 20),
-            stack.leadingAnchor.constraint(equalTo: scroll.leadingAnchor, constant: 16),
-            stack.trailingAnchor.constraint(equalTo: scroll.trailingAnchor, constant: -16),
-            stack.bottomAnchor.constraint(lessThanOrEqualTo: scroll.bottomAnchor),
-            stack.widthAnchor.constraint(equalTo: scroll.widthAnchor, constant: -32)
+            stack.topAnchor.constraint(equalTo: scroll.topAnchor, constant: 10),
+            stack.leadingAnchor.constraint(equalTo: scroll.leadingAnchor, constant: 18),
+            stack.trailingAnchor.constraint(equalTo: scroll.trailingAnchor, constant: -18),
+            stack.bottomAnchor.constraint(equalTo: scroll.bottomAnchor, constant: -20),
+            stack.widthAnchor.constraint(equalTo: scroll.widthAnchor, constant: -36)
         ])
 
-        [clientField, amountField, methodField, dateField, saveButton].forEach {
-            $0.translatesAutoresizingMaskIntoConstraints = false
+        func styleInput(_ f: UITextField, placeholder: String) {
+            f.borderStyle = .none
+            f.backgroundColor = .white.withAlphaComponent(0.18)
+            f.layer.cornerRadius = 14
+            f.textColor = .black
+            f.font = .systemFont(ofSize: 16, weight: .medium)
+            
+            // Native Padding (Apple Style)
+            let leftPad = UIView(frame: CGRect(x: 0, y: 0, width: 16, height: 1))
+            f.leftView = leftPad
+            f.leftViewMode = .always
+            
+            // Aesthetic Placeholder
+            f.attributedPlaceholder = NSAttributedString(
+                string: placeholder,
+                attributes: [.foregroundColor: UIColor.black.withAlphaComponent(0.4)]
+            )
+            
+            f.heightAnchor.constraint(equalToConstant: 50).isActive = true
         }
 
-        clientField.borderStyle = .roundedRect
-        clientField.placeholder = "Client Name"
+        styleInput(clientField, placeholder: "Client Name")
         clientField.isEnabled = false
+        clientField.alpha = 0.7
 
-        amountField.borderStyle = .roundedRect
-        amountField.placeholder = "Amount"
+        styleInput(amountField, placeholder: "Enter Amount")
         amountField.keyboardType = .decimalPad
 
-        // 🔽 Payment Method Dropdown
-        methodField.borderStyle = .roundedRect
-        methodField.placeholder = "Payment Method"
-        methodField.tintColor = .clear   // hide cursor
+        styleInput(methodField, placeholder: "Select Method")
+        methodField.tintColor = .clear
         methodField.inputView = methodPicker
-
         methodPicker.dataSource = self
         methodPicker.delegate = self
         attachPickerToolbar(to: methodField)
 
-        dateField.borderStyle = .roundedRect
-        dateField.placeholder = "Date"
-
-        // date picker
+        styleInput(dateField, placeholder: "Select Date")
         datePicker.datePickerMode = .date
         if #available(iOS 14.0, *) {
             datePicker.preferredDatePickerStyle = .wheels
@@ -119,28 +137,20 @@ final class RecordClientPaymentViewController: UIViewController {
         datePicker.addTarget(self, action: #selector(dateChanged(_:)), for: .valueChanged)
         dateField.inputView = datePicker
 
-        saveButton.setTitle("Save", for: .normal)
-        saveButton.setTitleColor(.white, for: .normal)
-        saveButton.backgroundColor = UIColor(red: 140/255, green: 75/255, blue: 245/255, alpha: 1)
-        saveButton.layer.cornerRadius = 22
-        saveButton.heightAnchor.constraint(equalToConstant: 48).isActive = true
+        setupUTSAVPrimaryButton(saveButton, title: "Save Payment")
+        saveButton.heightAnchor.constraint(equalToConstant: 54).isActive = true
         saveButton.addTarget(self, action: #selector(saveTapped), for: .touchUpInside)
 
         stack.addArrangedSubview(clientField)
         stack.addArrangedSubview(amountField)
         stack.addArrangedSubview(methodField)
         stack.addArrangedSubview(dateField)
-        stack.addArrangedSubview(UIView())
         stack.addArrangedSubview(saveButton)
     }
 
     private func configureDefaults() {
         clientField.text = event.clientName
-
-        // default payment method
         methodField.text = "Cash"
-
-        // default date today
         let out = DateFormatter()
         out.dateFormat = "yyyy-MM-dd"
         dateField.text = out.string(from: Date())
@@ -181,15 +191,8 @@ final class RecordClientPaymentViewController: UIViewController {
                 )
                 
                 PaymentsEventStore.shared.clear()
-
-                NotificationCenter.default.post(
-                    name: Notification.Name("ReloadEventOverview"),
-                    object: nil
-                )
-                NotificationCenter.default.post(
-                    name: Notification.Name("ReloadPaymentsList"),
-                    object: nil
-                )
+                NotificationCenter.default.post(name: Notification.Name("ReloadEventOverview"), object: nil)
+                NotificationCenter.default.post(name: Notification.Name("ReloadPaymentsList"), object: nil)
 
                 await MainActor.run {
                     saveButton.isEnabled = true
@@ -199,10 +202,7 @@ final class RecordClientPaymentViewController: UIViewController {
             } catch {
                 await MainActor.run {
                     saveButton.isEnabled = true
-                    presentAlert(
-                        title: "Save failed",
-                        message: error.localizedDescription
-                    )
+                    presentAlert(title: "Save failed", message: error.localizedDescription)
                 }
             }
         }
@@ -211,10 +211,8 @@ final class RecordClientPaymentViewController: UIViewController {
     private func attachPickerToolbar(to field: UITextField) {
         let toolbar = UIToolbar()
         toolbar.sizeToFit()
-
         let spacer = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
         let done = UIBarButtonItem(title: "Done", style: .done, target: self, action: #selector(donePickingMethod))
-
         toolbar.setItems([spacer, done], animated: false)
         field.inputAccessoryView = toolbar
     }
@@ -232,22 +230,14 @@ final class RecordClientPaymentViewController: UIViewController {
 
 // MARK: - Picker Delegates
 extension RecordClientPaymentViewController: UIPickerViewDataSource, UIPickerViewDelegate {
-
     func numberOfComponents(in pickerView: UIPickerView) -> Int { 1 }
-
     func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
         paymentMethods.count
     }
-
-    func pickerView(_ pickerView: UIPickerView,
-               titleForRow row: Int,
-                    forComponent component: Int) -> String? {
+    func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
         paymentMethods[row]
     }
-
-    func pickerView(_ pickerView: UIPickerView,
-                    didSelectRow row: Int,
-                    inComponent component: Int) {
+    func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
         methodField.text = paymentMethods[row]
     }
 }
