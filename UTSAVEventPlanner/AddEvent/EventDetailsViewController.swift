@@ -35,15 +35,7 @@ final class EventDetailsViewController: UIViewController {
     private let formStack = UIStackView()
 
     private let continueButton: UIButton = {
-        var cfg = UIButton.Configuration.filled()
-        cfg.title = "Continue"
-        cfg.baseBackgroundColor = UIColor(red: 0.55, green: 0.22, blue: 0.94, alpha: 1)
-        cfg.baseForegroundColor = .white
-        cfg.cornerStyle = .large
-        cfg.contentInsets = .init(top: 16, leading: 24, bottom: 16, trailing: 24)
-        let b = UIButton(configuration: cfg)
-        b.layer.cornerRadius = 28
-        b.layer.masksToBounds = true
+        let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
         return b
     }()
@@ -109,10 +101,16 @@ final class EventDetailsViewController: UIViewController {
     }()
 
     // MARK: Lifecycle
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
+        applyBrandGradient()
         view.backgroundColor = .systemBackground
-        navigationItem.title = "Event Details"
+        setupUTSAVNavbar(title: "Event Details")
         navigationItem.largeTitleDisplayMode = .never
 
         navigationItem.leftBarButtonItem = UIBarButtonItem(
@@ -130,6 +128,7 @@ final class EventDetailsViewController: UIViewController {
         setupEventTypePicker()
         setupFieldPlaceholdersForExistingDates()
 
+        setupUTSAVPrimaryButton(continueButton, title: "Continue")
         continueButton.addTarget(self, action: #selector(didTapContinue), for: .touchUpInside)
     }
 
@@ -151,7 +150,9 @@ final class EventDetailsViewController: UIViewController {
         formStack.addArrangedSubview(budgetField)
         
         view.addSubview(scrollView)
+        scrollView.backgroundColor = .clear
         scrollView.addSubview(contentView)
+        contentView.backgroundColor = .clear
         contentView.addSubview(formStack)
         view.addSubview(continueButton)
         
@@ -160,7 +161,7 @@ final class EventDetailsViewController: UIViewController {
         formStack.translatesAutoresizingMaskIntoConstraints = false
         
         NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: continueButton.topAnchor, constant: -12),
@@ -171,7 +172,7 @@ final class EventDetailsViewController: UIViewController {
             contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
             contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
             
-            formStack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
+            formStack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 70), // Inset for immersive top
             formStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             formStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             formStack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
@@ -197,8 +198,8 @@ final class EventDetailsViewController: UIViewController {
     private func makeDateSection() -> UIStackView {
         let title = UILabel()
         title.text = "Event Dates"
-        title.font = .systemFont(ofSize: 14, weight: .semibold)
-        title.textColor = .secondaryLabel
+        title.font = .systemFont(ofSize: 14, weight: .bold)
+        title.textColor = .black
 
         let startContainer = UIView()
         startContainer.heightAnchor.constraint(equalToConstant: 60).isActive = true
