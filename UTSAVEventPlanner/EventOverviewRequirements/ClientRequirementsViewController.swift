@@ -43,9 +43,9 @@ final class ClientRequirementsViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-
-        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
-        title = "Client Requirements"
+        applyBrandGradient()
+        view.backgroundColor = .clear
+        setupUTSAVNavbar(title: "Client Requirements")
 
         setupTable()
         setupAddButton()
@@ -61,6 +61,11 @@ final class ClientRequirementsViewController: UIViewController {
         }
 
         Task { await fetchCart() }
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
     }
 
     // MARK: - Realtime Subscription
@@ -170,11 +175,14 @@ final class ClientRequirementsViewController: UIViewController {
         view.addSubview(tableView)
 
         NSLayoutConstraint.activate([
-            tableView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
+            tableView.topAnchor.constraint(equalTo: view.topAnchor),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
+        
+        tableView.contentInset.top = 15
+        tableView.verticalScrollIndicatorInsets.top = 15
     }
 
     // MARK: - Data
