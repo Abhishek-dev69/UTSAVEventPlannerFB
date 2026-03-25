@@ -14,16 +14,8 @@ final class ConfirmationViewController: UIViewController {
     private let stack = UIStackView()
 
     private let addServiceButton: UIButton = {
-        var cfg = UIButton.Configuration.filled()
-        cfg.title = "Add Service"
-        cfg.baseForegroundColor = .white
-        cfg.baseBackgroundColor = UIColor(red: 0x8B/255, green: 0x3B/255, blue: 0xF0/255, alpha: 1)
-        cfg.cornerStyle = .large
-        cfg.contentInsets = .init(top: 16, leading: 24, bottom: 16, trailing: 24)
-        let b = UIButton(configuration: cfg)
+        let b = UIButton(type: .system)
         b.translatesAutoresizingMaskIntoConstraints = false
-        b.layer.cornerRadius = 28
-        b.layer.masksToBounds = true
         return b
     }()
 
@@ -55,8 +47,15 @@ final class ConfirmationViewController: UIViewController {
     }
 
     // MARK: - Lifecycle
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
+        applyBrandGradient()
+        view.backgroundColor = .systemBackground
 
         EventSession.shared.currentEventName = details.eventName
         EventSession.shared.currentClientName = details.clientName
@@ -64,8 +63,9 @@ final class ConfirmationViewController: UIViewController {
         EventSession.shared.currentStartDate = details.startDate
         EventSession.shared.currentEndDate = details.endDate
 
-        self.title = navTitle ?? "Confirmation"
-        view.backgroundColor = .systemGroupedBackground
+        setupUTSAVNavbar(title: navTitle ?? "Confirmation")
+        setupUTSAVPrimaryButton(addServiceButton, title: "Add Service")
+        
         navigationItem.largeTitleDisplayMode = .never
 
         setupLayout()
@@ -85,6 +85,7 @@ final class ConfirmationViewController: UIViewController {
     // MARK: - Layout
     private func setupLayout() {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
+        scrollView.backgroundColor = .clear
         contentView.translatesAutoresizingMaskIntoConstraints = false
         stack.translatesAutoresizingMaskIntoConstraints = false
 
@@ -96,10 +97,11 @@ final class ConfirmationViewController: UIViewController {
         view.addSubview(doLaterButton)
 
         scrollView.addSubview(contentView)
+        contentView.backgroundColor = .clear
         contentView.addSubview(stack)
 
         NSLayoutConstraint.activate([
-            scrollView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            scrollView.topAnchor.constraint(equalTo: view.topAnchor),
             scrollView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             scrollView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             scrollView.bottomAnchor.constraint(equalTo: addServiceButton.topAnchor, constant: -12),
@@ -110,7 +112,7 @@ final class ConfirmationViewController: UIViewController {
             contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
             contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
 
-            stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 16),
+            stack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 5), // Reduced padding
             stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -24),
@@ -123,6 +125,9 @@ final class ConfirmationViewController: UIViewController {
             doLaterButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             doLaterButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8)
         ])
+        
+        scrollView.contentInset.top = 70
+        scrollView.verticalScrollIndicatorInsets.top = 70
     }
 
     // MARK: - Populate UI
@@ -164,7 +169,7 @@ final class ConfirmationViewController: UIViewController {
     // MARK: - Card Component
     private func card(title: String, value: String) -> UIView {
         let container = UIView()
-        container.backgroundColor = .secondarySystemGroupedBackground
+        container.backgroundColor = UIColor(white: 1.0, alpha: 0.85)
         container.layer.cornerRadius = 14
         container.layer.shadowColor = UIColor.black.withAlphaComponent(0.15).cgColor
         container.layer.shadowOpacity = 0.1
@@ -173,8 +178,8 @@ final class ConfirmationViewController: UIViewController {
 
         let titleLabel = UILabel()
         titleLabel.text = title
-        titleLabel.font = .systemFont(ofSize: 13)
-        titleLabel.textColor = .secondaryLabel
+        titleLabel.font = .systemFont(ofSize: 13, weight: .bold)
+        titleLabel.textColor = UTSAVDesign.purple
 
         let valueLabel = UILabel()
         valueLabel.text = value
