@@ -782,6 +782,37 @@ final class EstimateCartViewController: UIViewController {
                 // Mark services added
                 try await EventSupabaseManager.shared.markServicesAdded(eventId: eventId)
 
+                // ✅ RECORD ADVANCE PAYMENT (Partial)
+                let subtotal = CartManager.shared.totalAmount()
+                let taxValue = subtotal * (taxPercent / 100)
+                let discountValue = Double(discountField.text ?? "") ?? 0
+                let grandTotal = subtotal + taxValue - discountValue
+
+                var advanceAmount: Double = 0
+                let custom = Double(customAmountField.text ?? "") ?? 0
+                if custom > 0 {
+                    advanceAmount = custom
+                } else {
+                    let p = Double(partialPercentField.text ?? "") ?? 0
+                    if p > 0 {
+                        advanceAmount = grandTotal * p / 100
+                    }
+                }
+
+                if advanceAmount > 0 {
+                    let df = DateFormatter()
+                    df.dateFormat = "yyyy-MM-dd"
+                    let today = df.string(from: Date())
+
+                    try await PaymentSupabaseManager.shared.insertClientPayment(
+                        eventId: eventId,
+                        eventName: eventName,
+                        amount: advanceAmount,
+                        method: "Advance",
+                        receivedOn: today
+                    )
+                }
+
                 // Mark event confirmed
                 try await SupabaseManager.shared.client
                     .from("events")
