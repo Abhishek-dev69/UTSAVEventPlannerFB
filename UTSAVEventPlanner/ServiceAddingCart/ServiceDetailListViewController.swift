@@ -31,7 +31,8 @@ final class ServiceDetailListViewController: UIViewController {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
+        applyBrandGradient()
+        view.backgroundColor = .systemBackground
         title = service.name
 
         setupSearch()
@@ -40,6 +41,11 @@ final class ServiceDetailListViewController: UIViewController {
 
         CartManager.shared.addObserver(self)
         updateCartUI()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
     }
 
     deinit {
@@ -83,10 +89,10 @@ final class ServiceDetailListViewController: UIViewController {
     private func setupBottomCart() {
         bottomCartView.translatesAutoresizingMaskIntoConstraints = false
         bottomCartView.backgroundColor = UIColor(
-            red: 136/255,
-            green: 71/255,
-            blue: 246/255,
-            alpha: 1
+            red: 136.0/255.0,
+            green: 71.0/255.0,
+            blue: 246.0/255.0,
+            alpha: 1.0
         )
         bottomCartView.layer.cornerRadius = 32
         view.addSubview(bottomCartView)
@@ -98,10 +104,10 @@ final class ServiceDetailListViewController: UIViewController {
         bottomCartView.addSubview(iconBg)
 
         cartIcon.tintColor = UIColor(
-            red: 136/255,
-            green: 71/255,
-            blue: 246/255,
-            alpha: 1
+            red: 136.0/255.0,
+            green: 71.0/255.0,
+            blue: 246.0/255.0,
+            alpha: 1.0
         )
         cartIcon.translatesAutoresizingMaskIntoConstraints = false
         iconBg.addSubview(cartIcon)
