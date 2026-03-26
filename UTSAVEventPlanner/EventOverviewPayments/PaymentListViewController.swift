@@ -46,7 +46,7 @@ final class PaymentListViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         applyBrandGradient()
-        view.backgroundColor = .clear
+        view.backgroundColor = .systemBackground
         setupNav()
         setupUI()
         setupTable()
