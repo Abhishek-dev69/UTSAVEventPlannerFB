@@ -9,6 +9,7 @@ final class VendorCell: UITableViewCell {
 
     var onSelect: (() -> Void)?
 
+    private let cardView = UIView()
     private let avatarImageView = UIImageView()
     private let titleLabel = UILabel()
     private let subtitleLabel = UILabel()
@@ -25,7 +26,17 @@ final class VendorCell: UITableViewCell {
     required init?(coder: NSCoder) { fatalError() }
 
     private func setup() {
+        backgroundColor = .clear
         selectionStyle = .none
+
+        cardView.translatesAutoresizingMaskIntoConstraints = false
+        cardView.backgroundColor = UIColor(white: 1.0, alpha: 0.85)
+        cardView.layer.cornerRadius = 18
+        cardView.layer.shadowColor = UIColor.black.cgColor
+        cardView.layer.shadowOpacity = 0.08
+        cardView.layer.shadowOffset = CGSize(width: 0, height: 3)
+        cardView.layer.shadowRadius = 5
+        contentView.addSubview(cardView)
 
         avatarImageView.translatesAutoresizingMaskIntoConstraints = false
         avatarImageView.contentMode = .scaleAspectFill
@@ -43,8 +54,9 @@ final class VendorCell: UITableViewCell {
         selectButton.setTitle("Select", for: .normal)
         selectButton.layer.cornerRadius = 14
         selectButton.clipsToBounds = true
-        selectButton.backgroundColor = UIColor.systemPurple
+        selectButton.backgroundColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
         selectButton.setTitleColor(.white, for: .normal)
+        selectButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .bold)
         selectButton.contentEdgeInsets = UIEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
         selectButton.addTarget(self, action: #selector(selectTapped), for: .touchUpInside)
 
@@ -66,12 +78,17 @@ final class VendorCell: UITableViewCell {
         row.spacing = 12
         row.translatesAutoresizingMaskIntoConstraints = false
 
-        contentView.addSubview(row)
+        cardView.addSubview(row)
         NSLayoutConstraint.activate([
-            row.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 12),
-            row.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -12),
-            row.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            row.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16)
+            cardView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 12),
+            cardView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -12),
+            cardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            cardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+
+            row.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 14),
+            row.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -14),
+            row.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 14),
+            row.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -14)
         ])
     }
 
