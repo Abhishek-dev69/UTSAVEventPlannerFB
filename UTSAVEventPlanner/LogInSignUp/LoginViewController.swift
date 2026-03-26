@@ -7,10 +7,21 @@ import AuthenticationServices
 
 final class LoginViewController: UIViewController, UITextFieldDelegate {
 
-    // MARK: - UI elements
+    // MARK: - Video playlist & UI (same as your original)
+    private let videoNames = ["event2_bg", "event1_bg"]
+    private var player: AVQueuePlayer?
+    private var playerLayer: AVPlayerLayer?
+
+    private let heroView = UIView()
+    private let heroDim = CAGradientLayer()
+    private let bottomCover = UIView()
+    private let brandLabel = UILabel()
+    private let videoCenterGuide = UILayoutGuide()
+    
     private let glassBlur = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialLight))
     private let cardView = UIView()
     private let titleLabel = UILabel()
+    private let backButton = UIButton(type: .system)
 
     // Replaced phoneRow with a form-style stack (email + password + confirmPassword)
     private let formStack = UIStackView()
@@ -84,16 +95,22 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         hookEvents()
         updateContinueEnabled(isValid: false)
 
-        // set initial title based on sign-up state
         updateForSignUpState()
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        startVideoPlaylist()
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        updateGradientFrame()
+        playerLayer?.frame = heroView.bounds
+        heroDim.frame = heroView.bounds
+        heroView.bringSubviewToFront(brandLabel)
+        heroView.bringSubviewToFront(backButton)
+        
         glassBlur.frame = cardView.bounds
     }
 
@@ -104,10 +121,13 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
 
     // MARK: - UI builder
     private func buildUI() {
-        [cardView].forEach {
+        [heroView, cardView, bottomCover, backButton].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview($0)
         }
+        brandLabel.translatesAutoresizingMaskIntoConstraints = false
+        heroView.addSubview(brandLabel)
+        view.addLayoutGuide(videoCenterGuide)
 
         // include signupToggleButton in card's subviews
         [titleLabel, formStack, forgotPasswordButton, continueButton, sepRow, signupToggleButton, socialStack, footerLabel].forEach {
@@ -166,35 +186,57 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
     }
 
     private func layoutUI() {
-        cardBottomConstraint = cardView.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+        NSLayoutConstraint.activate([
+            heroView.topAnchor.constraint(equalTo: view.topAnchor),
+            heroView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            heroView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            heroView.bottomAnchor.constraint(equalTo: cardView.topAnchor),
+
+            videoCenterGuide.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            videoCenterGuide.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            videoCenterGuide.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
+            videoCenterGuide.bottomAnchor.constraint(equalTo: cardView.topAnchor),
+
+            brandLabel.centerXAnchor.constraint(equalTo: videoCenterGuide.centerXAnchor),
+            brandLabel.centerYAnchor.constraint(equalTo: videoCenterGuide.centerYAnchor),
+            
+            backButton.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+            backButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            backButton.widthAnchor.constraint(equalToConstant: 44),
+            backButton.heightAnchor.constraint(equalToConstant: 44),
+        ])
+
+        cardBottomConstraint = cardView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
         cardBottomConstraint.isActive = true
 
         NSLayoutConstraint.activate([
             cardView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             cardView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            // smaller minimum height (was ~320/340) -> reduce to ~240 so background video remains visible
             cardView.heightAnchor.constraint(greaterThanOrEqualToConstant: 240),
 
-            titleLabel.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 22),
+            bottomCover.topAnchor.constraint(equalTo: cardView.bottomAnchor),
+            bottomCover.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            bottomCover.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            bottomCover.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+
+            titleLabel.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 28),
             titleLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: edge),
             titleLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -edge),
 
-            formStack.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 14),
+            formStack.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 18),
             formStack.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: edge),
             formStack.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -edge),
 
-            // forgot button sits under the form and aligned to right
             forgotPasswordButton.topAnchor.constraint(equalTo: formStack.bottomAnchor, constant: 8),
             forgotPasswordButton.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -edge),
-            // keep a left anchor so it doesn't expand too wide on large screens
             forgotPasswordButton.leadingAnchor.constraint(greaterThanOrEqualTo: cardView.leadingAnchor, constant: edge),
 
-            continueButton.topAnchor.constraint(equalTo: forgotPasswordButton.bottomAnchor, constant: 8),
+            continueButton.topAnchor.constraint(equalTo: forgotPasswordButton.bottomAnchor, constant: 12),
             continueButton.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: edge),
             continueButton.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -edge),
             continueButton.heightAnchor.constraint(equalToConstant: fieldH),
 
-            sepRow.topAnchor.constraint(equalTo: continueButton.bottomAnchor, constant: 14),
+            sepRow.topAnchor.constraint(equalTo: continueButton.bottomAnchor, constant: 16),
             sepRow.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: edge),
             sepRow.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -edge),
 
@@ -202,11 +244,11 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
             signupToggleButton.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: edge),
             signupToggleButton.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -edge),
 
-            socialStack.topAnchor.constraint(equalTo: signupToggleButton.bottomAnchor, constant: 12),
+            socialStack.topAnchor.constraint(equalTo: signupToggleButton.bottomAnchor, constant: 16),
             socialStack.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: edge),
             socialStack.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -edge),
 
-            footerLabel.topAnchor.constraint(equalTo: socialStack.bottomAnchor, constant: 10),
+            footerLabel.topAnchor.constraint(equalTo: socialStack.bottomAnchor, constant: 16),
             footerLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: edge),
             footerLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -edge),
             footerLabel.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -16)
@@ -230,27 +272,49 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
     }
 
     private func styleUI() {
-        view.backgroundColor = .systemBackground
+        // Brand Gradient dim over the video
+        heroDim.colors = [
+            UIColor.black.withAlphaComponent(0.6).cgColor,
+            UTSAVDesign.purple.withAlphaComponent(0.2).cgColor,
+            UIColor.clear.cgColor
+        ]
+        heroDim.startPoint = CGPoint(x: 0.5, y: 0)
+        heroDim.endPoint = CGPoint(x: 0.5, y: 1)
+        heroView.layer.addSublayer(heroDim)
+
+        brandLabel.text = "UTSΛV"
+        brandLabel.textColor = .white
+        brandLabel.font = .systemFont(ofSize: 52, weight: .bold)
+        brandLabel.textAlignment = .center
+        
+        // Shadow for the logo
+        brandLabel.layer.shadowColor = UIColor.black.cgColor
+        brandLabel.layer.shadowOpacity = 0.4
+        brandLabel.layer.shadowRadius = 8
+        brandLabel.layer.shadowOffset = CGSize(width: 0, height: 4)
+
+        bottomCover.backgroundColor = .clear
+        bottomCover.isUserInteractionEnabled = false
  
-        cardView.backgroundColor = .white.withAlphaComponent(0.8)
-        cardView.layer.cornerRadius = 24
+        let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .semibold)
+        backButton.setImage(UIImage(systemName: "chevron.left", withConfiguration: config), for: .normal)
+        backButton.tintColor = .white
+        backButton.addTarget(self, action: #selector(didTapBack), for: .touchUpInside)
+
+        cardView.backgroundColor = UIColor(white: 1.0, alpha: 0.85)
+        cardView.layer.cornerRadius = corner
+        cardView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
         cardView.clipsToBounds = true
         
         glassBlur.frame = cardView.bounds
         cardView.insertSubview(glassBlur, at: 0)
         
-        cardView.layer.shadowColor = UIColor.black.cgColor
-        cardView.layer.shadowOpacity = 0.12
-        cardView.layer.shadowRadius = 12
-        cardView.layer.shadowOffset = CGSize(width: 0, height: -2)
+        cardView.layer.shadowOpacity = 0 // Remove shadow for full screen
 
         // Set default title (updateForSignUpState will override)
         titleLabel.text = "Log in or sign up"
         titleLabel.font = .systemFont(ofSize: 26, weight: .bold)
         titleLabel.textColor = .label
-
-        // primary purple color used across interactive items
-        let primaryPurple = UIColor(red: 139/255, green: 59/255, blue: 240/255, alpha: 1)
 
         // countryButton kept but hidden
         var c = UIButton.Configuration.filled()
@@ -323,16 +387,16 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         forgotPasswordButton.setTitle("Forgot password?", for: .normal)
         forgotPasswordButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .semibold)
         forgotPasswordButton.contentHorizontalAlignment = .right
-        forgotPasswordButton.setTitleColor(primaryPurple, for: .normal)
-        forgotPasswordButton.setTitleColor(primaryPurple.withAlphaComponent(0.5), for: .disabled)
+        forgotPasswordButton.setTitleColor(UTSAVDesign.purple, for: .normal)
+        forgotPasswordButton.setTitleColor(UTSAVDesign.purple.withAlphaComponent(0.5), for: .disabled)
 
         // signup toggle (link-style) placed below the separator
         signupToggleButton.setTitle("Don't have an account? Sign up", for: .normal)
         signupToggleButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .semibold)
         signupToggleButton.contentHorizontalAlignment = .center
         // MATCH signup color to the forgot password primary purple
-        signupToggleButton.setTitleColor(primaryPurple, for: .normal)
-        signupToggleButton.setTitleColor(primaryPurple.withAlphaComponent(0.5), for: .disabled)
+        signupToggleButton.setTitleColor(UTSAVDesign.purple, for: .normal)
+        signupToggleButton.setTitleColor(UTSAVDesign.purple.withAlphaComponent(0.5), for: .disabled)
 
         leftLine.backgroundColor = .tertiaryLabel
         rightLine.backgroundColor = .tertiaryLabel
@@ -671,6 +735,19 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         }
     }
 
+    // MARK: - Navigation
+    @objc private func didTapBack() {
+        if let nav = navigationController {
+            if nav.viewControllers.first === self {
+                nav.dismiss(animated: true)
+            } else {
+                nav.popViewController(animated: true)
+            }
+        } else {
+            dismiss(animated: true)
+        }
+    }
+
     // MARK: - sign-up toggle handling
     @objc private func toggleSignUpMode() {
         isSigningUp.toggle()
@@ -790,7 +867,47 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
     }
 }
 
+// MARK: - Video helpers (same as original)
+private extension LoginViewController {
+    var videoURLs: [URL] { videoNames.compactMap { Bundle.main.url(forResource: $0, withExtension: "mp4") } }
 
+    func startVideoPlaylist() {
+        guard !UIAccessibility.isReduceMotionEnabled else { return }
+        let urls = videoURLs
+        guard !urls.isEmpty else { return }
+        if player != nil { player?.play(); return }
+        nextVideoIndex = 1 % urls.count
+        let firstItem = AVPlayerItem(url: urls[0])
+        let q = AVQueuePlayer(items: [firstItem])
+        q.isMuted = true
+        let layer = AVPlayerLayer(player: q)
+        layer.videoGravity = .resizeAspectFill
+        layer.frame = heroView.bounds
+        heroView.layer.insertSublayer(layer, at: 0)
+        heroView.bringSubviewToFront(brandLabel)
+        
+        // ensure back button is in front
+        heroView.bringSubviewToFront(backButton)
+
+        if heroView.layer.sublayers?.contains(where: { $0 === heroDim }) == false {
+            heroView.layer.addSublayer(heroDim)
+        }
+        NotificationCenter.default.addObserver(self, selector: #selector(itemDidFinish(_:)),
+                                               name: .AVPlayerItemDidPlayToEndTime, object: nil)
+        player = q
+        playerLayer = layer
+        q.play()
+    }
+
+    @objc func itemDidFinish(_ note: Notification) {
+        guard let q = player else { return }
+        let urls = videoURLs
+        guard !urls.isEmpty else { return }
+        let item = AVPlayerItem(url: urls[nextVideoIndex])
+        nextVideoIndex = (nextVideoIndex + 1) % urls.count
+        q.insert(item, after: nil)
+    }
+}
 
 // MARK: - Presentation Context / Apple Auth delegate
 extension LoginViewController: ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
