@@ -28,16 +28,7 @@ final class VendorMarketplaceViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        // Background Gradient (Aesthetic Brand Purple)
-        let brandPurple = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
-        bgGradientLayer.colors = [
-            brandPurple.withAlphaComponent(0.30).cgColor, // Top (Darker Purple)
-            brandPurple.withAlphaComponent(0.08).cgColor  // Bottom (Light Purple)
-        ]
-        bgGradientLayer.startPoint = CGPoint(x: 0.5, y: 0.0)
-        bgGradientLayer.endPoint = CGPoint(x: 0.5, y: 1.0)
-        bgGradientLayer.locations = [0, 1.0]
-        view.layer.insertSublayer(bgGradientLayer, at: 0)
+        applyBrandGradient()
         view.backgroundColor = .systemBackground
         
         let tap = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
@@ -62,7 +53,7 @@ final class VendorMarketplaceViewController: UIViewController {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        bgGradientLayer.frame = view.bounds
+        updateGradientFrame()
         if let grad = tintOverlay.layer.sublayers?.first as? CAGradientLayer {
             grad.frame = tintOverlay.bounds
         }
@@ -330,20 +321,21 @@ final class VendorMarketplaceCell: UITableViewCell {
 
         cardView.translatesAutoresizingMaskIntoConstraints = false
         cardView.backgroundColor = UIColor(white: 1.0, alpha: 0.85)
-        cardView.layer.cornerRadius = 12
+        cardView.layer.cornerRadius = 18
         cardView.layer.shadowColor = UIColor.black.cgColor
-        cardView.layer.shadowOpacity = 0.06
-        cardView.layer.shadowOffset = CGSize(width: 0, height: 2)
-        cardView.layer.shadowRadius = 6
+        cardView.layer.shadowOpacity = 0.08
+        cardView.layer.shadowOffset = CGSize(width: 0, height: 3)
+        cardView.layer.shadowRadius = 8
 
         thumbnailImageView.translatesAutoresizingMaskIntoConstraints = false
         thumbnailImageView.contentMode = .scaleAspectFill
-        thumbnailImageView.layer.cornerRadius = 10
+        thumbnailImageView.layer.cornerRadius = 14
         thumbnailImageView.clipsToBounds = true
+        thumbnailImageView.backgroundColor = .secondarySystemBackground
 
         nameLabel.translatesAutoresizingMaskIntoConstraints = false
-        nameLabel.font = UIFont.boldSystemFont(ofSize: 15)
-        nameLabel.numberOfLines = 2
+        nameLabel.font = UIFont.systemFont(ofSize: 16, weight: .bold)
+        nameLabel.numberOfLines = 1
 
         categoryLabel.translatesAutoresizingMaskIntoConstraints = false
         categoryLabel.font = UIFont.systemFont(ofSize: 13)
@@ -367,11 +359,11 @@ final class VendorMarketplaceCell: UITableViewCell {
 
             nameLabel.leadingAnchor.constraint(equalTo: thumbnailImageView.trailingAnchor, constant: 12),
             nameLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -12),
-            nameLabel.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 18),
+            nameLabel.bottomAnchor.constraint(equalTo: cardView.centerYAnchor, constant: -2),
 
             categoryLabel.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
             categoryLabel.trailingAnchor.constraint(equalTo: nameLabel.trailingAnchor),
-            categoryLabel.topAnchor.constraint(equalTo: nameLabel.bottomAnchor, constant: 6),
+            categoryLabel.topAnchor.constraint(equalTo: cardView.centerYAnchor, constant: 2),
         ])
     }
 

@@ -172,7 +172,7 @@ final class EventDetailsViewController: UIViewController {
             contentView.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
             contentView.bottomAnchor.constraint(equalTo: scrollView.contentLayoutGuide.bottomAnchor),
             
-            formStack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 70), // Inset for immersive top
+            formStack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20), // Reduced inset for tighter UI
             formStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
             formStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
             formStack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),

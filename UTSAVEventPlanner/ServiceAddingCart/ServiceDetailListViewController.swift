@@ -11,7 +11,7 @@ final class ServiceDetailListViewController: UIViewController {
     private var filteredSubservices: [Subservice]
 
     // MARK: - UI
-    private let tableView = UITableView(frame: .zero, style: .insetGrouped)
+    private let tableView = UITableView(frame: .zero, style: .plain)
     private let searchField = UISearchBar()
 
     // 🔥 SAME CART UI AS ServicePickerViewController
@@ -71,6 +71,8 @@ final class ServiceDetailListViewController: UIViewController {
         tableView.register(SubserviceCell.self, forCellReuseIdentifier: SubserviceCell.reuseID)
         tableView.dataSource = self
         tableView.delegate = self
+        tableView.backgroundColor = .clear
+        tableView.separatorStyle = .none
         tableView.estimatedRowHeight = 80
         tableView.rowHeight = UITableView.automaticDimension
         tableView.translatesAutoresizingMaskIntoConstraints = false

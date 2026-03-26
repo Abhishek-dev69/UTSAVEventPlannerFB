@@ -17,22 +17,6 @@ final class ServiceCell: UITableViewCell {
         return v
     }()
 
-    private let iconBG: UIView = {
-        let v = UIView()
-        v.backgroundColor = UIColor(red: 245/255, green: 235/255, blue: 255/255, alpha: 1)
-        v.layer.cornerRadius = 14
-        v.translatesAutoresizingMaskIntoConstraints = false
-        return v
-    }()
-
-    private let iconImageView: UIImageView = {
-        let iv = UIImageView(image: UIImage(systemName: "sparkles"))
-        iv.tintColor = UIColor(red: 140/255, green: 75/255, blue: 245/255, alpha: 1)
-        iv.contentMode = .scaleAspectFit
-        iv.translatesAutoresizingMaskIntoConstraints = false
-        return iv
-    }()
-
     private let titleLabel: UILabel = {
         let l = UILabel()
         l.font = .systemFont(ofSize: 17, weight: .semibold)
@@ -69,9 +53,6 @@ final class ServiceCell: UITableViewCell {
     private func setup() {
         contentView.addSubview(cardView)
         
-        cardView.addSubview(iconBG)
-        iconBG.addSubview(iconImageView)
-        
         // Use a stack for title & subtitle
         let textStack = UIStackView(arrangedSubviews: [titleLabel, subtitleLabel])
         textStack.axis = .vertical
@@ -87,20 +68,8 @@ final class ServiceCell: UITableViewCell {
             cardView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 12),
             cardView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -12),
 
-            // Icon Background
-            iconBG.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 14),
-            iconBG.centerYAnchor.constraint(equalTo: cardView.centerYAnchor),
-            iconBG.widthAnchor.constraint(equalToConstant: 48),
-            iconBG.heightAnchor.constraint(equalToConstant: 48),
-
-            // Icon Image inside BG
-            iconImageView.centerXAnchor.constraint(equalTo: iconBG.centerXAnchor),
-            iconImageView.centerYAnchor.constraint(equalTo: iconBG.centerYAnchor),
-            iconImageView.widthAnchor.constraint(equalToConstant: 22),
-            iconImageView.heightAnchor.constraint(equalToConstant: 22),
-
             // Text Stack
-            textStack.leadingAnchor.constraint(equalTo: iconBG.trailingAnchor, constant: 14),
+            textStack.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 18),
             textStack.centerYAnchor.constraint(equalTo: cardView.centerYAnchor),
             textStack.trailingAnchor.constraint(lessThanOrEqualTo: chevron.leadingAnchor, constant: -8),
             
