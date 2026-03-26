@@ -19,7 +19,7 @@ final class OnboardingVideoViewController: UIViewController {
 
     private let taglineLabel: UILabel = {
         let l = UILabel()
-        l.text = "Crafting Unforgettable Moments"
+        l.text = "Where events flow not fail"
         l.font = .systemFont(ofSize: 18, weight: .medium)
         l.textColor = .white.withAlphaComponent(0.9)
         l.textAlignment = .center
@@ -95,7 +95,7 @@ final class OnboardingVideoViewController: UIViewController {
         
         NSLayoutConstraint.activate([
             stack.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            stack.centerYAnchor.constraint(equalTo: view.centerYAnchor, constant: -40),
+            stack.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 60),
             
             getStartedButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 30),
             getStartedButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -30),
