@@ -52,8 +52,8 @@ final class ServiceAddingViewController: UIViewController {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-
-        view.backgroundColor = UIColor(red: 244/255, green: 241/255, blue: 252/255, alpha: 1)
+        applyBrandGradient()
+        view.backgroundColor = .systemBackground
 
         setupUI()
         setupConstraints()
@@ -65,6 +65,7 @@ final class ServiceAddingViewController: UIViewController {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        updateGradientFrame()
 
         // Resize gradient layers
         if let barGrad = topBar.layer.sublayers?.first as? CAGradientLayer {
@@ -97,8 +98,8 @@ final class ServiceAddingViewController: UIViewController {
 
     // MARK: - Setup UI
     private func setupUI() {
-        let purple = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
-        let deepPurple = UIColor(red: 106/255, green: 31/255, blue: 208/255, alpha: 1)
+        let purple = UIColor(red: 136.0/255.0, green: 71.0/255.0, blue: 246.0/255.0, alpha: 1.0)
+        let deepPurple = UIColor(red: 106.0/255.0, green: 31.0/255.0, blue: 208.0/255.0, alpha: 1.0)
 
         // ── Top bar ──────────────────────────────────────────────────────────
         topBar.translatesAutoresizingMaskIntoConstraints = false
@@ -126,14 +127,14 @@ final class ServiceAddingViewController: UIViewController {
             UIImage(systemName: "xmark", withConfiguration:
                 UIImage.SymbolConfiguration(pointSize: 13, weight: .bold)),
             for: .normal)
-        closeButton.tintColor = .white
+        closeButton.tintColor = purple
         closeButton.translatesAutoresizingMaskIntoConstraints = false
         closeButton.addTarget(self, action: #selector(closeTapped), for: .touchUpInside)
         topBar.addSubview(closeButton)
 
         headerTitle.text = "Create Service"
         headerTitle.font = .systemFont(ofSize: 18, weight: .bold)
-        headerTitle.textColor = .white
+        headerTitle.textColor = purple
         headerTitle.translatesAutoresizingMaskIntoConstraints = false
         headerTitle.textAlignment = .center
         topBar.addSubview(headerTitle)
@@ -159,7 +160,7 @@ final class ServiceAddingViewController: UIViewController {
         purpleCard.addSubview(cardBlur)
 
         // Tint inside card
-        cardTint.backgroundColor = purple.withAlphaComponent(0.08)
+        cardTint.backgroundColor = .white.withAlphaComponent(0.4)
         cardTint.layer.cornerRadius = 20
         cardTint.clipsToBounds = true
         cardTint.translatesAutoresizingMaskIntoConstraints = false
@@ -511,7 +512,7 @@ extension ServiceAddingViewController: UITableViewDelegate, UITableViewDataSourc
         cell.selectionStyle  = .none
 
         let item   = subServices[indexPath.row]
-        let purple = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
+        let purple = UIColor(red: 136.0/255.0, green: 71.0/255.0, blue: 246.0/255.0, alpha: 1.0)
 
         // Card container
         let card = UIView()
