@@ -17,12 +17,8 @@ final class SubserviceCell: UITableViewCell {
     private let qtyLabel = UILabel()
     private let plusBtn = UIButton(type: .system)
 
-    private let utsavPurple = UIColor(
-        red: 136/255,
-        green: 71/255,
-        blue: 246/255,
-        alpha: 1
-    )
+    private let cardView = UIView()
+    private let utsavPurple = UIColor(red: 136.0/255.0, green: 71.0/255.0, blue: 246.0/255.0, alpha: 1.0)
 
     private var parentServiceId = ""
     private var parentServiceName = ""
@@ -65,8 +61,18 @@ final class SubserviceCell: UITableViewCell {
     // MARK: - UI
     private func setupUI() {
         selectionStyle = .none
-        contentView.backgroundColor = .white
-        contentView.layer.cornerRadius = 16
+        backgroundColor = .clear
+        contentView.backgroundColor = .clear
+
+        // Card Container
+        cardView.backgroundColor = .white
+        cardView.layer.cornerRadius = 18
+        cardView.layer.shadowColor = UIColor.black.cgColor
+        cardView.layer.shadowOpacity = 0.08
+        cardView.layer.shadowRadius = 8
+        cardView.layer.shadowOffset = CGSize(width: 0, height: 4)
+        cardView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.addSubview(cardView)
 
         titleLabel.font = .systemFont(ofSize: 15, weight: .semibold)
         priceLabel.font = .systemFont(ofSize: 13)
@@ -103,25 +109,31 @@ final class SubserviceCell: UITableViewCell {
 
         [titleLabel, priceLabel, addButton, qtyStack].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
-            contentView.addSubview($0)
+            cardView.addSubview($0)
         }
 
         NSLayoutConstraint.activate([
-            titleLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
-            titleLabel.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 14),
+            // Card constraints
+            cardView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
+            cardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
+            cardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
+            cardView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
+
+            titleLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 16),
+            titleLabel.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 14),
             titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: addButton.leadingAnchor, constant: -12),
 
             priceLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             priceLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 4),
-            priceLabel.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -14),
+            priceLabel.bottomAnchor.constraint(equalTo: cardView.bottomAnchor, constant: -14),
 
-            addButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            addButton.centerYAnchor.constraint(equalTo: contentView.centerYAnchor),
+            addButton.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -16),
+            addButton.centerYAnchor.constraint(equalTo: cardView.centerYAnchor),
             addButton.widthAnchor.constraint(equalToConstant: 56),
             addButton.heightAnchor.constraint(equalToConstant: 28),
 
-            qtyStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            qtyStack.centerYAnchor.constraint(equalTo: contentView.centerYAnchor)
+            qtyStack.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -16),
+            qtyStack.centerYAnchor.constraint(equalTo: cardView.centerYAnchor)
         ])
     }
 
