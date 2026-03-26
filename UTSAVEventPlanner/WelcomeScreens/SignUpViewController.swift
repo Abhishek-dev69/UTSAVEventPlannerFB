@@ -14,6 +14,7 @@ class SignUpViewController: UIViewController, UITextFieldDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         applyBrandGradient()
+        view.backgroundColor = .systemBackground
         titleLabel.text = "Create your Account"
 
         configurePlaceholdersAndInputTypes()
