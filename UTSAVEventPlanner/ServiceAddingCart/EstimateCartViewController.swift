@@ -108,7 +108,8 @@ final class EstimateCartViewController: UIViewController {
             action: #selector(closeTapped)
         )
 
-        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
+        applyBrandGradient()
+        view.backgroundColor = .systemBackground
         title = "Estimate for Approval"
 
         setupScroll()
@@ -123,6 +124,11 @@ final class EstimateCartViewController: UIViewController {
         updateSummary()
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
+    }
+    
     deinit {
         CartManager.shared.removeObserver(self)
         NotificationCenter.default.removeObserver(self)
@@ -234,6 +240,9 @@ final class EstimateCartViewController: UIViewController {
             content.bottomAnchor.constraint(equalTo: scroll.bottomAnchor, constant: -16),
             content.widthAnchor.constraint(equalTo: scroll.widthAnchor)
         ])
+        
+        scroll.backgroundColor = .clear
+        content.backgroundColor = .clear
     }
 
     // -------------------------------------------------------------
@@ -284,7 +293,7 @@ final class EstimateCartViewController: UIViewController {
         discountField.addTarget(self, action: #selector(updateSummaryAction), for: .editingChanged)
 
         grandTotalLabel.font = .systemFont(ofSize: 16, weight: .semibold)
-        grandTotalLabel.textColor = UIColor(red: 140/255, green: 77/255, blue: 246/255, alpha: 1)
+        grandTotalLabel.textColor = UIColor(red: 140.0/255.0, green: 77.0/255.0, blue: 246.0/255.0, alpha: 1.0)
 
         let subtotalRow = lineRow(label: "Subtotal", right: subtotalLabel)
 
@@ -391,7 +400,7 @@ final class EstimateCartViewController: UIViewController {
         row.spacing = 8
         row.alignment = .center
 
-        balanceLabel.backgroundColor = UIColor(red: 241/255, green: 237/255, blue: 255/255, alpha: 1)
+        balanceLabel.backgroundColor = UIColor(red: 241.0/255.0, green: 237.0/255.0, blue: 255.0/255.0, alpha: 1.0)
         balanceLabel.layer.cornerRadius = 8
         balanceLabel.layer.masksToBounds = true
 
@@ -437,7 +446,7 @@ final class EstimateCartViewController: UIViewController {
 
         saveDraftBtn.setTitle("Save Draft", for: .normal)
         saveDraftBtn.layer.cornerRadius = 20
-        saveDraftBtn.backgroundColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
+        saveDraftBtn.backgroundColor = UIColor(red: 138.0/255.0, green: 73.0/255.0, blue: 246.0/255.0, alpha: 1.0)
         saveDraftBtn.setTitleColor(.white, for: .normal)
         saveDraftBtn.addTarget(self, action: #selector(saveDraftTapped), for: .touchUpInside)
 
@@ -450,12 +459,12 @@ final class EstimateCartViewController: UIViewController {
         sendQuotationBtn.setTitle("Send Quotation", for: .normal)
         sendQuotationBtn.layer.cornerRadius = 20
         sendQuotationBtn.setTitleColor(.white, for: .normal)
-        sendQuotationBtn.backgroundColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
+        sendQuotationBtn.backgroundColor = UIColor(red: 138.0/255.0, green: 73.0/255.0, blue: 246.0/255.0, alpha: 1.0)
 
         confirmOrderBtn.setTitle("Confirm", for: .normal)
         confirmOrderBtn.layer.cornerRadius = 24
         confirmOrderBtn.setTitleColor(.white, for: .normal)
-        confirmOrderBtn.backgroundColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
+        confirmOrderBtn.backgroundColor = UIColor(red: 138.0/255.0, green: 73.0/255.0, blue: 246.0/255.0, alpha: 1.0)
         confirmOrderBtn.addTarget(self, action: #selector(confirmOrderTapped), for: .touchUpInside)
 
         bottomContainer.addSubview(topRow)
@@ -1049,7 +1058,7 @@ final class AccordionHeaderView: UIView {
             card.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
 
-        iconView.tintColor = UIColor(red: 26/255, green: 115/255, blue: 232/255, alpha: 1)
+        iconView.tintColor = UIColor(red: 26.0/255.0, green: 115.0/255.0, blue: 232.0/255.0, alpha: 1.0)
         iconView.translatesAutoresizingMaskIntoConstraints = false
 
         let h = UIStackView(arrangedSubviews: [iconView, titleLabel, UIView(), chevron])

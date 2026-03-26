@@ -401,6 +401,7 @@ final class CartManager {
             .from("cart_items")
             .select("*")
             .eq("assignment_status", value: "accepted")
+            .eq("user_id", value: plannerId)
             .not("assigned_vendor_id", operator: .is, value: "null")
             .execute()
 

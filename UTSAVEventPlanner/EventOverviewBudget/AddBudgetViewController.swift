@@ -29,6 +29,7 @@ final class AddBudgetViewController: UIViewController {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        applyBrandGradient()
         view.backgroundColor = .systemBackground
 
         // ✅ Bottom Sheet Style
@@ -39,6 +40,11 @@ final class AddBudgetViewController: UIViewController {
         setupNav()
         setupUI()
         configureDatePicker()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
     }
 
     // MARK: - Navigation
@@ -83,7 +89,7 @@ final class AddBudgetViewController: UIViewController {
         // ✅ Premium Add Button
         addButton.setTitle("Add Expense", for: .normal)
         addButton.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
-        addButton.backgroundColor = UIColor.utsavPurple
+        addButton.backgroundColor = .utsavPurple
         addButton.setTitleColor(.white, for: .normal)
         addButton.layer.cornerRadius = 14
         addButton.heightAnchor.constraint(equalToConstant: 54).isActive = true
@@ -112,7 +118,7 @@ final class AddBudgetViewController: UIViewController {
     private func configureField(_ field: UITextField, placeholder: String) {
         field.placeholder = placeholder
         field.borderStyle = .none
-        field.backgroundColor = UIColor.systemGray6
+        field.backgroundColor = UIColor.systemGray6.withAlphaComponent(0.5)
         field.layer.cornerRadius = 12
         field.leftView = UIView(frame: CGRect(x: 0, y: 0, width: 12, height: 0))
         field.leftViewMode = .always

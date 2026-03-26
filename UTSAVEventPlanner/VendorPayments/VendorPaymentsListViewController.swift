@@ -23,7 +23,7 @@ final class VendorPaymentsListViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         applyBrandGradient()
-        view.backgroundColor = .clear
+        view.backgroundColor = .systemBackground
         setupTable()
     }
 
@@ -58,8 +58,8 @@ final class VendorPaymentsListViewController: UIViewController {
             tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
         
-        tableView.contentInset.top = 70
-        tableView.verticalScrollIndicatorInsets.top = 70
+        tableView.contentInset.top = 10
+        tableView.verticalScrollIndicatorInsets.top = 10
     }
 
     private func loadVendorPayments() async {

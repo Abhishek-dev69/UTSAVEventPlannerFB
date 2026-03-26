@@ -59,14 +59,25 @@ final class MainTabBarController: UITabBarController {
             vendorNav
         ]
 
-        tabBar.tabBar.tintColor = UIColor(
-            red: 139/255,
-            green: 59/255,
-            blue: 240/255,
-            alpha: 1
-        )
-
+        tabBar.setupAppearance()
         return tabBar
+    }
+
+    private func setupAppearance() {
+        let appearance = UITabBarAppearance()
+        appearance.configureWithDefaultBackground()
+        appearance.backgroundColor = UIColor(white: 1.0, alpha: 0.1) // Subtle translucent layer
+        
+        let blurEffect = UIBlurEffect(style: .systemThinMaterial)
+        
+        // Use translucent colors for everything
+        self.tabBar.standardAppearance = appearance
+        if #available(iOS 15.0, *) {
+            self.tabBar.scrollEdgeAppearance = appearance
+        }
+
+        self.tabBar.tintColor = UIColor(red: 139/255, green: 59/255, blue: 240/255, alpha: 1)
+        self.tabBar.isTranslucent = true
     }
 
     // MARK: - Show Hint

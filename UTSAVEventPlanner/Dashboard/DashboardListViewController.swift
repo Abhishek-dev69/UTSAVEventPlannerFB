@@ -36,7 +36,7 @@ final class DashboardListViewController: UIViewController {
         super.viewDidLoad()
 
         // Background Gradient (Aesthetic Brand Purple)
-        let brandPurple = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
+        let brandPurple = UIColor(red: 136.0/255.0, green: 71.0/255.0, blue: 246.0/255.0, alpha: 1.0)
         bgGradientLayer.colors = [
             brandPurple.withAlphaComponent(0.30).cgColor, // Top (Darker Purple)
             brandPurple.withAlphaComponent(0.08).cgColor  // Bottom (Light Purple)
@@ -270,7 +270,7 @@ final class DashboardListViewController: UIViewController {
             tableView.topAnchor.constraint(equalTo: searchBar.bottomAnchor, constant: 12),
             tableView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             tableView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            tableView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
+            tableView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
         ])
     }
     private func setupEmptyState() {

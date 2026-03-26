@@ -10,7 +10,10 @@ import Supabase
 struct VendorPaymentInsert: Encodable {
     let planner_id: String
     let event_id: String?
+    let event_name: String?
     let vendor_id: String?
+    let vendor_name: String?
+    let total_contracted_amount: Double?
     let amount: Double
     let method: String
     let received_on: String
@@ -102,6 +105,10 @@ final class PaymentSupabaseManager {
     // MARK: - Insert Vendor Payment
     func insertVendorPayment(
         vendorId: String,
+        vendorName: String?,
+        eventId: String?,
+        eventName: String?,
+        totalContracted: Double?,
         amount: Double,
         method: String,
         receivedOn: String
@@ -110,9 +117,12 @@ final class PaymentSupabaseManager {
         let plannerId = try await SupabaseManager.shared.ensureUserId()
 
         let payload = VendorPaymentInsert(
-            planner_id: plannerId,   // ✅ OWNER
-            event_id: nil,
+            planner_id: plannerId,
+            event_id: eventId,
+            event_name: eventName,
             vendor_id: vendorId,
+            vendor_name: vendorName,
+            total_contracted_amount: totalContracted,
             amount: amount,
             method: method,
             received_on: receivedOn,

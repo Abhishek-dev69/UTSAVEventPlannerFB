@@ -1,25 +1,14 @@
 // LoginViewController.swift
 // UTSAV
 //
-// (Full file; password fields now have eye icons to toggle visibility — fixed so typing works.)
-
 import UIKit
 import AVFoundation
 import AuthenticationServices
 
 final class LoginViewController: UIViewController, UITextFieldDelegate {
 
-    // MARK: - Video playlist & UI (same as your original)
-    private let videoNames = ["event2_bg", "event1_bg"]
-    private var player: AVQueuePlayer?
-    private var playerLayer: AVPlayerLayer?
-
-    private let heroView = UIView()
+    // MARK: - UI elements
     private let glassBlur = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialLight))
-    private let bottomCover = UIView()
-    private let brandLabel = UILabel()
-    private let videoCenterGuide = UILayoutGuide()
-    private let heroDim = CAGradientLayer()
     private let cardView = UIView()
     private let titleLabel = UILabel()
 
@@ -101,15 +90,11 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
-        startVideoPlaylist()
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        updateGradientFrame()
         glassBlur.frame = cardView.bounds
-        heroDim.frame = view.bounds
-        heroView.bringSubviewToFront(brandLabel)
     }
 
     deinit {
@@ -119,13 +104,10 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
 
     // MARK: - UI builder
     private func buildUI() {
-        [heroView, cardView, bottomCover].forEach {
+        [cardView].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
             view.addSubview($0)
         }
-        brandLabel.translatesAutoresizingMaskIntoConstraints = false
-        heroView.addSubview(brandLabel)
-        view.addLayoutGuide(videoCenterGuide)
 
         // include signupToggleButton in card's subviews
         [titleLabel, formStack, forgotPasswordButton, continueButton, sepRow, signupToggleButton, socialStack, footerLabel].forEach {
@@ -184,23 +166,7 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
     }
 
     private func layoutUI() {
-        NSLayoutConstraint.activate([
-            heroView.topAnchor.constraint(equalTo: view.topAnchor),
-            heroView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            heroView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            heroView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-
-            videoCenterGuide.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            videoCenterGuide.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            videoCenterGuide.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
-            videoCenterGuide.bottomAnchor.constraint(equalTo: cardView.topAnchor),
-
-            brandLabel.centerXAnchor.constraint(equalTo: videoCenterGuide.centerXAnchor),
-            brandLabel.centerYAnchor.constraint(equalTo: videoCenterGuide.centerYAnchor)
-        ])
-
-        // reduced card height so it doesn't cover most of the screen
-        cardBottomConstraint = cardView.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
+        cardBottomConstraint = cardView.centerYAnchor.constraint(equalTo: view.centerYAnchor)
         cardBottomConstraint.isActive = true
 
         NSLayoutConstraint.activate([
@@ -208,11 +174,6 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
             cardView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             // smaller minimum height (was ~320/340) -> reduce to ~240 so background video remains visible
             cardView.heightAnchor.constraint(greaterThanOrEqualToConstant: 240),
-
-            bottomCover.topAnchor.constraint(equalTo: cardView.bottomAnchor),
-            bottomCover.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            bottomCover.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            bottomCover.bottomAnchor.constraint(equalTo: view.bottomAnchor),
 
             titleLabel.topAnchor.constraint(equalTo: cardView.topAnchor, constant: 22),
             titleLabel.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: edge),
@@ -269,22 +230,10 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
     }
 
     private func styleUI() {
-        heroDim.colors = [UIColor.black.withAlphaComponent(0.35).cgColor, UIColor.clear.cgColor]
-        heroDim.startPoint = CGPoint(x: 0.5, y: 0)
-        heroDim.endPoint = CGPoint(x: 0.5, y: 1)
-        heroView.layer.addSublayer(heroDim)
-
-        brandLabel.text = "UTSΛV"
-        brandLabel.textColor = .white
-        brandLabel.font = .systemFont(ofSize: 44, weight: .bold)
-        brandLabel.textAlignment = .center
-
-        bottomCover.backgroundColor = .clear
-        bottomCover.isUserInteractionEnabled = false
-
-        cardView.backgroundColor = .clear
-        cardView.layer.cornerRadius = corner
-        cardView.layer.maskedCorners = [.layerMinXMinYCorner, .layerMaxXMinYCorner]
+        view.backgroundColor = .systemBackground
+ 
+        cardView.backgroundColor = .white.withAlphaComponent(0.8)
+        cardView.layer.cornerRadius = 24
         cardView.clipsToBounds = true
         
         glassBlur.frame = cardView.bounds
@@ -453,10 +402,7 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         tap.cancelsTouchesInView = false
         view.addGestureRecognizer(tap)
 
-        NotificationCenter.default.addObserver(self, selector: #selector(appBecameActive),
-                                               name: UIApplication.didBecomeActiveNotification, object: nil)
-        NotificationCenter.default.addObserver(self, selector: #selector(appEnteredBackground),
-                                               name: UIApplication.didEnterBackgroundNotification, object: nil)
+
 
         NotificationCenter.default.addObserver(self, selector: #selector(keyboardWillShow(_:)),
                                                name: UIResponder.keyboardWillShowNotification, object: nil)
@@ -711,8 +657,7 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
         }, completion: nil)
     }
 
-    @objc private func appBecameActive() { player?.play() }
-    @objc private func appEnteredBackground() { player?.pause() }
+
 
     // MARK: - Called after successful sign-in
     private func onAuthSuccess(userId: String) {
@@ -845,43 +790,7 @@ final class LoginViewController: UIViewController, UITextFieldDelegate {
     }
 }
 
-// MARK: - Video helpers (same as original)
-private extension LoginViewController {
-    var videoURLs: [URL] { videoNames.compactMap { Bundle.main.url(forResource: $0, withExtension: "mp4") } }
 
-    func startVideoPlaylist() {
-        guard !UIAccessibility.isReduceMotionEnabled else { return }
-        let urls = videoURLs
-        guard !urls.isEmpty else { return }
-        if player != nil { player?.play(); return }
-        nextVideoIndex = 1 % urls.count
-        let firstItem = AVPlayerItem(url: urls[0])
-        let q = AVQueuePlayer(items: [firstItem])
-        q.isMuted = true
-        let layer = AVPlayerLayer(player: q)
-        layer.videoGravity = .resizeAspectFill
-        layer.frame = heroView.bounds
-        heroView.layer.insertSublayer(layer, at: 0)
-        heroView.bringSubviewToFront(brandLabel)
-        if heroView.layer.sublayers?.contains(where: { $0 === heroDim }) == false {
-            heroView.layer.addSublayer(heroDim)
-        }
-        NotificationCenter.default.addObserver(self, selector: #selector(itemDidFinish(_:)),
-                                               name: .AVPlayerItemDidPlayToEndTime, object: nil)
-        player = q
-        playerLayer = layer
-        q.play()
-    }
-
-    @objc func itemDidFinish(_ note: Notification) {
-        guard let q = player else { return }
-        let urls = videoURLs
-        guard !urls.isEmpty else { return }
-        let item = AVPlayerItem(url: urls[nextVideoIndex])
-        nextVideoIndex = (nextVideoIndex + 1) % urls.count
-        q.insert(item, after: nil)
-    }
-}
 
 // MARK: - Presentation Context / Apple Auth delegate
 extension LoginViewController: ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {

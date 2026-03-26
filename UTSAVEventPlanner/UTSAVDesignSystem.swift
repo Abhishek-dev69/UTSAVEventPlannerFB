@@ -4,7 +4,7 @@ import UIKit
 struct UTSAVDesign {
     
     // Core Brand Color (Verified Purple)
-    static let purple = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
+    static let purple = UIColor(red: 136.0/255.0, green: 71.0/255.0, blue: 246.0/255.0, alpha: 1.0)
     
     // Aesthetic Secondary Tints
     static let lightPurple = purple.withAlphaComponent(0.08)

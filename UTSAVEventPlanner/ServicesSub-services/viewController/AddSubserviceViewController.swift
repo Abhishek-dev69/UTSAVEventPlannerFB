@@ -72,13 +72,19 @@ final class AddSubserviceViewController: UIViewController {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemGroupedBackground
+        applyBrandGradient()
+        view.backgroundColor = .systemBackground
 
         setupUI()
         setupActions()
         setupKeyboardObservers()
         setupTapToDismiss()
         updateRateTypeButtons()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
     }
 
     // MARK: - UI Setup

@@ -43,7 +43,8 @@ final class BudgetDetailViewController: UIViewController {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = UIColor(white: 0.98, alpha: 1)
+        applyBrandGradient()
+        view.backgroundColor = .systemBackground
         title = "Budget Overview"
 
         setupScroll()
@@ -53,6 +54,11 @@ final class BudgetDetailViewController: UIViewController {
         setupFloatingButton()
 
         Task { await loadBudget() }
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -89,6 +95,7 @@ final class BudgetDetailViewController: UIViewController {
 
     private func setupScroll() {
         scroll.translatesAutoresizingMaskIntoConstraints = false
+        scroll.backgroundColor = .clear
         view.addSubview(scroll)
 
         NSLayoutConstraint.activate([

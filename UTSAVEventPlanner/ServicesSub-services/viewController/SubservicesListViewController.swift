@@ -40,9 +40,15 @@ final class SubservicesListViewController: UIViewController {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
+        applyBrandGradient()
         view.backgroundColor = .systemBackground
         setupTable()
         setupNavBar()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
     }
 
     private func setupNavBar() {
@@ -55,9 +61,11 @@ final class SubservicesListViewController: UIViewController {
     private func setupTable() {
         tableView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(tableView)
-        tableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
+        tableView.register(SubserviceManageCell.self, forCellReuseIdentifier: SubserviceManageCell.reuseID)
         tableView.dataSource = self
         tableView.delegate = self
+        tableView.backgroundColor = .clear
+        tableView.separatorStyle = .none
         tableView.tableFooterView = UIView()
 
         // Empty background view
@@ -136,25 +144,15 @@ extension SubservicesListViewController: UITableViewDataSource, UITableViewDeleg
                    cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 
         let sub = subservices[indexPath.row]
-        let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
+        let cell = tableView.dequeueReusableCell(
+            withIdentifier: SubserviceManageCell.reuseID,
+            for: indexPath
+        ) as! SubserviceManageCell
 
-        var cfg = cell.defaultContentConfiguration()
-        cfg.text = sub.name
-        cfg.secondaryText = "₹\(Int(sub.rate)) per unit"
-        cfg.imageProperties.maximumSize = CGSize(width: 44, height: 44)
-        cfg.imageProperties.cornerRadius = 8
-        cell.contentConfiguration = cfg
-
-        let editButton = UIButton(type: .system)
-        // ---------- UPDATED: plain pencil (no circle) and purple tint ----------
-        let pencilConfig = UIImage.SymbolConfiguration(pointSize: 16, weight: .semibold)
-        editButton.setImage(UIImage(systemName: "pencil", withConfiguration: pencilConfig), for: .normal)
-        editButton.tintColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
-        // --------------------------------------------------------------------
-        editButton.frame = CGRect(x: 0, y: 0, width: 28, height: 28)
-        editButton.tag = indexPath.row
-        editButton.addTarget(self, action: #selector(editTapped(_:)), for: .touchUpInside)
-        cell.accessoryView = editButton
+        cell.configure(with: sub)
+        cell.onEditTapped = { [weak self] in
+            self?.presentEdit(at: indexPath.row)
+        }
 
         return cell
     }
@@ -164,10 +162,6 @@ extension SubservicesListViewController: UITableViewDataSource, UITableViewDeleg
 
         tableView.deselectRow(at: indexPath, animated: true)
         presentEdit(at: indexPath.row)
-    }
-
-    @objc private func editTapped(_ sender: UIButton) {
-        presentEdit(at: sender.tag)
     }
 
     private func presentEdit(at index: Int) {

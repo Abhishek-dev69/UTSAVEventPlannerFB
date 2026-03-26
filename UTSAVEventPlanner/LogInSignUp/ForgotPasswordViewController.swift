@@ -22,7 +22,7 @@ final class ForgotPasswordViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         applyBrandGradient()
-        view.backgroundColor = .clear // Changed from .systemBackground
+        view.backgroundColor = .systemBackground
         
         setupUTSAVNavbar(title: "Reset password") // Replaced setupNavigationItems()
         setupViews()

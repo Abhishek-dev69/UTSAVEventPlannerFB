@@ -167,9 +167,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                         duration: 0.35,
                         options: .transitionCrossDissolve,
                         animations: {
-                            window.rootViewController = UINavigationController(
-                                rootViewController: LoginViewController()
-                            )
+                            window.rootViewController = OnboardingVideoViewController()
                         }
                     )
                 }
