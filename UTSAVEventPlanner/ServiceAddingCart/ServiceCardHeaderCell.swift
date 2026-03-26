@@ -23,11 +23,11 @@ final class ServiceCardHeaderCell: UIView {
         backgroundColor = .clear
 
         container.backgroundColor = .white
-        container.layer.cornerRadius = 14
+        container.layer.cornerRadius = 18
         container.layer.shadowColor = UIColor.black.cgColor
-        container.layer.shadowOpacity = 0.06
-        container.layer.shadowRadius = 6
-        container.layer.shadowOffset = CGSize(width: 0, height: 3)
+        container.layer.shadowOpacity = 0.08
+        container.layer.shadowRadius = 8
+        container.layer.shadowOffset = CGSize(width: 0, height: 4)
         container.translatesAutoresizingMaskIntoConstraints = false
         addSubview(container)
 
