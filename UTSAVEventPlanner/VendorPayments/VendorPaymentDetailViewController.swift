@@ -16,6 +16,7 @@ final class VendorPaymentDetailViewController: UIViewController {
     private let totalLabel = UILabel()
     private let remainingLabel = UILabel()
     private let progressView = UIProgressView(progressViewStyle: .bar)
+    private let breakdownButton = UIButton(type: .system)
 
     private let utsavPurple = UIColor(
         red: 139/255, green: 59/255, blue: 240/255, alpha: 1
@@ -23,6 +24,7 @@ final class VendorPaymentDetailViewController: UIViewController {
 
     // MARK: - Data
     private var payments: [PaymentRecord] = []
+    private var liabilities: [VendorEventLiability] = []
     private var totalPayable: Double = 0
     private var totalPaid: Double = 0
 
@@ -47,7 +49,7 @@ final class VendorPaymentDetailViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         applyBrandGradient()
-        view.backgroundColor = .clear
+        view.backgroundColor = .systemBackground
         
         setupUTSAVNavbar(title: vendorName)
         navigationItem.largeTitleDisplayMode = .never
@@ -98,8 +100,16 @@ final class VendorPaymentDetailViewController: UIViewController {
         progressView.trackTintColor = utsavPurple.withAlphaComponent(0.15)
         progressView.layer.cornerRadius = 3
         progressView.clipsToBounds = true
+ 
+        breakdownButton.setTitle("Event Breakdown ▾", for: .normal)
+        breakdownButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .bold)
+        breakdownButton.setTitleColor(utsavPurple, for: .normal)
+        breakdownButton.backgroundColor = utsavPurple.withAlphaComponent(0.1)
+        breakdownButton.layer.cornerRadius = 12
+        breakdownButton.contentEdgeInsets = UIEdgeInsets(top: 4, left: 10, bottom: 4, right: 10)
+        breakdownButton.addTarget(self, action: #selector(breakdownTapped), for: .touchUpInside)
 
-        [titleLabel, totalLabel, progressView, remainingLabel].forEach {
+        [titleLabel, totalLabel, progressView, remainingLabel, breakdownButton].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
             cardContainer.addSubview($0)
         }
@@ -123,7 +133,10 @@ final class VendorPaymentDetailViewController: UIViewController {
 
             remainingLabel.topAnchor.constraint(equalTo: progressView.bottomAnchor, constant: 10),
             remainingLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            remainingLabel.bottomAnchor.constraint(equalTo: cardContainer.bottomAnchor, constant: -14)
+            remainingLabel.bottomAnchor.constraint(equalTo: cardContainer.bottomAnchor, constant: -14),
+ 
+            breakdownButton.centerYAnchor.constraint(equalTo: titleLabel.centerYAnchor),
+            breakdownButton.trailingAnchor.constraint(equalTo: cardContainer.trailingAnchor, constant: -14)
         ])
 
         headerView.layoutIfNeeded()
@@ -156,6 +169,7 @@ final class VendorPaymentDetailViewController: UIViewController {
     // MARK: - Bottom Button
     private func setupBottomButton() {
         setupUTSAVPrimaryButton(addPaymentButton, title: "+ Add Payment")
+        addPaymentButton.translatesAutoresizingMaskIntoConstraints = false
         addPaymentButton.heightAnchor.constraint(equalToConstant: 44).isActive = true
         addPaymentButton.addTarget(self, action: #selector(addPaymentTapped), for: .touchUpInside)
 
@@ -178,10 +192,62 @@ final class VendorPaymentDetailViewController: UIViewController {
 
     private func loadData() async {
         do {
-            payments = try await PaymentSupabaseManager.shared
-                .fetchVendorPayments(vendorId: vendorId)
-
+            let plannerId = try await SupabaseManager.shared.ensureUserId()
+            
+            // 1. Fetch live assigned items (Dynamic)
+            let cartItems = try await CartManager.shared.fetchAssignedVendorItemsForPlanner(plannerId: plannerId)
+            let myItems = cartItems.filter { $0.assignedVendorId == vendorId }
+            
+            // 2. Fetch all payments (Persistent Snapshots)
+            payments = try await PaymentSupabaseManager.shared.fetchVendorPayments(vendorId: vendorId)
+            
             totalPaid = payments.reduce(0) { $0 + $1.amount }
+
+            // 3. Aggregate by Event
+            var map: [String: VendorEventLiability] = [:]
+            
+            // Fetch events for name lookup
+            let allEvents = try await EventSupabaseManager.shared.fetchAllEventsForUser()
+            let eventMap = Dictionary(uniqueKeysWithValues: allEvents.map { ($0.id, $0.eventName) })
+
+            // First, populate from dynamic items (Live events)
+            for item in myItems {
+                guard let eId = item.eventId else { continue }
+                let eName = eventMap[eId] ?? "Unknown Event"
+                let amount = item.lineTotal ?? 0
+                if var existing = map[eId] {
+                    existing.totalOwed += amount
+                    map[eId] = existing
+                } else {
+                    map[eId] = VendorEventLiability(eventId: eId, eventName: eName, totalOwed: amount, totalPaid: 0)
+                }
+            }
+            
+            // Second, overlay/add from payments (Handles deleted events via snapshots)
+            for p in payments {
+                guard let eId = p.event_id else { continue }
+                let eName = p.event_name ?? "Unknown Event"
+                let contracted = p.total_contracted_amount ?? 0
+                
+                if var existing = map[eId] {
+                    existing.totalPaid += p.amount
+                    // If event exists in cart, cart is source of truth for "Owed"
+                    // If not (event deleted), persistent snapshot is source of truth
+                    if myItems.filter({ $0.eventId == eId }).isEmpty && contracted > 0 {
+                         existing.totalOwed = contracted 
+                    }
+                    map[eId] = existing
+                } else {
+                    map[eId] = VendorEventLiability(eventId: eId, eventName: eName, totalOwed: contracted, totalPaid: p.amount)
+                }
+            }
+            
+            self.liabilities = Array(map.values).sorted { $0.totalOwed > $1.totalOwed }
+            
+            // Update global total label from dynamic sum if possible, or use the input totalPayable
+            // Let's stick with the aggregated sum for better accuracy
+            let newTotalPayable = liabilities.reduce(0) { $0 + $1.totalOwed }
+            if newTotalPayable > 0 { self.totalPayable = newTotalPayable }
 
             await MainActor.run {
                 updateHeader()
@@ -197,6 +263,16 @@ final class VendorPaymentDetailViewController: UIViewController {
         totalLabel.text = "Total Amount: ₹\(fmt(totalPayable))"
         remainingLabel.text = "Remaining: ₹\(fmt(remaining))"
         progressView.setProgress(totalPayable > 0 ? Float(totalPaid / totalPayable) : 0, animated: true)
+    }
+ 
+    @objc private func breakdownTapped() {
+        print("🔘 Breakdown button tapped. Passing \(liabilities.count) event liabilities to breakdown VC.")
+        let vc = VendorPaymentBreakdownViewController(
+            vendorId: vendorId,
+            vendorName: vendorName,
+            liabilities: liabilities
+        )
+        navigationController?.pushViewController(vc, animated: true)
     }
 
     // MARK: - Actions
