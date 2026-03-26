@@ -48,7 +48,7 @@ final class MyVendorsViewController: UIViewController {
         tableView.separatorStyle = .none
         tableView.backgroundColor = .clear
         tableView.tableHeaderView = searchBar
-        tableView.rowHeight = 90
+        tableView.rowHeight = 110
 
         tableView.register(MyVendorCell.self,
                            forCellReuseIdentifier: MyVendorCell.reuseIdentifier)
@@ -199,6 +199,7 @@ final class MyVendorCell: UITableViewCell {
     private let nameLabel = UILabel()
     private let roleLabel = UILabel()
     private let thumbnailImageView = UIImageView()
+    private let selectButton = UIButton(type: .system)
     private var imageTask: URLSessionDataTask?
 
     override init(style: UITableViewCell.CellStyle, reuseIdentifier: String?) {
@@ -221,17 +222,15 @@ final class MyVendorCell: UITableViewCell {
     private func setupUI() {
         cardView.translatesAutoresizingMaskIntoConstraints = false
         cardView.backgroundColor = UIColor(white: 1.0, alpha: 0.85)
-        cardView.layer.cornerRadius = 12
+        cardView.layer.cornerRadius = 18
         cardView.layer.shadowColor = UIColor.black.cgColor
         cardView.layer.shadowOpacity = 0.08
-        cardView.layer.shadowOffset = CGSize(width: 0, height: 2)
-        cardView.layer.shadowRadius = 4
-
-        contentView.addSubview(cardView)
+        cardView.layer.shadowOffset = CGSize(width: 0, height: 3)
+        cardView.layer.shadowRadius = 8
 
         thumbnailImageView.translatesAutoresizingMaskIntoConstraints = false
         thumbnailImageView.contentMode = .scaleAspectFill
-        thumbnailImageView.layer.cornerRadius = 10
+        thumbnailImageView.layer.cornerRadius = 14
         thumbnailImageView.clipsToBounds = true
         thumbnailImageView.backgroundColor = .secondarySystemBackground
 
@@ -245,9 +244,19 @@ final class MyVendorCell: UITableViewCell {
         roleLabel.textColor = .darkGray
         roleLabel.numberOfLines = 1
 
+        selectButton.translatesAutoresizingMaskIntoConstraints = false
+        selectButton.setTitle("Assign", for: .normal)
+        selectButton.setTitleColor(.white, for: .normal)
+        selectButton.titleLabel?.font = .systemFont(ofSize: 13, weight: .bold)
+        selectButton.backgroundColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
+        selectButton.layer.cornerRadius = 14
+        selectButton.isUserInteractionEnabled = false
+
+        contentView.addSubview(cardView)
         cardView.addSubview(thumbnailImageView)
         cardView.addSubview(nameLabel)
         cardView.addSubview(roleLabel)
+        cardView.addSubview(selectButton)
 
         NSLayoutConstraint.activate([
             cardView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
@@ -256,17 +265,22 @@ final class MyVendorCell: UITableViewCell {
             cardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
 
             thumbnailImageView.centerYAnchor.constraint(equalTo: cardView.centerYAnchor),
-            thumbnailImageView.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 16),
+            thumbnailImageView.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 12),
             thumbnailImageView.widthAnchor.constraint(equalToConstant: 60),
             thumbnailImageView.heightAnchor.constraint(equalToConstant: 60),
 
             nameLabel.leadingAnchor.constraint(equalTo: thumbnailImageView.trailingAnchor, constant: 16),
-            nameLabel.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -16),
+            nameLabel.trailingAnchor.constraint(equalTo: selectButton.leadingAnchor, constant: -8),
             nameLabel.bottomAnchor.constraint(equalTo: cardView.centerYAnchor, constant: -2),
 
             roleLabel.leadingAnchor.constraint(equalTo: nameLabel.leadingAnchor),
             roleLabel.trailingAnchor.constraint(equalTo: nameLabel.trailingAnchor),
-            roleLabel.topAnchor.constraint(equalTo: cardView.centerYAnchor, constant: 2)
+            roleLabel.topAnchor.constraint(equalTo: cardView.centerYAnchor, constant: 2),
+
+            selectButton.trailingAnchor.constraint(equalTo: cardView.trailingAnchor, constant: -14),
+            selectButton.centerYAnchor.constraint(equalTo: cardView.centerYAnchor),
+            selectButton.widthAnchor.constraint(equalToConstant: 70),
+            selectButton.heightAnchor.constraint(equalToConstant: 32)
         ])
     }
 
