@@ -14,10 +14,10 @@ final class SubserviceInnerCell: UITableViewCell {
 
     private weak var qtyStack: UIStackView?
     private let utsavPurple = UIColor(
-            red: 136/255,
-            green: 71/255,
-            blue: 246/255,
-            alpha: 1
+            red: 136.0/255.0,
+            green: 71.0/255.0,
+            blue: 246.0/255.0,
+            alpha: 1.0
         )
 
     private var parentServiceId: String?
@@ -48,10 +48,10 @@ final class SubserviceInnerCell: UITableViewCell {
 
         // Add button
         addBtn.setTitle("+ Add", for: .normal)
-        addBtn.setTitleColor(UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1), for: .normal)
-        addBtn.layer.cornerRadius = 18
-        addBtn.layer.borderWidth = 1.2
-        addBtn.layer.borderColor = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1).cgColor
+        addBtn.setTitleColor(UIColor(red: 136.0/255.0, green: 71.0/255.0, blue: 246.0/255.0, alpha: 1.0), for: .normal)
+        addBtn.layer.cornerRadius = 14
+        addBtn.layer.borderWidth = 1
+        addBtn.layer.borderColor = UIColor(red: 136.0/255.0, green: 71.0/255.0, blue: 246.0/255.0, alpha: 1.0).cgColor
         addBtn.translatesAutoresizingMaskIntoConstraints = false
         addBtn.addTarget(self, action: #selector(addTapped), for: .touchUpInside)
         contentView.addSubview(addBtn)
