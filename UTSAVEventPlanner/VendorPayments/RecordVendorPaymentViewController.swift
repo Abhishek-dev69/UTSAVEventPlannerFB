@@ -10,6 +10,7 @@ final class RecordVendorPaymentViewController: UIViewController {
     private let scroll = UIScrollView()
     private let stack = UIStackView()
     private let vendorField = UITextField()
+    private let eventField = UITextField() // Added for event selection
     private let amountField = UITextField()
     private let methodField = UITextField()
     private let dateField = UITextField()
@@ -27,6 +28,11 @@ final class RecordVendorPaymentViewController: UIViewController {
         "Card",
         "Other"
     ]
+ 
+    private let eventPicker = UIPickerView()
+    private var availableEvents: [EventRecord] = []
+    private var selectedEventId: String?
+    private var selectedEventName: String?
 
     // MARK: - Init
     init(vendorId: String, vendorName: String) {
@@ -47,11 +53,23 @@ final class RecordVendorPaymentViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         applyBrandGradient()
-        view.backgroundColor = .clear
+        view.backgroundColor = .systemBackground
         
         setupNav()
         setupViews()
         configureDefaults()
+        Task { await fetchEvents() }
+    }
+ 
+    private func fetchEvents() async {
+        do {
+            availableEvents = try await EventSupabaseManager.shared.fetchAllEventsForUser()
+            await MainActor.run {
+                eventPicker.reloadAllComponents()
+            }
+        } catch {
+            print("Fetch events error:", error)
+        }
     }
 
     // MARK: - Nav
@@ -136,12 +154,19 @@ final class RecordVendorPaymentViewController: UIViewController {
         datePicker.preferredDatePickerStyle = .wheels
         datePicker.addTarget(self, action: #selector(dateChanged), for: .valueChanged)
         dateField.inputView = datePicker
+ 
+        styleInput(eventField, placeholder: "Assign to Event (Optional)")
+        eventField.tintColor = .clear
+        eventField.inputView = eventPicker
+        eventPicker.dataSource = self
+        eventPicker.delegate = self
+        attachPickerToolbar(to: eventField)
 
         setupUTSAVPrimaryButton(saveButton, title: "Save Payment")
         saveButton.heightAnchor.constraint(equalToConstant: 54).isActive = true
         saveButton.addTarget(self, action: #selector(saveTapped), for: .touchUpInside)
 
-        [vendorField, amountField, methodField, dateField, saveButton].forEach {
+        [vendorField, eventField, amountField, methodField, dateField, saveButton].forEach {
             $0.translatesAutoresizingMaskIntoConstraints = false
             stack.addArrangedSubview($0)
         }
@@ -172,8 +197,26 @@ final class RecordVendorPaymentViewController: UIViewController {
 
         Task {
             do {
+                let plannerId = try await SupabaseManager.shared.ensureUserId()
+                var snapshotTotal: Double? = nil
+                
+                if let eId = selectedEventId {
+                    // Fetch items for this vendor in this specific event to snapshot the liability
+                    let items = try await CartManager.shared.fetchAssignedVendorItemsForPlanner(plannerId: plannerId)
+                    snapshotTotal = items
+                        .filter { $0.eventId == eId && $0.assignedVendorId == vendorId }
+                        .reduce(0) { $0 + ($1.lineTotal ?? 0) }
+                }
+
                 _ = try await PaymentSupabaseManager.shared.insertVendorPayment(
-                    vendorId: vendorId, amount: amount, method: method, receivedOn: date
+                    vendorId: vendorId,
+                    vendorName: vendorName,
+                    eventId: selectedEventId,
+                    eventName: selectedEventName,
+                    totalContracted: snapshotTotal,
+                    amount: amount,
+                    method: method,
+                    receivedOn: date
                 )
                 NotificationCenter.default.post(name: Notification.Name("ReloadPaymentsList"), object: nil)
                 await MainActor.run { self.dismiss(animated: true) }
@@ -207,12 +250,32 @@ final class RecordVendorPaymentViewController: UIViewController {
 extension RecordVendorPaymentViewController: UIPickerViewDataSource, UIPickerViewDelegate {
     func numberOfComponents(in pickerView: UIPickerView) -> Int { 1 }
     func pickerView(_ pickerView: UIPickerView, numberOfRowsInComponent component: Int) -> Int {
-        paymentMethods.count
+        if pickerView == eventPicker {
+            return availableEvents.count + 1 // +1 for "None"
+        }
+        return paymentMethods.count
     }
     func pickerView(_ pickerView: UIPickerView, titleForRow row: Int, forComponent component: Int) -> String? {
-        paymentMethods[row]
+        if pickerView == eventPicker {
+            if row == 0 { return "No Event / General" }
+            return availableEvents[row - 1].eventName
+        }
+        return paymentMethods[row]
     }
     func pickerView(_ pickerView: UIPickerView, didSelectRow row: Int, inComponent component: Int) {
-        methodField.text = paymentMethods[row]
+        if pickerView == eventPicker {
+            if row == 0 {
+                selectedEventId = nil
+                selectedEventName = nil
+                eventField.text = "No Event / General"
+            } else {
+                let e = availableEvents[row - 1]
+                selectedEventId = e.id
+                selectedEventName = e.eventName
+                eventField.text = e.eventName
+            }
+        } else {
+            methodField.text = paymentMethods[row]
+        }
     }
 }
