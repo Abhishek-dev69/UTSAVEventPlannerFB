@@ -3,29 +3,23 @@ import SwiftUI
 struct QuotationPDFView: View {
 
     let data: QuotationPDFData
-
-    // ✅ FIXED BRAND COLORS (NON-DYNAMIC)
+    
     private let purple = Color(red: 138/255, green: 73/255, blue: 246/255)
     private let lightGray = Color(red: 235/255, green: 235/255, blue: 235/255)
 
     var body: some View {
         VStack(spacing: 22) {
-
             headerSection
             eventInfoSection
             itemsTable
             summaryBox
-
         }
         .padding(24)
-        .frame(width: 595)                // A4 width
-        .background(Color.white)          // ✅ FIXED BACKGROUND
-        .environment(\.colorScheme, .light) // ✅ FORCE LIGHT MODE
+        .frame(width: 595)
+        .background(Color.white)
+        .environment(\.colorScheme, .light)
     }
 
-    // --------------------------------------------------
-    // MARK: Header
-    // --------------------------------------------------
     private var headerSection: some View {
         VStack(spacing: 6) {
             Text("UTSAV")
@@ -68,10 +62,6 @@ struct QuotationPDFView: View {
             Spacer()
         }
     }
-
-    // --------------------------------------------------
-    // MARK: Items Table
-    // --------------------------------------------------
     private var itemsTable: some View {
         VStack(spacing: 0) {
 
@@ -137,9 +127,6 @@ struct QuotationPDFView: View {
             .frame(width: width)
     }
 
-    // --------------------------------------------------
-    // MARK: Summary Box
-    // --------------------------------------------------
     private var summaryBox: some View {
         VStack(spacing: 12) {
 
