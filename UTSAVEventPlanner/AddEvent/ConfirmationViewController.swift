@@ -126,8 +126,8 @@ final class ConfirmationViewController: UIViewController {
             doLaterButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -8)
         ])
         
-        scrollView.contentInset.top = 70
-        scrollView.verticalScrollIndicatorInsets.top = 70
+        scrollView.contentInset.top = 20
+        scrollView.verticalScrollIndicatorInsets.top = 20
     }
 
     // MARK: - Populate UI
