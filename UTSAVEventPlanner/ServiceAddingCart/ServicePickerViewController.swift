@@ -34,7 +34,8 @@ final class ServicePickerViewController: UIViewController, CartObserver {
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
+        applyBrandGradient()
+        view.backgroundColor = .systemBackground
 
         setupNav()
         setupSearchBar()
@@ -50,6 +51,11 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         }
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
+    }
+
     deinit {
         CartManager.shared.removeObserver(self)
     }
@@ -58,10 +64,10 @@ final class ServicePickerViewController: UIViewController, CartObserver {
     private func setupBottomCart() {
         bottomCartView.translatesAutoresizingMaskIntoConstraints = false
         bottomCartView.backgroundColor = UIColor(
-            red: 136/255,
-            green: 71/255,
-            blue: 246/255,
-            alpha: 1
+            red: 136.0/255.0,
+            green: 71.0/255.0,
+            blue: 246.0/255.0,
+            alpha: 1.0
         )
         bottomCartView.layer.cornerRadius = 32
         view.addSubview(bottomCartView)
@@ -73,10 +79,10 @@ final class ServicePickerViewController: UIViewController, CartObserver {
         bottomCartView.addSubview(iconBg)
 
         cartIcon.tintColor = UIColor(
-            red: 136/255,
-            green: 71/255,
-            blue: 246/255,
-            alpha: 1
+            red: 136.0/255.0,
+            green: 71.0/255.0,
+            blue: 246.0/255.0,
+            alpha: 1.0
         )
         cartIcon.translatesAutoresizingMaskIntoConstraints = false
         iconBg.addSubview(cartIcon)
@@ -224,7 +230,7 @@ final class ServicePickerViewController: UIViewController, CartObserver {
     // MARK: - Table
     private func setupTable() {
         tableView.translatesAutoresizingMaskIntoConstraints = false
-        tableView.backgroundColor = UIColor(white: 0.97, alpha: 1)
+        tableView.backgroundColor = .clear
         tableView.separatorStyle = .none
         tableView.showsVerticalScrollIndicator = false
         
