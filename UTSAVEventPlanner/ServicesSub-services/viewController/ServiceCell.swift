@@ -6,11 +6,11 @@ final class ServiceCell: UITableViewCell {
     private let cardView: UIView = {
         let v = UIView()
         v.backgroundColor = UIColor(white: 1.0, alpha: 0.85)
-        v.layer.cornerRadius = 14
+        v.layer.cornerRadius = 18
         v.layer.shadowColor = UIColor.black.cgColor
-        v.layer.shadowOpacity = 0.06
-        v.layer.shadowOffset = CGSize(width: 0, height: 4)
-        v.layer.shadowRadius = 8
+        v.layer.shadowOpacity = 0.08
+        v.layer.shadowOffset = CGSize(width: 0, height: 3)
+        v.layer.shadowRadius = 5
         v.translatesAutoresizingMaskIntoConstraints = false
         // Prevent content from leaking outside corner radius
         v.clipsToBounds = false 
@@ -84,8 +84,8 @@ final class ServiceCell: UITableViewCell {
         NSLayoutConstraint.activate([
             cardView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
             cardView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -16),
-            cardView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 8),
-            cardView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -8),
+            cardView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 12),
+            cardView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -12),
 
             // Icon Background
             iconBG.leadingAnchor.constraint(equalTo: cardView.leadingAnchor, constant: 14),
