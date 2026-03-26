@@ -81,11 +81,15 @@ final class EventDataManager {
     ) async throws -> PaymentRecord {
 
         let plannerId = try await ensureUserId()   
+        let event = try await EventSupabaseManager.shared.fetchEvent(id: eventId)
 
         let payload = PaymentInsert(
             planner_id: plannerId,
             event_id: eventId,
+            event_name: event.eventName,
             vendor_id: nil,
+            vendor_name: nil,
+            total_contracted_amount: nil, // Not used for direct client payments yet
             amount: amount,
             method: method,
             received_on: date,
