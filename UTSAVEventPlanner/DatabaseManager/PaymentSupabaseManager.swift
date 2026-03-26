@@ -20,6 +20,16 @@ struct VendorPaymentInsert: Encodable {
     let payer_type: String
 }
 
+struct ClientPaymentInsert: Encodable {
+    let planner_id: String
+    let event_id: String
+    let event_name: String
+    let amount: Double
+    let method: String
+    let received_on: String
+    let payer_type: String
+}
+
 final class PaymentSupabaseManager {
 
     static let shared = PaymentSupabaseManager()
@@ -102,7 +112,6 @@ final class PaymentSupabaseManager {
     }
 
 
-    // MARK: - Insert Vendor Payment
     func insertVendorPayment(
         vendorId: String,
         vendorName: String?,
@@ -138,5 +147,32 @@ final class PaymentSupabaseManager {
         return try JSONDecoder()
             .decode([PaymentRecord].self, from: response.data)
             .first!
+    }
+
+    // MARK: - Insert Client Payment
+    func insertClientPayment(
+        eventId: String,
+        eventName: String,
+        amount: Double,
+        method: String,
+        receivedOn: String
+    ) async throws {
+
+        let plannerId = try await SupabaseManager.shared.ensureUserId()
+
+        let payload = ClientPaymentInsert(
+            planner_id: plannerId,
+            event_id: eventId,
+            event_name: eventName,
+            amount: amount,
+            method: method,
+            received_on: receivedOn,
+            payer_type: "client"
+        )
+
+        try await client
+            .from("event_payments")
+            .insert(payload)
+            .execute()
     }
 }
