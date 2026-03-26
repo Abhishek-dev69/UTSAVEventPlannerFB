@@ -27,7 +27,7 @@ final class ServicesListViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         applyBrandGradient()
-        view.backgroundColor = .clear
+        view.backgroundColor = .systemBackground
 
         setupHeader()
         setupTableView()
@@ -70,7 +70,7 @@ final class ServicesListViewController: UIViewController {
 
     // MARK: - Header
     private func setupHeader() {
-        let purple = UIColor(red: 136/255, green: 71/255, blue: 246/255, alpha: 1)
+        let purple = UIColor(red: 136.0/255.0, green: 71.0/255.0, blue: 246.0/255.0, alpha: 1.0)
 
         glassHeaderCard.translatesAutoresizingMaskIntoConstraints = false
         glassHeaderCard.clipsToBounds = false
@@ -150,12 +150,12 @@ final class ServicesListViewController: UIViewController {
         ])
     }
 
-    // MARK: - Table
     private func setupTableView() {
         tableView.register(ServiceCell.self, forCellReuseIdentifier: ServiceCell.reuseID)
         tableView.delegate = self
         tableView.dataSource = self
         tableView.backgroundColor = .clear
+        tableView.separatorStyle = .none
         tableView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(tableView)
     }
@@ -176,7 +176,7 @@ final class ServicesListViewController: UIViewController {
         emptyStateStack.translatesAutoresizingMaskIntoConstraints = false
 
         emptyIcon.image = UIImage(systemName: "shippingbox")
-        emptyIcon.tintColor = UIColor(red: 138/255, green: 73/255, blue: 246/255, alpha: 1)
+        emptyIcon.tintColor = UIColor(red: 138.0/255.0, green: 73.0/255.0, blue: 246.0/255.0, alpha: 1.0)
         emptyIcon.preferredSymbolConfiguration = UIImage.SymbolConfiguration(pointSize: 40)
 
         emptyTitle.text = "No Services Yet"
@@ -341,14 +341,10 @@ extension ServicesListViewController: UITableViewDataSource, UITableViewDelegate
         let cell = tableView.dequeueReusableCell(
             withIdentifier: ServiceCell.reuseID,
             for: indexPath
-        )
+        ) as! ServiceCell
 
         let svc = services[indexPath.row]
-        var cfg = cell.defaultContentConfiguration()
-        cfg.text = svc.name
-        cfg.secondaryText = "\(svc.subservices.count) sub-services"
-        cell.contentConfiguration = cfg
-        cell.accessoryType = .disclosureIndicator
+        cell.configure(with: svc)
         return cell
     }
 
