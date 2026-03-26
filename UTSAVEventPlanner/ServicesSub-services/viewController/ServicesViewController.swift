@@ -38,7 +38,8 @@ final class ServicesViewController: UIViewController {
         super.viewDidLoad()
 
         // Page background (same soft gray as other tabs)
-        view.backgroundColor = UIColor(white: 0.97, alpha: 1)
+        applyBrandGradient()
+        view.backgroundColor = .systemBackground
 
         // Use navigation bar title (matches Dashboard / Inventory)
         navigationController?.setNavigationBarHidden(false, animated: false)
@@ -48,7 +49,7 @@ final class ServicesViewController: UIViewController {
         if #available(iOS 13.0, *) {
             let appearance = UINavigationBarAppearance()
             appearance.configureWithOpaqueBackground()
-            appearance.backgroundColor = UIColor(white: 0.97, alpha: 1) // subtle match
+            appearance.backgroundColor = .clear // subtle match
             appearance.titleTextAttributes = [
                 .foregroundColor: UIColor.label,
                 .font: UIFont.systemFont(ofSize: 22, weight: .bold)
@@ -62,6 +63,11 @@ final class ServicesViewController: UIViewController {
         setupTapHandlers()
     }
 
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        updateGradientFrame()
+    }
+ 
     // MARK: - Layout
 
     private func setupLayout() {
