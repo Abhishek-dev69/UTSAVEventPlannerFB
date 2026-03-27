@@ -21,7 +21,7 @@ final class PDFGenerator {
             ctx.beginPage()
             controller.view.drawHierarchy(
                 in: controller.view.bounds,
-                afterScreenUpdates: true   // ✅ FIXES BLANK PDF
+                afterScreenUpdates: true   
             )
         }
 
