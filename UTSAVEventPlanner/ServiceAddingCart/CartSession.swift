@@ -8,7 +8,7 @@ import Foundation
 
 final class CartSession {
 
-    static let shared = CartSession()   // ✅ REQUIRED
+    static let shared = CartSession()   
     private init() {}
 
     var currentSessionId: String?
